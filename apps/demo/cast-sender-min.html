@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minimal Cast Sender</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 20px; }
+    .row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    input[type="text"] { width: 480px; max-width: 100%; padding: 8px; }
+    button { padding: 8px 12px; cursor: pointer; }
+    .status { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #111; color: #ddd; padding: 10px; white-space: pre-wrap; border-radius: 6px; min-height: 80px; }
+    .note { color: #666; font-size: 13px; }
+    .controls button { min-width: 100px; }
+  </style>
+  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
+</head>
+<body>
+  <h1>Minimal Cast Sender</h1>
+  <div class="row">
+    <label for="url">Media URL:</label>
+    <input id="url" type="text" value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" />
+    <button id="cast">Cast</button>
+    <button id="stop">Stop Casting</button>
+  </div>
+  <div class="row controls">
+    <button id="playPause">Play/Pause</button>
+    <button id="back">-10s</button>
+    <button id="fwd">+10s</button>
+    <button id="mute">Mute/Unmute</button>
+    <button id="volDown">Vol -</button>
+    <button id="volUp">Vol +</button>
+  </div>
+  <div class="row"><span class="note">Tip: This page focuses on sender/receiver control. It does not play local video.</span></div>
+  <h3>Status</h3>
+  <div id="status" class="status"></div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const log = (...args) => {
+      try { console.log('[CastMini]', ...args); } catch(_) {}
+      try { statusEl.textContent += args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ') + '\n'; } catch(_) {}
+    };
+
+    let remotePlayer = null;
+    let remoteController = null;
+
+    function inferContentType(url) {
+      const u = (url || '').toLowerCase();
+      if (u.includes('.m3u8')) return 'application/vnd.apple.mpegurl';
+      if (u.includes('.mpd')) return 'application/dash+xml';
+      if (u.includes('.webm')) return 'video/webm';
+      return 'video/mp4';
+    }
+
+    function attachRemoteEvents() {
+      if (!(window.cast && cast.framework) || !remoteController) return;
+      const RPET = cast.framework.RemotePlayerEventType;
+      const add = (t, lab) => remoteController.addEventListener(t, () => {
+        try {
+          log(`${lab}`, {
+            isPaused: remotePlayer?.isPaused,
+            playerState: remotePlayer?.playerState,
+            currentTime: remotePlayer?.currentTime,
+            duration: remotePlayer?.duration,
+            isMuted: remotePlayer?.isMuted,
+            volumeLevel: remotePlayer?.volumeLevel,
+            isConnected: remotePlayer?.isConnected,
+          });
+        } catch(_) {}
+      });
+      add(RPET.IS_PAUSED_CHANGED, 'EVT IS_PAUSED_CHANGED');
+      add(RPET.PLAYER_STATE_CHANGED, 'EVT PLAYER_STATE_CHANGED');
+      add(RPET.CURRENT_TIME_CHANGED, 'EVT CURRENT_TIME_CHANGED');
+      add(RPET.DURATION_CHANGED, 'EVT DURATION_CHANGED');
+      add(RPET.IS_MUTED_CHANGED, 'EVT IS_MUTED_CHANGED');
+      add(RPET.VOLUME_LEVEL_CHANGED, 'EVT VOLUME_LEVEL_CHANGED');
+      add(RPET.IS_CONNECTED_CHANGED, 'EVT IS_CONNECTED_CHANGED');
+    }
+
+    function ensureRemote() {
+      if (!remotePlayer) remotePlayer = new cast.framework.RemotePlayer();
+      if (!remoteController) remoteController = new cast.framework.RemotePlayerController(remotePlayer);
+      attachRemoteEvents();
+    }
+
+    async function doCast() {
+      try {
+        if (!(window.cast && cast.framework)) {
+          alert('Cast framework not ready yet. Try again in a moment.');
+          return;
+        }
+        const context = cast.framework.CastContext.getInstance();
+        context.setOptions({ receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID });
+        log('Requesting session...');
+        await context.requestSession();
+        const session = context.getCurrentSession();
+        if (!session) { log('No session after request'); return; }
+        try {
+          const id = (typeof session.getSessionId === 'function') ? session.getSessionId() : (session.sessionId || null);
+          let device = null;
+          if (typeof session.getCastDevice === 'function') {
+            const d = session.getCastDevice();
+            device = (d && d.friendlyName) || null;
+          }
+          log('Session', { id, device });
+        } catch(_) {}
+
+        const url = document.getElementById('url').value.trim();
+        const ct = inferContentType(url);
+        log('Loading media', { url, contentType: ct });
+        const mediaInfo = new chrome.cast.media.MediaInfo(url, ct);
+        const req = new chrome.cast.media.LoadRequest(mediaInfo);
+        await session.loadMedia(req);
+        log('Media loaded on receiver');
+        ensureRemote();
+      } catch (err) {
+        log('Cast error', String(err));
+      }
+    }
+
+    function stopCasting() {
+      try {
+        const ctx = cast.framework.CastContext.getInstance();
+        const sess = ctx.getCurrentSession();
+        if (sess) { sess.endSession(true); log('Session ended'); }
+      } catch (e) { log('Stop error', String(e)); }
+    }
+
+    // Controls
+    function playPause() {
+      try { ensureRemote(); remoteController.playOrPause(); log('playOrPause()'); } catch (e) { log('playPause error', String(e)); }
+    }
+    function seekDelta(delta) {
+      try {
+        ensureRemote();
+        const d = remotePlayer.duration || 0;
+        const c = remotePlayer.currentTime || 0;
+        const n = Math.max(0, Math.min(d, c + delta));
+        remotePlayer.currentTime = n; remoteController.seek();
+        log('seek()', { to: n });
+      } catch (e) { log('seek error', String(e)); }
+    }
+    function muteToggle() {
+      try { ensureRemote(); remoteController.muteOrUnmute(); log('muteOrUnmute()'); } catch (e) { log('mute error', String(e)); }
+    }
+    function vol(delta) {
+      try { ensureRemote(); const cur = remotePlayer.volumeLevel || 0; const nx = Math.max(0, Math.min(1, cur + delta)); remoteController.setVolumeLevel(nx); log('setVolumeLevel()', { to: nx }); } catch (e) { log('volume error', String(e)); }
+    }
+
+    // Wire UI events
+    document.getElementById('cast').addEventListener('click', doCast);
+    document.getElementById('stop').addEventListener('click', stopCasting);
+    document.getElementById('playPause').addEventListener('click', playPause);
+    document.getElementById('back').addEventListener('click', () => seekDelta(-10));
+    document.getElementById('fwd').addEventListener('click', () => seekDelta(10));
+    document.getElementById('mute').addEventListener('click', muteToggle);
+    document.getElementById('volDown').addEventListener('click', () => vol(-0.1));
+    document.getElementById('volUp').addEventListener('click', () => vol(0.1));
+
+    // Cast API ready hook
+    window.__onGCastApiAvailable = function(isAvailable) {
+      if (isAvailable && window.cast && cast.framework) {
+        cast.framework.CastContext.getInstance().setOptions({ receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID });
+        log('Cast framework ready');
+      } else {
+        log('Cast API not available yet');
+      }
+    };
+  </script>
+</body>
+</html>
+

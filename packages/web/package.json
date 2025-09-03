@@ -1,0 +1,50 @@
+{
+  "name": "@unified-video/web",
+  "version": "1.0.0",
+  "description": "Web implementation of Unified Video Framework",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist",
+    "test": "jest",
+    "lint": "eslint src --ext .ts,.tsx,.js"
+  },
+  "dependencies": {
+    "@unified-video/core": "^1.0.0"
+  },
+  "peerDependencies": {
+    "dashjs": "^4.0.0",
+    "hls.js": "^1.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.3",
+    "@babel/preset-env": "^7.28.3",
+    "@babel/preset-typescript": "^7.27.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^18.0.0",
+    "babel-jest": "^30.1.2",
+    "jest": "^30.1.2",
+    "jest-environment-jsdom": "^30.1.2",
+    "ts-jest": "^29.4.1",
+    "typescript": "^4.9.0"
+  },
+  "keywords": [
+    "video",
+    "player",
+    "web",
+    "html5",
+    "hls",
+    "dash"
+  ],
+  "author": "Your Company",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

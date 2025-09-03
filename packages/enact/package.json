@@ -1,0 +1,51 @@
+{
+  "name": "@unified-video/enact",
+  "version": "1.0.0",
+  "description": "Enact TV implementation of Unified Video Framework for Samsung Tizen and LG webOS",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch",
+    "clean": "rm -rf dist",
+    "test": "jest",
+    "lint": "eslint src --ext .js,.jsx",
+    "build:tizen": "npm run build && tizen package -t wgt -o dist/tizen",
+    "build:webos": "npm run build && ares-package dist -o dist/webos"
+  },
+  "dependencies": {
+    "@unified-video/core": "^1.0.0",
+    "@unified-video/web": "^1.0.0",
+    "@enact/core": "^4.0.0",
+    "@enact/ui": "^4.0.0",
+    "@enact/moonstone": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.0",
+    "babel-loader": "^9.0.0",
+    "@babel/core": "^7.0.0",
+    "@babel/preset-env": "^7.0.0"
+  },
+  "keywords": [
+    "video",
+    "player",
+    "tv",
+    "smart-tv",
+    "tizen",
+    "webos",
+    "samsung",
+    "lg",
+    "enact"
+  ],
+  "author": "Your Company",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

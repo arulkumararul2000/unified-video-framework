@@ -1,0 +1,34 @@
+{
+  "name": "@unified-video/core",
+  "version": "1.0.0",
+  "description": "Core interfaces and factory for Unified Video Framework",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist",
+    "test": "jest",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "keywords": [
+    "video",
+    "player",
+    "framework",
+    "core",
+    "interfaces"
+  ],
+  "author": "Your Company",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^4.9.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

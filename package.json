@@ -1,0 +1,66 @@
+{
+  "name": "unified-video-framework",
+  "version": "1.0.0",
+  "description": "Cross-platform video player framework supporting iOS, Android, Web, Smart TVs (Samsung/LG), Roku, and more",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "tools/*"
+  ],
+  "scripts": {
+    "postinstall": "npm run build:core",
+    "bootstrap": "lerna bootstrap --legacy-peer-deps",
+    "build": "npm run build:core && npm run build:web",
+    "build:core": "cd packages/core && npm run build",
+    "build:web": "cd packages/web && npm run build",
+    "build:react-native": "cd packages/react-native && npm run build",
+    "build:enact": "cd packages/enact && npm run build",
+    "build:all": "lerna run build --stream",
+    "clean": "lerna clean",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "type-check": "tsc --noEmit",
+    "publish": "lerna publish",
+    "dev": "lerna run dev --parallel",
+    "serve:demo": "node server.js",
+    "docs": "typedoc --out docs packages/core/src"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-native": "^0.70.0",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "eslint": "^8.0.0",
+    "lerna": "^6.0.0",
+    "prettier": "^2.8.0",
+    "typescript": "^4.9.0",
+    "typedoc": "^0.23.0",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/unified-video-framework.git"
+  },
+  "keywords": [
+    "video",
+    "player",
+    "streaming",
+    "cross-platform",
+    "react-native",
+    "enact",
+    "smart-tv",
+    "tizen",
+    "webos",
+    "roku",
+    "drm",
+    "hls",
+    "dash"
+  ],
+  "author": "Your Company",
+  "license": "MIT"
+}

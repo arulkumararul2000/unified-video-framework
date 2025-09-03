@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unified Video Framework - Web Demo</title>
+  <style>
+    html, body { height: 100%; margin: 0; background: #111; color: #eee; font-family: Arial, sans-serif; }
+    .app { display: flex; height: 100%; }
+    .sidebar { width: 320px; background: #1b1b1b; padding: 16px; box-sizing: border-box; border-right: 1px solid #2a2a2a; }
+    .content { flex: 1; display: flex; flex-direction: column; }
+    .player-container { position: relative; flex: 1; padding: 12px; box-sizing: border-box; }
+    .player { width: 100%; height: 100%; border-radius: 6px; overflow: hidden; background: #000; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    label { display: block; margin: 10px 0 6px; font-size: 12px; color: #bbb; }
+    input, select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #333; background: #222; color: #eee; }
+    button { padding: 8px 12px; background: #2e7d32; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px; }
+    button.secondary { background: #1565c0; }
+    .controls { padding: 12px; border-top: 1px solid #2a2a2a; background: #161616; }
+    .row { margin-bottom: 12px; }
+    .small { font-size: 12px; color: #aaa; }
+    .examples { margin-top: 16px; }
+    .examples button { display: block; width: 100%; margin: 6px 0; background: #333; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="sidebar">
+      <h1>Web Demo</h1>
+      <div class="row">
+        <label for="sourceUrl">Video URL</label>
+        <input id="sourceUrl" type="text" placeholder="https://... .mp4 | .m3u8 | .mpd" />
+      </div>
+      <div class="row">
+        <label for="subtitleUrl">Subtitle (VTT) URL</label>
+        <input id="subtitleUrl" type="text" placeholder="https://... .vtt (optional)" />
+      </div>
+      <div class="row">
+        <button id="loadBtn">Load</button>
+        <button id="playBtn" class="secondary">Play</button>
+        <button id="pauseBtn" class="secondary">Pause</button>
+      </div>
+      <div class="examples">
+        <div class="small">Examples</div>
+        <button data-url="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">Big Buck Bunny (MP4)</button>
+        <button data-url="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8">HLS Sample (m3u8)</button>
+        <button data-url="https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd">DASH Sample (mpd)</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="player-container">
+        <div id="player" class="player"></div>
+      </div>
+      <div class="controls">
+        <div class="row">
+          <button id="seekBack">⏪ 10s</button>
+          <button id="seekFwd">10s ⏩</button>
+          <button id="muteBtn">Mute</button>
+          <button id="unmuteBtn">Unmute</button>
+          <button id="pipBtn">PiP</button>
+          <button id="fsBtn">Fullscreen</button>
+        </div>
+        <div class="row small" id="status">Idle</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { SimpleHTML5Player } from '../../packages/web/src/SimpleHTML5Player.js';
+
+    const container = document.getElementById('player');
+    const player = new SimpleHTML5Player(container, {
+      controls: true,
+      autoPlay: false,
+      playsInline: true
+    });
+
+    const urlInput = document.getElementById('sourceUrl');
+    const subInput = document.getElementById('subtitleUrl');
+    const status = document.getElementById('status');
+
+    function setStatus(text) {
+      status.textContent = text;
+    }
+
+    async function loadFromInputs() {
+      const url = urlInput.value.trim();
+      const sub = subInput.value.trim();
+      if (!url) {
+        alert('Please enter a video URL');
+        return;
+      }
+      const source = sub ? { url, subtitles: [{ url: sub, label: 'English', language: 'en', kind: 'subtitles' }] } : { url };
+      await player.load(source);
+      setStatus('Loaded: ' + url);
+    }
+
+    document.getElementById('loadBtn').addEventListener('click', loadFromInputs);
+    document.getElementById('playBtn').addEventListener('click', () => player.play());
+    document.getElementById('pauseBtn').addEventListener('click', () => player.pause());
+    document.getElementById('seekBack').addEventListener('click', () => player.seek(Math.max(0, player.getCurrentTime() - 10)));
+    document.getElementById('seekFwd').addEventListener('click', () => player.seek(player.getCurrentTime() + 10));
+    document.getElementById('muteBtn').addEventListener('click', () => player.mute());
+    document.getElementById('unmuteBtn').addEventListener('click', () => player.unmute());
+    document.getElementById('pipBtn').addEventListener('click', () => player.enterPictureInPicture());
+    document.getElementById('fsBtn').addEventListener('click', () => player.enterFullscreen());
+
+    // Example buttons
+    document.querySelectorAll('.examples button').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        urlInput.value = btn.dataset.url;
+        subInput.value = '';
+        await loadFromInputs();
+        await player.play();
+      });
+    });
+
+    // Update status on events
+    const events = ['loadstart', 'loadedmetadata', 'canplay', 'play', 'pause', 'ended', 'timeupdate', 'progress', 'waiting'];
+    events.forEach(ev => player.on(ev, (data) => setStatus(ev + ' | ' + JSON.stringify(data))));
+  </script>
+</body>
+</html>
+

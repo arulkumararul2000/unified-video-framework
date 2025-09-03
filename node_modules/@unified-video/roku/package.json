@@ -1,0 +1,44 @@
+{
+  "name": "@unified-video/roku",
+  "version": "1.0.0",
+  "description": "Roku implementation of Unified Video Framework",
+  "main": "source/main.brs",
+  "files": [
+    "source",
+    "components",
+    "images",
+    "manifest"
+  ],
+  "scripts": {
+    "build": "node scripts/build.js",
+    "deploy": "node scripts/deploy.js",
+    "package": "zip -r dist/roku-app.zip manifest source components images",
+    "clean": "rm -rf dist out",
+    "lint": "bslint source/**/*.brs components/**/*.xml",
+    "test": "echo 'Roku testing requires device or emulator'"
+  },
+  "devDependencies": {
+    "@rokucommunity/bslint": "^0.8.0",
+    "brighterscript": "^0.60.0",
+    "roku-deploy": "^3.0.0"
+  },
+  "keywords": [
+    "video",
+    "player",
+    "roku",
+    "brightscript",
+    "streaming",
+    "ott"
+  ],
+  "roku": {
+    "buildDir": "out",
+    "sourceDir": "source",
+    "componentsDir": "components",
+    "imagesDir": "images"
+  },
+  "author": "Your Company",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

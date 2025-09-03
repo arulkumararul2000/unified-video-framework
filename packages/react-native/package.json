@@ -1,0 +1,51 @@
+{
+  "name": "@unified-video/react-native",
+  "version": "1.0.0",
+  "description": "React Native implementation of Unified Video Framework for iOS and Android",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "react-native": "src/index.ts",
+  "files": [
+    "dist",
+    "src",
+    "ios",
+    "android"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist",
+    "test": "jest",
+    "lint": "eslint src --ext .ts,.tsx",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "@unified-video/core": "^1.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-native": ">=0.60.0",
+    "react-native-video": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-native": "^0.70.0",
+    "@react-native-community/eslint-config": "^3.0.0",
+    "typescript": "^4.9.0",
+    "metro-react-native-babel-preset": "^0.73.0"
+  },
+  "keywords": [
+    "video",
+    "player",
+    "react-native",
+    "ios",
+    "android",
+    "mobile",
+    "streaming"
+  ],
+  "author": "Your Company",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}
