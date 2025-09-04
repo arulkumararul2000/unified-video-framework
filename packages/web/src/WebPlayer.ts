@@ -37,6 +37,8 @@ export class WebPlayer extends BasePlayer {
   private isDragging: boolean = false;
   private watermarkCanvas: HTMLCanvasElement | null = null;
   private playerWrapper: HTMLElement | null = null;
+  // Free preview gate state
+  private previewGateHit: boolean = false;
   
   // Cast state
   private castContext: any = null;
@@ -118,6 +120,16 @@ export class WebPlayer extends BasePlayer {
     if (!this.video) return;
 
     this.video.addEventListener('play', () => {
+      // Enforce free preview before letting play proceed
+      if (this.config.freeDuration && this.config.freeDuration > 0) {
+        const lim = Number(this.config.freeDuration);
+        const cur = this.video!.currentTime || 0;
+        if (!this.previewGateHit && cur >= lim) {
+          try { this.video!.pause(); } catch (_) {}
+          this.showNotification('Free preview ended. Please rent to continue.');
+          return;
+        }
+      }
       this.state.isPlaying = true;
       this.state.isPaused = false;
       this.emit('onPlay');
@@ -136,7 +148,10 @@ export class WebPlayer extends BasePlayer {
     });
 
     this.video.addEventListener('timeupdate', () => {
-      this.updateTime(this.video!.currentTime);
+      const t = this.video!.currentTime;
+      this.updateTime(t);
+      // Enforce free preview gate on local playback
+      this.enforceFreePreviewGate(t);
     });
 
     this.video.addEventListener('progress', () => {
@@ -185,6 +200,9 @@ export class WebPlayer extends BasePlayer {
     });
 
     this.video.addEventListener('seeked', () => {
+      // Apply gate if user seeks beyond free preview
+      const t = this.video!.currentTime || 0;
+      this.enforceFreePreviewGate(t, true);
       this.emit('onSeeked');
     });
   }
@@ -2106,6 +2124,54 @@ export class WebPlayer extends BasePlayer {
     }
   }
 
+  // Enforce free preview gate for local or casting playback
+  private enforceFreePreviewGate(current: number, fromSeek: boolean = false): void {
+    try {
+      const lim = Number(this.config.freeDuration || 0);
+      if (!(lim > 0)) return;
+      if (this.previewGateHit && !fromSeek) return;
+      if (current >= lim - 0.01 && !this.previewGateHit) {
+        this.previewGateHit = true;
+        this.showNotification('Free preview ended. Please rent to continue.');
+        this.emit('onFreePreviewEnded');
+      }
+      if (current >= lim - 0.01) {
+        if (this.isCasting && this.remoteController) {
+          try {
+            if (this.remotePlayer && this.remotePlayer.isPaused === false) {
+              this.remoteController.playOrPause();
+            }
+          } catch (_) {}
+        } else if (this.video) {
+          try { this.video.pause(); } catch (_) {}
+          try {
+            if (fromSeek || (this.video.currentTime > lim)) {
+              this.video.currentTime = Math.max(0, lim - 0.1);
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Public runtime controls for free preview
+  public setFreeDuration(seconds: number): void {
+    try {
+      const s = Math.max(0, Number(seconds) || 0);
+      (this.config as any).freeDuration = s;
+      // Reset gate if we extended duration below current gate
+      if (s === 0 || (this.video && this.video.currentTime < s)) {
+        this.previewGateHit = false;
+      }
+      // If already past new limit, enforce immediately
+      const cur = this.video ? (this.video.currentTime || 0) : 0;
+      this.enforceFreePreviewGate(cur, true);
+    } catch (_) {}
+  }
+  public resetFreePreviewGate(): void {
+    this.previewGateHit = false;
+  }
+
   private toggleMuteAction(): void {
     if (this.isCasting && this.remoteController) {
       try { this.remoteController.muteOrUnmute(); } catch (_) {}
@@ -2643,6 +2709,8 @@ export class WebPlayer extends BasePlayer {
       if (progressFilled) progressFilled.style.width = percent + '%';
       if (progressHandle) progressHandle.style.left = percent + '%';
       if (timeDisplay) (timeDisplay as HTMLElement).textContent = `${this.formatTime(current)} / ${this.formatTime(duration)}`;
+      // Enforce gate while casting
+      this.enforceFreePreviewGate(current);
     });
 
     rc.addEventListener(RPET.DURATION_CHANGED, () => {
@@ -2700,6 +2768,8 @@ export class WebPlayer extends BasePlayer {
     if (progressHandle) progressHandle.style.left = percent + '%';
     if (timeDisplay) (timeDisplay as HTMLElement).textContent = `${this.formatTime(current)} / ${this.formatTime(duration)}`;
     this.updateVolumeUIFromRemote();
+    // Also enforce gate in case of immediate resume
+    this.enforceFreePreviewGate(current);
   }
 
   private _syncCastButtons(): void {

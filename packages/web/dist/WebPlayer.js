@@ -19,6 +19,7 @@ class WebPlayer extends core_1.BasePlayer {
         this.isDragging = false;
         this.watermarkCanvas = null;
         this.playerWrapper = null;
+        this.previewGateHit = false;
         this.castContext = null;
         this.remotePlayer = null;
         this.remoteController = null;
@@ -70,6 +71,18 @@ class WebPlayer extends core_1.BasePlayer {
         if (!this.video)
             return;
         this.video.addEventListener('play', () => {
+            if (this.config.freeDuration && this.config.freeDuration > 0) {
+                const lim = Number(this.config.freeDuration);
+                const cur = this.video.currentTime || 0;
+                if (!this.previewGateHit && cur >= lim) {
+                    try {
+                        this.video.pause();
+                    }
+                    catch (_) { }
+                    this.showNotification('Free preview ended. Please rent to continue.');
+                    return;
+                }
+            }
             this.state.isPlaying = true;
             this.state.isPaused = false;
             this.emit('onPlay');
@@ -85,7 +98,9 @@ class WebPlayer extends core_1.BasePlayer {
             this.emit('onEnded');
         });
         this.video.addEventListener('timeupdate', () => {
-            this.updateTime(this.video.currentTime);
+            const t = this.video.currentTime;
+            this.updateTime(t);
+            this.enforceFreePreviewGate(t);
         });
         this.video.addEventListener('progress', () => {
             this.updateBufferProgress();
@@ -126,6 +141,8 @@ class WebPlayer extends core_1.BasePlayer {
             this.emit('onSeeking');
         });
         this.video.addEventListener('seeked', () => {
+            const t = this.video.currentTime || 0;
+            this.enforceFreePreviewGate(t, true);
             this.emit('onSeeked');
         });
     }
@@ -1895,6 +1912,58 @@ class WebPlayer extends core_1.BasePlayer {
             this.pause();
         }
     }
+    enforceFreePreviewGate(current, fromSeek = false) {
+        try {
+            const lim = Number(this.config.freeDuration || 0);
+            if (!(lim > 0))
+                return;
+            if (this.previewGateHit && !fromSeek)
+                return;
+            if (current >= lim - 0.01 && !this.previewGateHit) {
+                this.previewGateHit = true;
+                this.showNotification('Free preview ended. Please rent to continue.');
+                this.emit('onFreePreviewEnded');
+            }
+            if (current >= lim - 0.01) {
+                if (this.isCasting && this.remoteController) {
+                    try {
+                        if (this.remotePlayer && this.remotePlayer.isPaused === false) {
+                            this.remoteController.playOrPause();
+                        }
+                    }
+                    catch (_) { }
+                }
+                else if (this.video) {
+                    try {
+                        this.video.pause();
+                    }
+                    catch (_) { }
+                    try {
+                        if (fromSeek || (this.video.currentTime > lim)) {
+                            this.video.currentTime = Math.max(0, lim - 0.1);
+                        }
+                    }
+                    catch (_) { }
+                }
+            }
+        }
+        catch (_) { }
+    }
+    setFreeDuration(seconds) {
+        try {
+            const s = Math.max(0, Number(seconds) || 0);
+            this.config.freeDuration = s;
+            if (s === 0 || (this.video && this.video.currentTime < s)) {
+                this.previewGateHit = false;
+            }
+            const cur = this.video ? (this.video.currentTime || 0) : 0;
+            this.enforceFreePreviewGate(cur, true);
+        }
+        catch (_) { }
+    }
+    resetFreePreviewGate() {
+        this.previewGateHit = false;
+    }
     toggleMuteAction() {
         if (this.isCasting && this.remoteController) {
             try {
@@ -2445,6 +2514,7 @@ class WebPlayer extends core_1.BasePlayer {
                 progressHandle.style.left = percent + '%';
             if (timeDisplay)
                 timeDisplay.textContent = `${this.formatTime(current)} / ${this.formatTime(duration)}`;
+            this.enforceFreePreviewGate(current);
         });
         rc.addEventListener(RPET.DURATION_CHANGED, () => {
             if (!this.isCasting)
@@ -2506,6 +2576,7 @@ class WebPlayer extends core_1.BasePlayer {
         if (timeDisplay)
             timeDisplay.textContent = `${this.formatTime(current)} / ${this.formatTime(duration)}`;
         this.updateVolumeUIFromRemote();
+        this.enforceFreePreviewGate(current);
     }
     _syncCastButtons() {
         const castBtn = document.getElementById('uvf-cast-btn');

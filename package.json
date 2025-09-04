@@ -11,9 +11,12 @@
   "scripts": {
     "postinstall": "npm run build:core",
     "bootstrap": "lerna bootstrap --legacy-peer-deps",
-    "build": "npm run build:core && npm run build:web",
+    "build": "npm run build:core && npm run build:web && npm run build:rental-api",
     "build:core": "cd packages/core && npm run build",
     "build:web": "cd packages/web && npm run build",
+    "build:rental-api": "cd apps/rental-api && npm run build",
+    "start:rental-api": "cd apps/rental-api && npm start",
+    "dev:rental-api": "cd apps/rental-api && npm run dev",
     "build:react-native": "cd packages/react-native && npm run build",
     "build:enact": "cd packages/enact && npm run build",
     "build:all": "lerna run build --stream",

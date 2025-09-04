@@ -24,6 +24,7 @@ export declare class WebPlayer extends BasePlayer {
     private isDragging;
     private watermarkCanvas;
     private playerWrapper;
+    private previewGateHit;
     private castContext;
     private remotePlayer;
     private remoteController;
@@ -69,6 +70,9 @@ export declare class WebPlayer extends BasePlayer {
     protected setupKeyboardShortcuts(): void;
     protected setupWatermark(): void;
     private togglePlayPause;
+    private enforceFreePreviewGate;
+    setFreeDuration(seconds: number): void;
+    resetFreePreviewGate(): void;
     private toggleMuteAction;
     private handleVolumeChange;
     private handleProgressChange;

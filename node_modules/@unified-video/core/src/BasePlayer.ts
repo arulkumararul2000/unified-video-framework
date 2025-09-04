@@ -39,7 +39,8 @@ export abstract class BasePlayer implements IVideoPlayer {
       preload: 'metadata',
       playsInline: true,
       enableAdaptiveBitrate: true,
-      debug: false
+      debug: false,
+      freeDuration: 0
     };
   }
 
@@ -198,6 +199,10 @@ export abstract class BasePlayer implements IVideoPlayer {
   protected emit(event: keyof PlayerEvents, ...args: any[]): void {
     this.events.emit(event, ...args);
   }
+
+  // Optional runtime free preview controls (no-op base; platform implementations may override)
+  setFreeDuration?(seconds: number): void;
+  resetFreePreviewGate?(): void;
 
   getSubtitles(): SubtitleTrack[] {
     return this.subtitles;

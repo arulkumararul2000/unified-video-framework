@@ -45,6 +45,8 @@ export declare abstract class BasePlayer implements IVideoPlayer {
     off(event: keyof PlayerEvents, handler?: Function): void;
     once(event: keyof PlayerEvents, handler: Function): void;
     protected emit(event: keyof PlayerEvents, ...args: any[]): void;
+    setFreeDuration?(seconds: number): void;
+    resetFreePreviewGate?(): void;
     getSubtitles(): SubtitleTrack[];
     setSubtitleTrack(index: number): void;
     disableSubtitles(): void;

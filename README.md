@@ -282,6 +282,12 @@ npm run test:tizen
 - **Memory Management**: Automatic cleanup and resource management
 - **Adaptive Bitrate**: Automatic quality adjustment based on network
 
+## 💳 Paywall Rentals (Stripe, Pesapal, Google Pay)
+
+- For per-video rentals (no subscriptions), follow our step-by-step implementation guide:
+  - See PAYWALL_RENTAL_FLOW.md: [PAYWALL_RENTAL_FLOW.md](./PAYWALL_RENTAL_FLOW.md)
+- Documentation index: [docs/](./docs/README.md)
+
 ## 🤝 Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.

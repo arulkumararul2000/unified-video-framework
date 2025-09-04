@@ -63,6 +63,7 @@ export interface PlayerEvents {
     onSeeking?: () => void;
     onSeeked?: () => void;
     onLoadedMetadata?: (metadata: VideoMetadata) => void;
+    onFreePreviewEnded?: () => void;
 }
 export interface PlayerError {
     code: string;
@@ -125,5 +126,7 @@ export interface IVideoPlayer {
     getAudioTracks?(): any[];
     getThumbnail?(time: number): string;
     getStats?(): any;
+    setFreeDuration?(seconds: number): void;
+    resetFreePreviewGate?(): void;
 }
 //# sourceMappingURL=IVideoPlayer.d.ts.map

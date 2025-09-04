@@ -22,7 +22,8 @@ class BasePlayer {
             preload: 'metadata',
             playsInline: true,
             enableAdaptiveBitrate: true,
-            debug: false
+            debug: false,
+            freeDuration: 0
         };
     }
     getDefaultState() {

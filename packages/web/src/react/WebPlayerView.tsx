@@ -116,6 +116,14 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     props.freeDuration,
   ])
 
+  // Update free preview duration at runtime without full re-init
+  useEffect(() => {
+    const p = playerRef.current as any;
+    if (p && typeof p.setFreeDuration === 'function' && typeof props.freeDuration !== 'undefined') {
+      try { p.setFreeDuration(props.freeDuration as number); } catch(_) {}
+    }
+  }, [props.freeDuration]);
+
   // Respond to theme updates without reinitializing the player
   useEffect(() => {
     const p = playerRef.current as any;

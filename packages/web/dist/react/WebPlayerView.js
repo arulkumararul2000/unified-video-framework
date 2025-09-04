@@ -102,6 +102,15 @@ const WebPlayerView = (props) => {
     ]);
     (0, react_1.useEffect)(() => {
         const p = playerRef.current;
+        if (p && typeof p.setFreeDuration === 'function' && typeof props.freeDuration !== 'undefined') {
+            try {
+                p.setFreeDuration(props.freeDuration);
+            }
+            catch (_) { }
+        }
+    }, [props.freeDuration]);
+    (0, react_1.useEffect)(() => {
+        const p = playerRef.current;
         try {
             if (p && typeof p.setTheme === 'function') {
                 p.setTheme(props.playerTheme);

@@ -73,6 +73,8 @@ export interface PlayerEvents {
   onSeeking?: () => void;
   onSeeked?: () => void;
   onLoadedMetadata?: (metadata: VideoMetadata) => void;
+  // Fired exactly once when free preview duration is reached and playback is blocked
+  onFreePreviewEnded?: () => void;
 }
 
 export interface PlayerError {
@@ -162,4 +164,8 @@ export interface IVideoPlayer {
   getAudioTracks?(): any[];
   getThumbnail?(time: number): string;
   getStats?(): any;
+
+  // Free preview runtime controls (optional)
+  setFreeDuration?(seconds: number): void;
+  resetFreePreviewGate?(): void;
 }
