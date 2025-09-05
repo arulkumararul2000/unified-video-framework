@@ -32,6 +32,7 @@ export declare class WebPlayer extends BasePlayer {
     private _castTrackIdByKey;
     private selectedSubtitleKey;
     private _kiTo;
+    private paywallController;
     protected setupPlayer(): Promise<void>;
     private setupVideoEventListeners;
     private getMediaErrorMessage;
@@ -69,6 +70,7 @@ export declare class WebPlayer extends BasePlayer {
     private setupControlsEventListeners;
     protected setupKeyboardShortcuts(): void;
     protected setupWatermark(): void;
+    setPaywallConfig(config: any): void;
     private togglePlayPause;
     private enforceFreePreviewGate;
     setFreeDuration(seconds: number): void;

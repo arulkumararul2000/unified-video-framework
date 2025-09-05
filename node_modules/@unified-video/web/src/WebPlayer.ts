@@ -49,6 +49,9 @@ export class WebPlayer extends BasePlayer {
   private selectedSubtitleKey: string = 'off';
   private _kiTo: any = null;
 
+  // Paywall
+  private paywallController: any = null;
+
 
   protected async setupPlayer(): Promise<void> {
     if (!this.container) {
@@ -109,6 +112,25 @@ export class WebPlayer extends BasePlayer {
     this.setupControlsEventListeners();
     this.setupKeyboardShortcuts();
     this.setupWatermark();
+
+    // Initialize paywall controller if provided
+    try {
+      const pw: any = (this.config as any).paywall || null;
+      if (pw && pw.enabled) {
+        const { PaywallController } = await import('./paywall/PaywallController');
+        this.paywallController = new (PaywallController as any)(pw, {
+          getOverlayContainer: () => this.playerWrapper,
+          onResume: () => { try { this.play(); } catch(_) {} },
+          onShow: () => {},
+          onClose: () => {}
+        });
+        // When free preview ends, open overlay
+        this.on('onFreePreviewEnded' as any, () => {
+          try { this.paywallController?.openOverlay(); } catch(_) {}
+        });
+      }
+    } catch (_) {}
+
     // Attempt to bind Cast context if available
     this.setupCastContextSafe();
 
@@ -2114,6 +2136,25 @@ export class WebPlayer extends BasePlayer {
     
     setInterval(renderWatermark, 5000);
     renderWatermark();
+  }
+
+  public setPaywallConfig(config: any) {
+    try {
+      if (!config) return;
+      if (this.paywallController && typeof this.paywallController.updateConfig === 'function') {
+        this.paywallController.updateConfig(config);
+      } else {
+        // lazy-init if not created yet
+        if (config.enabled) {
+          import('./paywall/PaywallController').then((m: any) => {
+            this.paywallController = new m.PaywallController(config, {
+              getOverlayContainer: () => this.playerWrapper,
+              onResume: () => { try { this.play(); } catch(_) {} }
+            });
+          }).catch(() => {});
+        }
+      }
+    } catch (_) {}
   }
 
   private togglePlayPause(): void {

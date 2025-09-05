@@ -11,6 +11,9 @@ export type WebPlayerViewProps = {
   enableAdaptiveBitrate?: boolean;
   debug?: boolean;
   freeDuration?: number;
+  // Paywall
+  paywall?: import('@unified-video/core').PaywallConfig;
+  paywallConfigUrl?: string; // optional endpoint returning PaywallConfig JSON
 
   // Source config
   url: string;
@@ -37,6 +40,21 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<WebPlayer | null>(null);
 
+  // Checkout return bridge: forward rental=success/cancel with session_id/order_id back to opener and close
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const popup = (params.get('popup') || '').toLowerCase() === '1';
+      const status = (params.get('rental') || '').toLowerCase();
+      const orderId = params.get('order_id') || '';
+      const sessionId = params.get('session_id') || '';
+      if (popup && (status === 'success' || status === 'cancel')) {
+        try { window.opener?.postMessage({ type: 'uvfCheckout', status, orderId, sessionId }, '*'); } catch (_) {}
+        try { window.close(); } catch (_) {}
+      }
+    } catch (_) {}
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -62,12 +80,22 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         }
       }
 
+      // Resolve paywall config: inline or fetched
+      let paywallCfg = props.paywall as any;
+      if (!paywallCfg && props.paywallConfigUrl) {
+        try {
+          const resp = await fetch(props.paywallConfigUrl);
+          if (resp.ok) paywallCfg = await resp.json();
+        } catch(_) {}
+      }
+
       const config: PlayerConfig = {
         autoPlay: props.autoPlay ?? false,
         muted: props.muted ?? false,
         enableAdaptiveBitrate: props.enableAdaptiveBitrate ?? true,
         debug: props.debug ?? false,
         freeDuration: props.freeDuration,
+        paywall: paywallCfg
       };
 
       try {
@@ -123,6 +151,14 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
       try { p.setFreeDuration(props.freeDuration as number); } catch(_) {}
     }
   }, [props.freeDuration]);
+
+  // Update paywall config at runtime if prop changes
+  useEffect(() => {
+    const p = playerRef.current as any;
+    if (p && typeof p.setPaywallConfig === 'function' && props.paywall) {
+      try { p.setPaywallConfig(props.paywall as any); } catch(_) {}
+    }
+  }, [JSON.stringify(props.paywall)]);
 
   // Respond to theme updates without reinitializing the player
   useEffect(() => {

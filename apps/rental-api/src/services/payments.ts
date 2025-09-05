@@ -1,7 +1,7 @@
 import { db } from '../db.js';
 
 export async function upsertPayment(args: {
-  gateway: 'stripe'|'pesapal'|'google_pay',
+  gateway: 'stripe'|'pesapal'|'google_pay'|'cashfree',
   gatewayRef: string,
   amountCents: number,
   currency: string,

@@ -50,12 +50,22 @@ const WebPlayerView = (props) => {
                 catch (_) {
                 }
             }
+            let paywallCfg = props.paywall;
+            if (!paywallCfg && props.paywallConfigUrl) {
+                try {
+                    const resp = await fetch(props.paywallConfigUrl);
+                    if (resp.ok)
+                        paywallCfg = await resp.json();
+                }
+                catch (_) { }
+            }
             const config = {
                 autoPlay: props.autoPlay ?? false,
                 muted: props.muted ?? false,
                 enableAdaptiveBitrate: props.enableAdaptiveBitrate ?? true,
                 debug: props.debug ?? false,
                 freeDuration: props.freeDuration,
+                paywall: paywallCfg
             };
             try {
                 await player.initialize(containerRef.current, config);
@@ -109,6 +119,15 @@ const WebPlayerView = (props) => {
             catch (_) { }
         }
     }, [props.freeDuration]);
+    (0, react_1.useEffect)(() => {
+        const p = playerRef.current;
+        if (p && typeof p.setPaywallConfig === 'function' && props.paywall) {
+            try {
+                p.setPaywallConfig(props.paywall);
+            }
+            catch (_) { }
+        }
+    }, [JSON.stringify(props.paywall)]);
     (0, react_1.useEffect)(() => {
         const p = playerRef.current;
         try {

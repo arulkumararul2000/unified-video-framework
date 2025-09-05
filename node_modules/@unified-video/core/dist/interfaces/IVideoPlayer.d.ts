@@ -72,6 +72,23 @@ export interface PlayerError {
     fatal: boolean;
     details?: any;
 }
+export interface PaywallConfig {
+    enabled: boolean;
+    apiBase: string;
+    userId: string;
+    videoId: string;
+    gateways: Array<'stripe' | 'cashfree'>;
+    branding?: {
+        title?: string;
+        description?: string;
+        logoUrl?: string;
+        theme?: any;
+    };
+    popup?: {
+        width?: number;
+        height?: number;
+    };
+}
 export interface PlayerConfig {
     autoPlay?: boolean;
     muted?: boolean;
@@ -85,6 +102,7 @@ export interface PlayerConfig {
     enableAdaptiveBitrate?: boolean;
     debug?: boolean;
     freeDuration?: number;
+    paywall?: PaywallConfig;
 }
 export interface IVideoPlayer {
     initialize(container: HTMLElement | string, config?: PlayerConfig): Promise<void>;

@@ -85,6 +85,16 @@ export interface PlayerError {
   details?: any;
 }
 
+export interface PaywallConfig {
+  enabled: boolean;
+  apiBase: string;          // e.g., http://localhost:3100
+  userId: string;
+  videoId: string;
+  gateways: Array<'stripe' | 'cashfree'>;
+  branding?: { title?: string; description?: string; logoUrl?: string; theme?: any };
+  popup?: { width?: number; height?: number };
+}
+
 export interface PlayerConfig {
   autoPlay?: boolean;
   muted?: boolean;
@@ -100,6 +110,9 @@ export interface PlayerConfig {
 
   // Free preview
   freeDuration?: number; // seconds of free playback before paywall
+
+  // Optional paywall for dynamic rental flow
+  paywall?: PaywallConfig;
 }
 
 /**

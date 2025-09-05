@@ -8,6 +8,8 @@ export type WebPlayerViewProps = {
     enableAdaptiveBitrate?: boolean;
     debug?: boolean;
     freeDuration?: number;
+    paywall?: import('@unified-video/core').PaywallConfig;
+    paywallConfigUrl?: string;
     url: string;
     type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto';
     subtitles?: SubtitleTrack[];

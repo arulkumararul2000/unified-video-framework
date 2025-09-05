@@ -1,15 +1,16 @@
 import { Router, type Request, type Response } from 'express';
 import axios from 'axios';
+// Pesapal integration removed in favor of Cashfree
 import { config } from '../config.js';
 import { db } from '../db.js';
 import { upsertPayment } from '../services/payments.js';
 import { issueRentalEntitlement } from '../services/entitlements.js';
 import { randomUUID } from 'crypto';
 
-export const pesapalRouter = Router();
+// export const pesapalRouter = Router();
 
 // POST /api/rentals/pesapal/order { userId, videoId, returnUrl }
-pesapalRouter.post('/pesapal/order', async (req: Request, res: Response) => {
+/* pesapalRouter.post('/pesapal/order', async (req: Request, res: Response) => {
   const { userId, videoId, returnUrl } = req.body || {};
   if (!userId || !videoId || !returnUrl) return res.status(400).json({ error: 'userId, videoId, returnUrl required' });
 
@@ -39,18 +40,19 @@ pesapalRouter.post('/pesapal/order', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({ error: 'failed to create pesapal order' });
   }
-});
+}); */
 
-async function pesapalAuthToken(): Promise<string> {
+/* async function pesapalAuthToken(): Promise<string> {
   const res = await axios.post(`${config.pesapal.baseUrl}/api/Auth/RequestToken`, {
     consumer_key: config.pesapal.consumerKey,
     consumer_secret: config.pesapal.consumerSecret
   });
   return res.data.token;
 }
+*/
 
 // Pesapal IPN target: POST /api/ipn/pesapal/callback
-pesapalRouter.post('/pesapal/callback', async (req: Request, res: Response) => {
+/* pesapalRouter.post('/pesapal/callback', async (req: Request, res: Response) => {
   const { order_tracking_id, userId, videoId, rentalDurationHours } = req.body || {};
   if (!order_tracking_id || !userId || !videoId) return res.status(400).send('Bad IPN payload');
 
@@ -86,5 +88,5 @@ pesapalRouter.post('/pesapal/callback', async (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).send('IPN handling failed');
   }
-});
+}); */
 

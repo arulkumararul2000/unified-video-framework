@@ -1012,6 +1012,7 @@
         .paywall-iframe { width: 100%; height: 100%; border: none; background: #fff; border-radius: 8px; }
 
 </style>
+
     <!-- Google Cast Sender SDK -->
     <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
 </head>
@@ -1100,7 +1101,7 @@
                             <div class="paywall-message">Choose a payment method</div>
                             <div class="gateway-list">
                                 <button class="gateway-btn" id="gatewayStripe">Stripe</button>
-                                <button class="gateway-btn" id="gatewayPesapal">Pesapal</button>
+                                <button class="gateway-btn" id="gatewayCashfree">Cashfree</button>
                                 <button class="gateway-btn" id="gatewayMock">Mock (dev)</button>
                             </div>
                             <div class="paywall-actions">
@@ -1517,8 +1518,10 @@
                     const params = new URLSearchParams(window.location.search);
                     const popup = (params.get('popup') || '').toLowerCase() === '1';
                     const rental = (params.get('rental') || '').toLowerCase();
+                    const orderId = params.get('order_id') || '';
+                    const sessionId = params.get('session_id') || '';
                     if (popup && (rental === 'success' || rental === 'cancel')) {
-                        try { if (window.opener) window.opener.postMessage({ type: 'uvfCheckout', status: rental }, '*'); } catch(_) {}
+                        try { if (window.opener) window.opener.postMessage({ type: 'uvfCheckout', status: rental, orderId, sessionId }, '*'); } catch(_) {}
                         try { window.close(); } catch(_) {}
                     }
                 } catch (_) {}
@@ -2062,56 +2065,65 @@
                     } catch (_) {}
 
                     // Listen for checkout popup messages
-                    try {
-                        window.addEventListener('message', async (ev) => {
-                            const d = ev?.data || {};
-                            if (!d || d.type !== 'uvfCheckout') return;
-                            if (d.status === 'cancel') {
-                                try { if (this._checkoutWin && !this._checkoutWin.closed) this._checkoutWin.close(); } catch(_) {}
-                                this._checkoutWin = null;
-                                this.switchPaywallStep('gateway');
-                            }
-                            if (d.status === 'success') {
-                                try { if (this._checkoutWin && !this._checkoutWin.closed) this._checkoutWin.close(); } catch(_) {}
-                                this._checkoutWin = null;
-                                try { await this.checkDemoEntitlement(true); } catch(_){ }
-                                if (this.demoRental.entitled) {
-                                    this._previewGateHit = false;
-                                    this.hidePaywallOverlay();
-                                    this.video.play().catch(()=>{});
-                                }
-                            }
-                        });
-                    } catch(_) {}
-
-                    // Header metadata
-                    const setMeta = () => {
-                        const mt = this.getPaywallMetadata();
-                        const tEl = document.getElementById('paywallTitle');
-                        const dEl = document.getElementById('paywallDesc');
-                        const iEl = document.getElementById('paywallThumb');
-                        if (tEl) tEl.textContent = mt.title || 'Continue watching';
-                        if (dEl) dEl.textContent = mt.description || 'Rent to continue watching this video.';
-                        if (iEl) {
-                            iEl.src = mt.thumbnail || '';
-                            iEl.style.display = mt.thumbnail ? 'block' : 'none';
+                    window.addEventListener('message', async (ev) => {
+                        const d = ev?.data || {};
+                        if (!d || d.type !== 'uvfCheckout') return;
+                        if (d.status === 'cancel') {
+                            try { if (this._checkoutWin && !this._checkoutWin.closed) this._checkoutWin.close(); } catch(_) {}
+                            this._checkoutWin = null;
+                            this.switchPaywallStep('gateway');
                         }
-                    };
-                    setMeta();
+                        if (d.status === 'success') {
+                            try { if (this._checkoutWin && !this._checkoutWin.closed) this._checkoutWin.close(); } catch(_) {}
+                            this._checkoutWin = null;
+                            // If Stripe returned a sessionId, confirm it to issue entitlement without webhooks
+                            if (d.sessionId) {
+                                try {
+                                    await fetch(`${this.demoRental.apiBase}/api/rentals/stripe/confirm`, {
+                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ sessionId: d.sessionId })
+                                    });
+                                } catch(_) {}
+                            }
+                            // If Cashfree provided an orderId, verify and grant entitlement immediately
+                            if (d.orderId) {
+                                try {
+                                    await fetch(`${this.demoRental.apiBase}/api/rentals/cashfree/verify?orderId=${encodeURIComponent(d.orderId)}&userId=${encodeURIComponent(this.demoRental.userId)}&videoId=${encodeURIComponent(this.demoRental.videoId)}`);
+                                } catch(_) {}
+                            }
+                            try { await this.checkDemoEntitlement(true); } catch(_){ }
+                            if (this.demoRental.entitled) {
+                                this._previewGateHit = false;
+                                this.hidePaywallOverlay();
+                                this.video.play().catch(()=>{});
+                            }
+                        }
+                    });
+                    // Initialize paywall header content from current metadata
+                    const mt = this.getPaywallMetadata();
+                    const tEl = document.getElementById('paywallTitle');
+                    const dEl = document.getElementById('paywallDesc');
+                    const iEl = document.getElementById('paywallThumb');
+                    if (tEl) tEl.textContent = mt.title || 'Continue watching';
+                    if (dEl) dEl.textContent = mt.description || 'Rent to continue watching this video.';
+                    if (iEl) {
+                        iEl.src = mt.thumbnail || '';
+                        iEl.style.display = mt.thumbnail ? 'block' : 'none';
+                    }
 
                     // Buttons
                     const rentBtn = document.getElementById('rentNowBtn');
                     const backIntroBtn = document.getElementById('backToIntroBtn');
                     const backGatewaysBtn = document.getElementById('backToGatewaysBtn');
                     const gwStripe = document.getElementById('gatewayStripe');
-                    const gwPesapal = document.getElementById('gatewayPesapal');
+                    const gwCashfree = document.getElementById('gatewayCashfree');
                     const gwMock = document.getElementById('gatewayMock');
 
                     rentBtn?.addEventListener('click', () => this.switchPaywallStep('gateway'));
                     backIntroBtn?.addEventListener('click', () => this.switchPaywallStep('intro'));
                     backGatewaysBtn?.addEventListener('click', () => this.switchPaywallStep('gateway'));
                     gwStripe?.addEventListener('click', () => this.openCheckoutPopup('stripe'));
-                    gwPesapal?.addEventListener('click', () => this.openCheckoutPopup('pesapal'));
+                    gwCashfree?.addEventListener('click', () => this.openCheckoutPopup('cashfree'));
                     gwMock?.addEventListener('click', () => this.openCheckoutPopup('mock'));
                 } catch (_) {}
             }
@@ -2222,19 +2234,20 @@ this._checkoutWin = window.open(data.url, 'uvfCheckout', `popup=1,width=${w},hei
                         return;
                     }
 
-                    if (gateway === 'pesapal') {
-                        const res = await fetch(`${this.demoRental.apiBase}/api/ipn/pesapal/order`, {
+                    if (gateway === 'cashfree') {
+                        const res = await fetch(`${this.demoRental.apiBase}/api/rentals/cashfree/order`, {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId: this.demoRental.userId, videoId: this.demoRental.videoId, returnUrl: window.location.origin + window.location.pathname + '?rental=success&popup=1' })
+                            body: JSON.stringify({ userId: this.demoRental.userId, videoId: this.demoRental.videoId, returnUrl: window.location.origin + window.location.pathname })
                         });
                         const data = await res.json();
-                        if (data?.redirectUrl) {
+                        if (data?.paymentLink && data?.orderId) {
                             try { 
                                 this._checkoutWin && !this._checkoutWin.closed && this._checkoutWin.close();
                             } catch(_) {}
                             try {
-this._checkoutWin = window.open(data.redirectUrl, 'uvfCheckout', `popup=1,width=${w},height=${h},left=${left},top=${top}`);
+                                this._checkoutWin = window.open(data.paymentLink, 'uvfCheckout', `popup=1,width=${w},height=${h},left=${left},top=${top}`);
                             } catch(_) { this._checkoutWin = null; }
+                            this._cfOrderId = data.orderId;
                             this.showNotification('Checkout opened');
                             this.startEntitlementPolling();
                             return;
@@ -3490,6 +3503,6 @@ this._checkoutWin = window.open(data.redirectUrl, 'uvfCheckout', `popup=1,width=
                 })(p);
             }
         });
-    </script>
+</script>
 </body>
 </html>

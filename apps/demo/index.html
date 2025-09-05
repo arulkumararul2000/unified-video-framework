@@ -66,14 +66,21 @@
   </div>
 
   <script type="module">
-    import { SimpleHTML5Player } from '../../packages/web/src/SimpleHTML5Player.js';
+    // If this page is opened in a popup (checkout return), notify the opener and close
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('popup') === '1') {
+        const status = params.get('rental') || 'cancel';
+        const orderId = params.get('order_id') || null;
+        window.opener?.postMessage({ type: 'uvfCheckout', status, orderId }, '*');
+        window.close();
+      }
+    } catch (_) {}
+
+    import { WebPlayer } from '../../packages/web/dist/WebPlayer.js';
 
     const container = document.getElementById('player');
-    const player = new SimpleHTML5Player(container, {
-      controls: true,
-      autoPlay: false,
-      playsInline: true
-    });
+    const player = new WebPlayer();
 
     const urlInput = document.getElementById('sourceUrl');
     const subInput = document.getElementById('subtitleUrl');
@@ -81,6 +88,22 @@
 
     function setStatus(text) {
       status.textContent = text;
+    }
+
+    async function initPlayer() {
+      // Fetch a dynamic paywall config (mock) for demo tenant
+      let paywallCfg = null;
+      try {
+        const r = await fetch('http://localhost:3100/api/rentals/config?tenant=demo&userId=u1&videoId=v1');
+        if (r.ok) paywallCfg = await r.json();
+      } catch(_) {}
+
+      await player.initialize(container, {
+        autoPlay: false,
+        playsInline: true,
+        freeDuration: 60,
+        paywall: paywallCfg
+      });
     }
 
     async function loadFromInputs() {
@@ -115,9 +138,21 @@
       });
     });
 
-    // Update status on events
-    const events = ['loadstart', 'loadedmetadata', 'canplay', 'play', 'pause', 'ended', 'timeupdate', 'progress', 'waiting'];
-    events.forEach(ev => player.on(ev, (data) => setStatus(ev + ' | ' + JSON.stringify(data))));
+    // Initialize and set default content
+    await initPlayer();
+
+    // Update status on core events emitted by WebPlayer
+    player.on('onReady', () => setStatus('ready'));
+    player.on('onPlay', () => setStatus('play'));
+    player.on('onPause', () => setStatus('pause'));
+    player.on('onEnded', () => setStatus('ended'));
+    player.on('onTimeUpdate', (t) => setStatus('timeupdate | ' + t));
+    player.on('onProgress', (b) => setStatus('progress | ' + b));
+    player.on('onBuffering', (is) => setStatus('buffering | ' + is));
+
+    // Load an example by default
+    urlInput.value = document.querySelector('.examples button')?.dataset.url || '';
+    await loadFromInputs();
   </script>
 </body>
 </html>
