@@ -44,7 +44,7 @@
   ],
   "scripts": {
     "bootstrap": "lerna bootstrap --legacy-peer-deps",
-    "build": "npm run build:core && npm run build:web && npm run build:rental-api",
+    "build": "npm run build:core && npm run build:web && npm run build:rental-api && npm run fix-imports",
     "build:core": "cd packages/core && npm run build",
     "build:web": "cd packages/web && npm run build",
     "build:rental-api": "cd apps/rental-api && npm run build",
@@ -52,7 +52,7 @@
     "dev:rental-api": "cd apps/rental-api && npm run dev",
     "build:react-native": "cd packages/react-native && npm run build",
     "build:enact": "cd packages/enact && npm run build",
-    "build:all": "lerna run build --stream",
+    "build:all": "lerna run build --stream && npm run fix-imports",
     "clean": "lerna clean",
     "test": "jest",
     "test:coverage": "jest --coverage",
@@ -62,7 +62,8 @@
     "prepublishOnly": "npm run build",
     "dev": "lerna run dev --parallel",
     "serve:demo": "node server.js",
-    "docs": "typedoc --out docs packages/core/src"
+    "docs": "typedoc --out docs packages/core/src",
+    "fix-imports": "node scripts/fix-imports.js"
   },
   "devDependencies": {
     "@types/node": "^18.0.0",

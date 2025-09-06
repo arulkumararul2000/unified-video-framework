@@ -15,7 +15,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VERSION = exports.WebPlayerView = exports.WebPlayer = void 0;
-__exportStar(require("@unified-video/core"), exports);
+__exportStar(require("../../core/dist"), exports);
 var WebPlayer_1 = require("./WebPlayer");
 Object.defineProperty(exports, "WebPlayer", { enumerable: true, get: function () { return WebPlayer_1.WebPlayer; } });
 var WebPlayerView_1 = require("./react/WebPlayerView");

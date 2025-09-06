@@ -24,7 +24,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebPlayer = void 0;
-const core_1 = require("@unified-video/core");
+const core_1 = require("../../core/dist");
 class WebPlayer extends core_1.BasePlayer {
     constructor() {
         super(...arguments);
