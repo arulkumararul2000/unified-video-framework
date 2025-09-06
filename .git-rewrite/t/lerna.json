@@ -1,0 +1,35 @@
+{
+  "version": "1.0.0",
+  "npmClient": "npm",
+  "packages": [
+    "packages/*",
+    "apps/*"
+  ],
+  "command": {
+    "bootstrap": {
+      "hoist": true,
+      "noCi": false,
+      "npmClientArgs": ["--no-package-lock"]
+    },
+    "publish": {
+      "conventionalCommits": true,
+      "message": "chore(release): publish %v",
+      "registry": "https://registry.npmjs.org",
+      "allowBranch": ["main", "master"]
+    },
+    "version": {
+      "allowBranch": ["main", "master"],
+      "conventionalCommits": true,
+      "createRelease": "github",
+      "exact": false,
+      "message": "chore(release): version %v"
+    }
+  },
+  "ignoreChanges": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/test/**",
+    "**/*.md",
+    "**/package-lock.json"
+  ]
+}

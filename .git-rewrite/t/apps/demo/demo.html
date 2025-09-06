@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Video Framework - Demo</title>
+    
+    <!-- Optional: HLS.js for HLS streaming support (will be loaded dynamically if needed) -->
+    <!-- Optional: dash.js for DASH streaming support (will be loaded dynamically if needed) -->
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .format-support {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .format-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+
+        .player-section {
+            background: #000;
+            position: relative;
+            padding-top: 56.25%; /* 16:9 aspect ratio */
+        }
+
+        #videoPlayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls-section {
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+        }
+
+        .control-group h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .status-bar {
+            background: white;
+            padding: 20px 30px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-value {
+            font-size: 14px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .sample-videos {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+        }
+
+        .sample-btn {
+            text-align: left;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e9ecef;
+            color: #333;
+            position: relative;
+        }
+
+        .sample-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .sample-btn strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .sample-btn small {
+            color: #6c757d;
+            font-size: 11px;
+        }
+
+        .format-tag {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            width: 150px;
+        }
+
+        .quality-selector {
+            margin-top: 10px;
+        }
+
+        .quality-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .quality-btn {
+            padding: 5px 10px;
+            font-size: 12px;
+            background: white;
+            border: 1px solid #dee2e6;
+        }
+
+        .quality-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        @media (max-width: 768px) {
+            .button-group {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+            
+            .sample-videos {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Unified Video Framework</h1>
+            <p>Complete Video Player Demo</p>
+            <div class="format-support">
+                <span class="format-badge">✓ MP4</span>
+                <span class="format-badge" id="hlsBadge">✓ HLS</span>
+                <span class="format-badge" id="dashBadge">✓ DASH</span>
+                <span class="format-badge">✓ WebM</span>
+            </div>
+        </div>
+
+        <div class="player-section">
+            <video id="videoPlayer" controls playsinline></video>
+        </div>
+
+        <div class="controls-section">
+            <div id="messageBox" class="message"></div>
+
+            <div class="control-group">
+                <h3>Settings</h3>
+                <div class="toggle-switch">
+                    <label for="enhancedMode">Enhanced Streaming Mode (HLS/DASH Support)</label>
+                    <label class="switch">
+                        <input type="checkbox" id="enhancedMode" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <small style="color: #6c757d;">Enable for HLS/DASH streaming support. Disable for lightweight native-only playback.</small>
+            </div>
+
+            <div class="control-group">
+                <h3>Load Video</h3>
+                <div class="input-group">
+                    <input type="text" id="videoUrl" placeholder="Enter video URL (MP4, M3U8, MPD, WebM)">
+                    <button class="btn-primary" onclick="loadVideo()">Load Video</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Sample Videos</h3>
+                <div class="sample-videos">
+                    <button class="sample-btn" onclick="loadSample('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 'mp4')">
+                        <span class="format-tag">MP4</span>
+                        <strong>Big Buck Bunny</strong>
+                        <small>Progressive Download • 9:56</small>
+                    </button>
+                    <button class="sample-btn" onclick="loadSample('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4', 'mp4')">
+                        <span class="format-tag">MP4</span>
+                        <strong>Sintel</strong>
+                        <small>Progressive Download • 14:48</small>
+                    </button>
+                    <button class="sample-btn" onclick="loadSample('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 'hls')">
+                        <span class="format-tag">HLS</span>
+                        <strong>Tears of Steel</strong>
+                        <small>HLS Adaptive Streaming</small>
+                    </button>
+                    <button class="sample-btn" onclick="loadSample('https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8', 'hls')">
+                        <span class="format-tag">HLS</span>
+                        <strong>Tears of Steel (Alt)</strong>
+                        <small>HLS Multi-bitrate</small>
+                    </button>
+                    <button class="sample-btn" onclick="loadSample('https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd', 'dash')">
+                        <span class="format-tag">DASH</span>
+                        <strong>Big Buck Bunny DASH</strong>
+                        <small>MPEG-DASH Streaming</small>
+                    </button>
+                    <button class="sample-btn" onclick="loadSample('https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd', 'dash')">
+                        <span class="format-tag">DASH</span>
+                        <strong>Envivio Demo</strong>
+                        <small>DASH Multi-period</small>
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Playback Controls</h3>
+                <div class="button-group">
+                    <button class="btn-success" onclick="player.play()">▶️ Play</button>
+                    <button class="btn-secondary" onclick="player.pause()">⏸️ Pause</button>
+                    <button class="btn-secondary" onclick="player.stop()">⏹️ Stop</button>
+                    <button class="btn-secondary" onclick="player.seek(Math.max(0, player.getCurrentTime() - 10))">⏪ -10s</button>
+                    <button class="btn-secondary" onclick="player.seek(player.getCurrentTime() + 10)">⏩ +10s</button>
+                </div>
+            </div>
+
+            <div class="control-group" id="qualityControl" style="display: none;">
+                <h3>Quality Selection</h3>
+                <div class="quality-buttons" id="qualityButtons"></div>
+            </div>
+
+            <div class="control-group">
+                <h3>Volume & Display</h3>
+                <div class="button-group">
+                    <div class="volume-control">
+                        <button class="btn-secondary" onclick="player.toggleMute()">🔇 Toggle Mute</button>
+                        <input type="range" id="volumeSlider" min="0" max="100" value="100" onchange="player.setVolume(this.value/100)">
+                        <span id="volumeValue">100%</span>
+                    </div>
+                    <button class="btn-secondary" onclick="player.enterPictureInPicture()">📺 PiP</button>
+                    <button class="btn-secondary" onclick="player.enterFullscreen()">🔳 Fullscreen</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Playback Speed</h3>
+                <div class="button-group">
+                    <button class="btn-secondary" onclick="player.setPlaybackRate(0.5)">0.5x</button>
+                    <button class="btn-secondary" onclick="player.setPlaybackRate(0.75)">0.75x</button>
+                    <button class="btn-primary" onclick="player.setPlaybackRate(1)">1x</button>
+                    <button class="btn-secondary" onclick="player.setPlaybackRate(1.25)">1.25x</button>
+                    <button class="btn-secondary" onclick="player.setPlaybackRate(1.5)">1.5x</button>
+                    <button class="btn-secondary" onclick="player.setPlaybackRate(2)">2x</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="status-label">State:</span>
+                <span class="status-value" id="playerState">Idle</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Format:</span>
+                <span class="status-value" id="playerFormat">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Time:</span>
+                <span class="status-value" id="playerTime">0:00 / 0:00</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Buffered:</span>
+                <span class="status-value" id="playerBuffer">0%</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Resolution:</span>
+                <span class="status-value" id="playerResolution">-</span>
+            </div>
+            <div class="status-item" id="bitrateItem" style="display: none;">
+                <span class="status-label">Bitrate:</span>
+                <span class="status-value" id="playerBitrate">-</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Unified Video Player - Works with or without streaming libraries
+        class UnifiedVideoPlayer {
+            constructor(videoElement) {
+                this.video = videoElement;
+                this.state = 'idle';
+                this.hls = null;
+                this.dash = null;
+                this.currentFormat = null;
+                this.qualities = [];
+                this.enhancedMode = true;
+                this.librariesLoaded = false;
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                this.video.addEventListener('play', () => this.updateState('playing'));
+                this.video.addEventListener('pause', () => this.updateState('paused'));
+                this.video.addEventListener('ended', () => this.updateState('ended'));
+                this.video.addEventListener('loadstart', () => this.updateState('loading'));
+                this.video.addEventListener('canplay', () => this.updateState('ready'));
+                this.video.addEventListener('error', (e) => this.handleError(e));
+                this.video.addEventListener('waiting', () => this.updateState('buffering'));
+                
+                // Update UI
+                this.video.addEventListener('timeupdate', () => this.updateTime());
+                this.video.addEventListener('progress', () => this.updateBuffer());
+                this.video.addEventListener('loadedmetadata', () => this.updateResolution());
+                this.video.addEventListener('volumechange', () => this.updateVolume());
+            }
+
+            async loadStreamingLibraries() {
+                if (this.librariesLoaded) return;
+                
+                this.showMessage('Loading streaming libraries...', 'info');
+                
+                try {
+                    // Load HLS.js
+                    if (!window.Hls) {
+                        await this.loadScript('https://cdn.jsdelivr.net/npm/hls.js@latest');
+                    }
+                    
+                    // Load dash.js
+                    if (!window.dashjs) {
+                        await this.loadScript('https://cdn.dashjs.org/latest/dash.all.min.js');
+                    }
+                    
+                    this.librariesLoaded = true;
+                    this.showMessage('Streaming libraries loaded successfully', 'success');
+                } catch (error) {
+                    this.showMessage('Failed to load streaming libraries: ' + error.message, 'error');
+                    throw error;
+                }
+            }
+
+            loadScript(src) {
+                return new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+                    document.head.appendChild(script);
+                });
+            }
+
+            async load(url, format = 'auto') {
+                // Clean up previous instances
+                this.cleanup();
+                
+                // Auto-detect format if not specified
+                if (format === 'auto') {
+                    if (url.includes('.m3u8')) {
+                        format = 'hls';
+                    } else if (url.includes('.mpd')) {
+                        format = 'dash';
+                    } else {
+                        format = 'native';
+                    }
+                }
+                
+                this.currentFormat = format;
+                document.getElementById('playerFormat').textContent = format.toUpperCase();
+                
+                try {
+                    // Check if enhanced mode is enabled and we need streaming libraries
+                    if (this.enhancedMode && (format === 'hls' || format === 'dash')) {
+                        await this.loadStreamingLibraries();
+                        
+                        if (format === 'hls') {
+                            await this.loadHLS(url);
+                        } else if (format === 'dash') {
+                            await this.loadDASH(url);
+                        }
+                        
+                        document.getElementById('bitrateItem').style.display = 'flex';
+                    } else {
+                        // Use native playback
+                        await this.loadNative(url);
+                        document.getElementById('bitrateItem').style.display = 'none';
+                    }
+                    
+                    this.showMessage(`Successfully loaded ${format.toUpperCase()} video`, 'success');
+                } catch (error) {
+                    this.showMessage(`Failed to load video: ${error.message}`, 'error');
+                    console.error('Load error:', error);
+                }
+            }
+
+            async loadHLS(url) {
+                if (!window.Hls) {
+                    throw new Error('HLS.js library not loaded');
+                }
+                
+                if (Hls.isSupported()) {
+                    this.hls = new Hls({
+                        debug: false,
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                        backBufferLength: 90
+                    });
+                    
+                    this.hls.loadSource(url);
+                    this.hls.attachMedia(this.video);
+                    
+                    this.hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+                        console.log('HLS manifest loaded, found ' + data.levels.length + ' quality levels');
+                        
+                        // Store quality levels
+                        this.qualities = data.levels.map((level, index) => ({
+                            index: index,
+                            height: level.height,
+                            bitrate: level.bitrate,
+                            label: `${level.height}p${level.frameRate ? '@' + Math.round(level.frameRate) + 'fps' : ''}`
+                        }));
+                        
+                        this.updateQualityButtons();
+                        
+                        // Start playback
+                        this.video.play().catch(e => console.log('Autoplay prevented'));
+                    });
+                    
+                    this.hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+                        const level = this.hls.levels[data.level];
+                        if (level) {
+                            document.getElementById('playerBitrate').textContent = 
+                                `${Math.round(level.bitrate / 1000)} kbps`;
+                        }
+                    });
+                    
+                    this.hls.on(Hls.Events.ERROR, (event, data) => {
+                        if (data.fatal) {
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    console.error('Fatal network error encountered, trying to recover');
+                                    this.hls.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    console.error('Fatal media error encountered, trying to recover');
+                                    this.hls.recoverMediaError();
+                                    break;
+                                default:
+                                    console.error('Fatal error, cannot recover');
+                                    this.hls.destroy();
+                                    this.showMessage('HLS Fatal Error: ' + data.details, 'error');
+                                    break;
+                            }
+                        }
+                    });
+                } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Native HLS support (Safari)
+                    this.video.src = url;
+                    this.video.addEventListener('loadedmetadata', () => {
+                        this.video.play().catch(e => console.log('Autoplay prevented'));
+                    });
+                } else {
+                    throw new Error('HLS is not supported in this browser');
+                }
+            }
+
+            async loadDASH(url) {
+                if (!window.dashjs) {
+                    throw new Error('dash.js library not loaded');
+                }
+                
+                this.dash = dashjs.MediaPlayer().create();
+                this.dash.initialize(this.video, url, false);
+                
+                // Configure DASH settings
+                this.dash.updateSettings({
+                    streaming: {
+                        abr: {
+                            autoSwitchBitrate: {
+                                video: true,
+                                audio: true
+                            }
+                        },
+                        buffer: {
+                            fastSwitchEnabled: true
+                        },
+                        gaps: {
+                            jumpGaps: true
+                        }
+                    }
+                });
+                
+                this.dash.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+                    console.log('DASH stream initialized');
+                    
+                    // Get quality levels
+                    setTimeout(() => {
+                        try {
+                            const bitrateList = this.dash.getBitrateInfoListFor && this.dash.getBitrateInfoListFor('video');
+                            
+                            if (bitrateList && bitrateList.length > 0) {
+                                this.qualities = bitrateList.map((info, index) => ({
+                                    index: index,
+                                    height: info.height || 0,
+                                    bitrate: info.bitrate || info.bandwidth || 0,
+                                    label: `${info.height || 'Quality ' + (index + 1)}p`
+                                }));
+                                this.updateQualityButtons();
+                            }
+                        } catch (error) {
+                            console.log('Quality selection not available for this DASH stream');
+                        }
+                    }, 1000);
+                    
+                    this.video.play().catch(e => console.log('Autoplay prevented'));
+                });
+                
+                this.dash.on(dashjs.MediaPlayer.events.QUALITY_CHANGE_RENDERED, (e) => {
+                    if (e.mediaType === 'video' && e.newQuality !== undefined) {
+                        try {
+                            const currentQuality = this.qualities[e.newQuality];
+                            if (currentQuality) {
+                                document.getElementById('playerBitrate').textContent = 
+                                    `${Math.round(currentQuality.bitrate / 1000)} kbps`;
+                            }
+                        } catch (error) {
+                            console.warn('Could not update bitrate display:', error);
+                        }
+                    }
+                });
+                
+                this.dash.on(dashjs.MediaPlayer.events.ERROR, (e) => {
+                    console.error('DASH error:', e);
+                    this.showMessage('DASH Error: ' + e.error.message, 'error');
+                });
+            }
+
+            async loadNative(url) {
+                this.video.src = url;
+                this.video.load();
+                this.video.play().catch(e => console.log('Autoplay prevented'));
+            }
+
+            updateQualityButtons() {
+                const container = document.getElementById('qualityButtons');
+                const qualityControl = document.getElementById('qualityControl');
+                
+                if (this.qualities.length > 0) {
+                    qualityControl.style.display = 'block';
+                    container.innerHTML = '';
+                    
+                    // Add Auto button
+                    const autoBtn = document.createElement('button');
+                    autoBtn.className = 'quality-btn btn-secondary active';
+                    autoBtn.textContent = 'Auto';
+                    autoBtn.onclick = () => this.setQuality(-1);
+                    container.appendChild(autoBtn);
+                    
+                    // Add quality buttons
+                    this.qualities.forEach((quality, index) => {
+                        const btn = document.createElement('button');
+                        btn.className = 'quality-btn btn-secondary';
+                        btn.textContent = quality.label;
+                        btn.onclick = () => this.setQuality(index);
+                        container.appendChild(btn);
+                    });
+                } else {
+                    qualityControl.style.display = 'none';
+                }
+            }
+
+            setQuality(index) {
+                // Update button states
+                const buttons = document.querySelectorAll('.quality-btn');
+                buttons.forEach((btn, i) => {
+                    btn.classList.toggle('active', i === index + 1);
+                });
+                
+                if (this.hls) {
+                    this.hls.currentLevel = index;
+                } else if (this.dash) {
+                    if (index === -1) {
+                        this.dash.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: true } } } });
+                    } else {
+                        this.dash.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: false } } } });
+                        this.dash.setQualityFor('video', index);
+                    }
+                }
+            }
+
+            cleanup() {
+                if (this.hls) {
+                    this.hls.destroy();
+                    this.hls = null;
+                }
+                if (this.dash) {
+                    this.dash.reset();
+                    this.dash = null;
+                }
+                this.qualities = [];
+                document.getElementById('qualityControl').style.display = 'none';
+                document.getElementById('bitrateItem').style.display = 'none';
+            }
+
+            play() {
+                this.video.play().catch(e => {
+                    console.error('Play failed:', e);
+                    this.showMessage('Playback failed: ' + e.message, 'error');
+                });
+            }
+
+            pause() {
+                this.video.pause();
+            }
+
+            stop() {
+                this.pause();
+                this.video.currentTime = 0;
+            }
+
+            seek(time) {
+                this.video.currentTime = Math.max(0, Math.min(time, this.video.duration || 0));
+            }
+
+            setVolume(level) {
+                this.video.volume = Math.max(0, Math.min(1, level));
+            }
+
+            toggleMute() {
+                this.video.muted = !this.video.muted;
+            }
+
+            setPlaybackRate(rate) {
+                this.video.playbackRate = rate;
+            }
+
+            getCurrentTime() {
+                return this.video.currentTime;
+            }
+
+            enterFullscreen() {
+                if (this.video.requestFullscreen) {
+                    this.video.requestFullscreen();
+                } else if (this.video.webkitRequestFullscreen) {
+                    this.video.webkitRequestFullscreen();
+                }
+            }
+
+            enterPictureInPicture() {
+                if (this.video.requestPictureInPicture) {
+                    this.video.requestPictureInPicture().catch(e => {
+                        console.error('PiP failed:', e);
+                        this.showMessage('Picture-in-Picture not available', 'error');
+                    });
+                }
+            }
+
+            handleError(e) {
+                this.updateState('error');
+                const error = this.video.error;
+                if (error) {
+                    const message = `Video Error: ${error.message || 'Unknown error'}`;
+                    console.error(message, error);
+                    this.showMessage(message, 'error');
+                }
+            }
+
+            showMessage(text, type = 'info') {
+                const messageBox = document.getElementById('messageBox');
+                messageBox.textContent = text;
+                messageBox.className = `message ${type}`;
+                messageBox.style.display = 'block';
+                
+                if (type !== 'error') {
+                    setTimeout(() => {
+                        messageBox.style.display = 'none';
+                    }, 3000);
+                }
+            }
+
+            updateState(state) {
+                this.state = state;
+                document.getElementById('playerState').textContent = state.charAt(0).toUpperCase() + state.slice(1);
+            }
+
+            updateTime() {
+                const current = this.formatTime(this.video.currentTime);
+                const duration = this.formatTime(this.video.duration);
+                document.getElementById('playerTime').textContent = `${current} / ${duration}`;
+            }
+
+            updateBuffer() {
+                if (this.video.buffered.length > 0) {
+                    const bufferedEnd = this.video.buffered.end(this.video.buffered.length - 1);
+                    const duration = this.video.duration;
+                    const percent = duration ? (bufferedEnd / duration * 100).toFixed(1) : 0;
+                    document.getElementById('playerBuffer').textContent = `${percent}%`;
+                }
+            }
+
+            updateResolution() {
+                const width = this.video.videoWidth;
+                const height = this.video.videoHeight;
+                document.getElementById('playerResolution').textContent = 
+                    width && height ? `${width}x${height}` : '-';
+            }
+
+            updateVolume() {
+                const volume = Math.round(this.video.volume * 100);
+                document.getElementById('volumeValue').textContent = `${volume}%`;
+                document.getElementById('volumeSlider').value = volume;
+            }
+
+            formatTime(seconds) {
+                if (!isFinite(seconds)) return '0:00';
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            setEnhancedMode(enabled) {
+                this.enhancedMode = enabled;
+                const hlsBadge = document.getElementById('hlsBadge');
+                const dashBadge = document.getElementById('dashBadge');
+                
+                if (enabled) {
+                    hlsBadge.textContent = '✓ HLS';
+                    dashBadge.textContent = '✓ DASH';
+                    this.showMessage('Enhanced mode enabled - Full streaming support', 'success');
+                } else {
+                    hlsBadge.textContent = '○ HLS';
+                    dashBadge.textContent = '○ DASH';
+                    this.showMessage('Enhanced mode disabled - Native playback only', 'info');
+                }
+            }
+        }
+
+        // Initialize player
+        const player = new UnifiedVideoPlayer(document.getElementById('videoPlayer'));
+
+        // Setup enhanced mode toggle
+        document.getElementById('enhancedMode').addEventListener('change', (e) => {
+            player.setEnhancedMode(e.target.checked);
+        });
+
+        // Helper functions
+        function loadVideo() {
+            const url = document.getElementById('videoUrl').value.trim();
+            if (url) {
+                player.load(url, 'auto');
+            } else {
+                alert('Please enter a video URL');
+            }
+        }
+
+        function loadSample(url, format) {
+            document.getElementById('videoUrl').value = url;
+            player.load(url, format);
+        }
+
+        // Auto-load first sample on page load
+        window.addEventListener('load', () => {
+            // Check if libraries are available
+            if (window.Hls) {
+                console.log('HLS.js pre-loaded, version:', Hls.version);
+            }
+            if (window.dashjs) {
+                console.log('dash.js pre-loaded, version:', dashjs.Version);
+            }
+            
+            // Load a default video
+            loadSample('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 'native');
+        });
+    </script>
+</body>
+</html>

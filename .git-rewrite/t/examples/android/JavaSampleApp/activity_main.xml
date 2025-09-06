@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- activity_main.xml - Layout for Java Sample App -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#000000"
+    tools:context=".MainActivity">
+
+    <!-- Video Player Container -->
+    <FrameLayout
+        android:id="@+id/playerContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#000000">
+
+        <!-- Loading Indicator -->
+        <ProgressBar
+            android:id="@+id/loadingProgressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <!-- Error Text -->
+        <TextView
+            android:id="@+id/errorTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:textColor="#FF0000"
+            android:textSize="14sp"
+            android:padding="16dp"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <!-- Controls Container -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#1A1A1A"
+        android:padding="16dp">
+
+        <!-- Progress Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/currentTimeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="00:00"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:minWidth="45dp" />
+
+            <SeekBar
+                android:id="@+id/progressSeekBar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:progressTint="#FFFFFF"
+                android:thumbTint="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/durationText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="00:00"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:minWidth="45dp" />
+
+        </LinearLayout>
+
+        <!-- Main Control Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="8dp">
+
+            <Button
+                android:id="@+id/skipBackwardButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⏪ 10s"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#333333"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/playPauseButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Play"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#0066CC"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/skipForwardButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="10s ⏩"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#333333" />
+
+        </LinearLayout>
+
+        <!-- Volume Control -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Volume:"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:layout_marginEnd="8dp" />
+
+            <SeekBar
+                android:id="@+id/volumeSeekBar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:progressTint="#FFFFFF"
+                android:thumbTint="#FFFFFF" />
+
+            <Button
+                android:id="@+id/muteButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mute"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#333333"
+                android:layout_marginStart="8dp" />
+
+        </LinearLayout>
+
+        <!-- Additional Controls -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <Button
+                android:id="@+id/loadVideoButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Load Video"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#555555"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/qualityButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Quality"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#555555"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/speedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Speed"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#555555"
+                android:layout_marginStart="4dp" />
+
+        </LinearLayout>
+
+        <!-- Status Information -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp"
+            android:padding="8dp"
+            android:background="#2A2A2A">
+
+            <TextView
+                android:id="@+id/stateTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="State: Idle"
+                android:textColor="#AAAAAA"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/infoTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ready to load video"
+                android:textColor="#AAAAAA"
+                android:textSize="12sp"
+                android:layout_marginTop="4dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>
