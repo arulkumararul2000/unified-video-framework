@@ -1,4 +1,4 @@
-# Unified Video Player Framework ( ⚠🚧 Don't use this Package this is Under Developement 🏗 )
+# Unified Video Player Framework ( 🚧 Don't use this Package this is Under Developement 🏗️ )
 
 A comprehensive cross-platform video player framework that provides a unified API for building video applications across all major platforms.
 

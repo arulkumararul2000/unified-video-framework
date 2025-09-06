@@ -46,7 +46,8 @@
     "scripts/fix-imports.js",
     "README.md",
     "LICENSE",
-    "INSTALLATION.md"
+    "INSTALLATION.md",
+    "CHANGELOG.md"
   ],
   "private": false,
   "workspaces": [
@@ -96,6 +97,10 @@
     "type": "git",
     "url": "git+https://github.com/flicknexs/unified-video-framework.git"
   },
+  "homepage": "https://github.com/flicknexs/unified-video-framework#readme",
+  "bugs": {
+    "url": "https://github.com/flicknexs/unified-video-framework/issues"
+  },
   "keywords": [
     "video",
     "player",
@@ -112,5 +117,9 @@
     "dash"
   ],
   "author": "flicknexs",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  }
 }
