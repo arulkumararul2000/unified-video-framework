@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basic Web Player - Unified Video Framework</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .player-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto 30px;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #videoPlayer {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16/9;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        input[type="range"] {
+            flex: 1;
+            min-width: 200px;
+        }
+        .info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .status {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .status-item {
+            padding: 5px 10px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .events-log {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .event-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .video-options {
+            margin-bottom: 20px;
+        }
+        select {
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: white;
+        }
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Basic Web Player Example</h1>
+        
+        <div class="info">
+            <h3>About This Example</h3>
+            <p>This example demonstrates the basic functionality of the Unified Video Framework web player:</p>
+            <ul>
+                <li>Loading and playing video files (MP4, WebM, HLS)</li>
+                <li>Basic playback controls (play, pause, seek)</li>
+                <li>Volume control</li>
+                <li>Event handling and status updates</li>
+                <li>Error handling</li>
+            </ul>
+        </div>
+
+        <div class="video-options">
+            <label for="videoSelect">Choose a video source:</label>
+            <select id="videoSelect">
+                <option value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">Big Buck Bunny (MP4)</option>
+                <option value="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8">Mux Test Stream (HLS)</option>
+                <option value="https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd">Angel One (DASH)</option>
+                <option value="https://www.w3schools.com/html/mov_bbb.mp4">Short Clip (MP4)</option>
+            </select>
+            <button onclick="loadVideo()">Load Video</button>
+        </div>
+
+        <div class="player-container">
+            <div id="videoPlayer"></div>
+        </div>
+
+        <div class="controls">
+            <button id="playBtn" onclick="togglePlay()">Play</button>
+            <button onclick="player.seek(player.getCurrentTime() - 10)">⏪ 10s</button>
+            <button onclick="player.seek(player.getCurrentTime() + 10)">⏩ 10s</button>
+            <button id="muteBtn" onclick="toggleMute()">Mute</button>
+            <input type="range" id="volumeSlider" min="0" max="100" value="100" onchange="setVolume(this.value)">
+            <button onclick="player.enterFullscreen()">Fullscreen</button>
+        </div>
+
+        <div class="status">
+            <div class="status-item">State: <span id="playerState">Not Initialized</span></div>
+            <div class="status-item">Time: <span id="currentTime">0:00</span> / <span id="duration">0:00</span></div>
+            <div class="status-item">Volume: <span id="volumeLevel">100</span>%</div>
+            <div class="status-item">Buffered: <span id="buffered">0</span>%</div>
+        </div>
+
+        <h3>Event Log</h3>
+        <div class="events-log" id="eventLog">
+            <div class="event-item">Waiting for initialization...</div>
+        </div>
+
+        <div id="errorContainer"></div>
+    </div>
+
+    <!-- Include the Unified Video Framework -->
+    <script src="../../packages/web/dist/WebPlayer.js"></script>
+    
+    <script>
+        // For this example, we'll simulate the WebPlayer class
+        // In a real implementation, this would come from the npm package
+        
+        let player;
+        let isPlaying = false;
+        let isMuted = false;
+
+        // Simulated WebPlayer class (replace with actual import in production)
+        class WebPlayer {
+            constructor(container, options) {
+                this.container = container;
+                this.options = options;
+                this.video = document.createElement('video');
+                this.video.controls = false;
+                this.video.style.width = '100%';
+                this.video.style.height = '100%';
+                this.container.appendChild(this.video);
+                
+                this.setupEventListeners();
+                logEvent('Player initialized');
+            }
+
+            setupEventListeners() {
+                this.video.addEventListener('loadedmetadata', () => {
+                    updateStatus();
+                    logEvent('Metadata loaded');
+                });
+                
+                this.video.addEventListener('timeupdate', () => {
+                    updateTime();
+                });
+                
+                this.video.addEventListener('progress', () => {
+                    updateBuffered();
+                });
+                
+                this.video.addEventListener('play', () => {
+                    isPlaying = true;
+                    document.getElementById('playBtn').textContent = 'Pause';
+                    document.getElementById('playerState').textContent = 'Playing';
+                    logEvent('Play');
+                });
+                
+                this.video.addEventListener('pause', () => {
+                    isPlaying = false;
+                    document.getElementById('playBtn').textContent = 'Play';
+                    document.getElementById('playerState').textContent = 'Paused';
+                    logEvent('Pause');
+                });
+                
+                this.video.addEventListener('ended', () => {
+                    isPlaying = false;
+                    document.getElementById('playBtn').textContent = 'Play';
+                    document.getElementById('playerState').textContent = 'Ended';
+                    logEvent('Video ended');
+                });
+                
+                this.video.addEventListener('error', (e) => {
+                    showError('Video error: ' + (this.video.error ? this.video.error.message : 'Unknown error'));
+                    logEvent('Error: ' + (this.video.error ? this.video.error.message : 'Unknown'));
+                });
+            }
+
+            load(source) {
+                this.video.src = source.url;
+                document.getElementById('playerState').textContent = 'Loading';
+                logEvent('Loading: ' + source.url);
+            }
+
+            play() {
+                this.video.play();
+            }
+
+            pause() {
+                this.video.pause();
+            }
+
+            seek(time) {
+                this.video.currentTime = Math.max(0, Math.min(time, this.video.duration || 0));
+                logEvent('Seek to: ' + formatTime(time));
+            }
+
+            setVolume(level) {
+                this.video.volume = level / 100;
+                document.getElementById('volumeLevel').textContent = level;
+                logEvent('Volume set to: ' + level + '%');
+            }
+
+            mute() {
+                this.video.muted = true;
+                isMuted = true;
+                document.getElementById('muteBtn').textContent = 'Unmute';
+                logEvent('Muted');
+            }
+
+            unmute() {
+                this.video.muted = false;
+                isMuted = false;
+                document.getElementById('muteBtn').textContent = 'Mute';
+                logEvent('Unmuted');
+            }
+
+            enterFullscreen() {
+                if (this.video.requestFullscreen) {
+                    this.video.requestFullscreen();
+                } else if (this.video.webkitRequestFullscreen) {
+                    this.video.webkitRequestFullscreen();
+                } else if (this.video.msRequestFullscreen) {
+                    this.video.msRequestFullscreen();
+                }
+                logEvent('Entered fullscreen');
+            }
+
+            getCurrentTime() {
+                return this.video.currentTime;
+            }
+
+            getDuration() {
+                return this.video.duration || 0;
+            }
+
+            destroy() {
+                this.video.remove();
+                logEvent('Player destroyed');
+            }
+        }
+
+        // Initialize player
+        function initPlayer() {
+            const container = document.getElementById('videoPlayer');
+            player = new WebPlayer(container, {
+                autoplay: false,
+                muted: false,
+                debug: true
+            });
+            
+            // Load default video
+            loadVideo();
+        }
+
+        // Load selected video
+        function loadVideo() {
+            const select = document.getElementById('videoSelect');
+            const url = select.value;
+            const type = url.includes('.m3u8') ? 'hls' : url.includes('.mpd') ? 'dash' : 'mp4';
+            
+            player.load({
+                url: url,
+                type: type
+            });
+            
+            clearError();
+        }
+
+        // Playback controls
+        function togglePlay() {
+            if (isPlaying) {
+                player.pause();
+            } else {
+                player.play();
+            }
+        }
+
+        function toggleMute() {
+            if (isMuted) {
+                player.unmute();
+            } else {
+                player.mute();
+            }
+        }
+
+        function setVolume(value) {
+            player.setVolume(value);
+        }
+
+        // Status updates
+        function updateTime() {
+            const current = player.getCurrentTime();
+            const duration = player.getDuration();
+            document.getElementById('currentTime').textContent = formatTime(current);
+            document.getElementById('duration').textContent = formatTime(duration);
+        }
+
+        function updateStatus() {
+            const duration = player.getDuration();
+            document.getElementById('duration').textContent = formatTime(duration);
+        }
+
+        function updateBuffered() {
+            const video = player.video;
+            if (video.buffered.length > 0) {
+                const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+                const duration = video.duration;
+                if (duration > 0) {
+                    const bufferedPercent = (bufferedEnd / duration) * 100;
+                    document.getElementById('buffered').textContent = bufferedPercent.toFixed(1);
+                }
+            }
+        }
+
+        // Utility functions
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return minutes + ':' + (secs < 10 ? '0' : '') + secs;
+        }
+
+        function logEvent(message) {
+            const log = document.getElementById('eventLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const event = document.createElement('div');
+            event.className = 'event-item';
+            event.textContent = `[${timestamp}] ${message}`;
+            log.insertBefore(event, log.firstChild);
+            
+            // Keep only last 50 events
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        function clearError() {
+            document.getElementById('errorContainer').innerHTML = '';
+        }
+
+        // Initialize on page load
+        window.onload = initPlayer;
+    </script>
+</body>
+</html>

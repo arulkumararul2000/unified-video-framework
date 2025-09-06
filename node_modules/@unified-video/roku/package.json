@@ -36,7 +36,7 @@
     "componentsDir": "components",
     "imagesDir": "images"
   },
-  "author": "Your Company",
+  "author": "flicknexs",
   "license": "MIT",
   "publishConfig": {
     "access": "public"

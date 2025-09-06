@@ -22,7 +22,7 @@
     "core",
     "interfaces"
   ],
-  "author": "Your Company",
+  "author": "flicknexs",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^18.0.0",

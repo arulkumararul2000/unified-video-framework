@@ -12,10 +12,10 @@ Features:
 - Remote Command Center & Now Playing
 - Background audio
 DESC
-  s.homepage         = 'https://github.com/your-org/unified-video-framework'
+  s.homepage         = 'https://github.com/flicknexs/unified-video-framework'
   s.license          = { :type => 'MIT' }
-  s.author           = { 'Your Company' => 'support@example.com' }
-  s.source           = { :git => 'https://github.com/your-org/unified-video-framework-ios.git', :tag => s.version.to_s }
+  s.author           = { 'flicknexs' => 'contact@flicknexs.com' }
+  s.source           = { :git => 'https://github.com/flicknexs/unified-video-framework.git', :tag => s.version.to_s }
   s.platform         = :ios, '12.0'
   s.swift_version    = '5.8'
 

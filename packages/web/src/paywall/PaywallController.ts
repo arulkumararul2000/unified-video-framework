@@ -148,6 +148,10 @@ export class PaywallController {
       }
 
       if (gateway === 'cashfree') {
+        const features = `popup=1,width=${w},height=${h},left=${left},top=${top}`;
+        // Pre-open a blank popup in direct response to the click to avoid popup blockers
+        let pre: Window | null = null;
+        try { pre = window.open('', 'uvfCheckout', features); } catch(_) { pre = null; }
         const res = await fetch(`${apiBase}/api/rentals/cashfree/order`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId, videoId, returnUrl: window.location.origin + window.location.pathname })
@@ -155,9 +159,13 @@ export class PaywallController {
         const data = await res.json();
         if (data?.paymentLink && data?.orderId) {
           try { this.popup && !this.popup.closed && this.popup.close(); } catch (_) {}
-          this.popup = window.open(data.paymentLink, 'uvfCheckout', `popup=1,width=${w},height=${h},left=${left},top=${top}`);
+          this.popup = pre && !pre.closed ? pre : window.open('', 'uvfCheckout', features);
+          try { if (this.popup) this.popup.location.href = data.paymentLink; } catch(_) {}
           (window as any)._uvf_cfOrderId = data.orderId;
           this.startPolling();
+        } else {
+          // Close the pre-opened popup if we didn't get a link
+          try { pre && !pre.closed && pre.close(); } catch(_) {}
         }
         return;
       }

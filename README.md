@@ -33,20 +33,41 @@ A comprehensive cross-platform video player framework that provides a unified AP
 
 ### Using npm
 ```bash
-npm install @company/unified-video-framework
+npm install unified-video-framework
 ```
 
 ### Using yarn
 ```bash
-yarn add @company/unified-video-framework
+yarn add unified-video-framework
 ```
+
+### Using pnpm
+```bash
+pnpm add unified-video-framework
+```
+
+### From GitHub (latest development version)
+```bash
+npm install github:flicknexs/unified-video-framework
+```
+
+### Using npm link (for development)
+```bash
+# In the framework directory
+npm link
+
+# In your project
+npm link unified-video-framework
+```
+
+📖 **For detailed installation instructions and troubleshooting, see [INSTALLATION.md](./INSTALLATION.md)**
 
 ## 🚀 Quick Start
 
 ### Basic Usage
 
 ```typescript
-import { UnifiedVideoPlayer } from '@company/unified-video-framework';
+import { UnifiedVideoPlayer } from '@flicknexs/unified-video-framework';
 
 function App() {
   return (
@@ -69,7 +90,7 @@ function App() {
 ### With DRM
 
 ```typescript
-import { UnifiedVideoPlayer, DRMType } from '@company/unified-video-framework';
+import { UnifiedVideoPlayer, DRMType } from '@flicknexs/unified-video-framework';
 
 function SecureVideoApp() {
   return (
@@ -217,7 +238,7 @@ The framework automatically handles remote control inputs on TV platforms:
 ## 📊 Analytics Integration
 
 ```typescript
-import { GoogleAnalytics, MixPanel } from '@company/analytics';
+import { GoogleAnalytics, MixPanel } from '@flicknexs/analytics';
 
 <UnifiedVideoPlayer
   source={videoSource}
@@ -299,7 +320,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - **Documentation**: [https://docs.example.com](https://docs.example.com)
-- **Issues**: [GitHub Issues](https://github.com/your-org/unified-video-framework/issues)
+- **Issues**: [GitHub Issues](https://github.com/flicknexs/unified-video-framework/issues)
 - **Discord**: [Join our Discord](https://discord.gg/example)
 - **Email**: support@example.com
 
@@ -312,4 +333,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Built with ❤️ by Your Company
+Built with ❤️ by flicknexs

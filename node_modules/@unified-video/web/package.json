@@ -42,7 +42,7 @@
     "hls",
     "dash"
   ],
-  "author": "Your Company",
+  "author": "flicknexs",
   "license": "MIT",
   "publishConfig": {
     "access": "public"

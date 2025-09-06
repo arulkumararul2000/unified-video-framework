@@ -30,6 +30,26 @@ const WebPlayerView = (props) => {
     const containerRef = (0, react_1.useRef)(null);
     const playerRef = (0, react_1.useRef)(null);
     (0, react_1.useEffect)(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const popup = (params.get('popup') || '').toLowerCase() === '1';
+            const status = (params.get('rental') || '').toLowerCase();
+            const orderId = params.get('order_id') || '';
+            const sessionId = params.get('session_id') || '';
+            if (popup && (status === 'success' || status === 'cancel')) {
+                try {
+                    window.opener?.postMessage({ type: 'uvfCheckout', status, orderId, sessionId }, '*');
+                }
+                catch (_) { }
+                try {
+                    window.close();
+                }
+                catch (_) { }
+            }
+        }
+        catch (_) { }
+    }, []);
+    (0, react_1.useEffect)(() => {
         let cancelled = false;
         async function boot() {
             if (!containerRef.current)

@@ -14,9 +14,36 @@ cashfreeRouter.post('/cashfree/order', async (req: Request, res: Response) => {
   if (!userId || !videoId || !returnUrl) return res.status(400).json({ error: 'userId, videoId, returnUrl required' });
 
   try {
-    const { rows } = await db.query(`SELECT price_cents, currency, rental_duration_hours, title FROM videos WHERE video_id=$1`, [videoId]);
-    if (!rows[0]) return res.status(404).json({ error: 'Video not found' });
-    const { price_cents, currency, rental_duration_hours, title } = rows[0];
+    let price_cents = 0;
+    let currency = 'INR';
+    let rental_duration_hours = 48;
+    let title = videoId;
+    try {
+      const { rows } = await db.query(`SELECT price_cents, currency, rental_duration_hours, title FROM videos WHERE video_id=$1`, [videoId]);
+      if (rows[0]) {
+        price_cents = Number(rows[0].price_cents || 0);
+        currency = String(rows[0].currency || 'INR');
+        rental_duration_hours = Number(rows[0].rental_duration_hours || 48);
+        title = String(rows[0].title || videoId);
+      } else {
+        // Fallback demo price when DB has no record
+        price_cents = 2500; // ₹25.00
+        currency = 'INR';
+        rental_duration_hours = 48;
+        title = videoId;
+      }
+    } catch {
+      // Fallback when DB is disabled or not reachable
+      price_cents = 2500; // ₹25.00
+      currency = 'INR';
+      rental_duration_hours = 48;
+      title = videoId;
+    }
+
+    // Require Cashfree to be configured
+    if (!config.cashfree.appId || !config.cashfree.secretKey) {
+      return res.status(503).json({ error: 'Cashfree not configured' });
+    }
 
     const orderId = 'cf_' + randomUUID();
 
@@ -60,20 +87,26 @@ cashfreeRouter.post('/cashfree/order', async (req: Request, res: Response) => {
 
     try { console.log('[cashfree/order] POST', url, JSON.stringify({ ...body, customer_details: { ...body.customer_details, customer_phone: '***' } })); } catch(_) {}
     const resp = await axios.post(url, body, { headers });
+    try { console.log('[cashfree/order] resp keys', Object.keys(resp.data || {})); } catch(_) {}
     let paymentLink = resp.data?.payment_link || resp.data?.payment_link_url || resp.data?.payment_url;
     // New PG v2 API returns payment_session_id without a direct link; construct hosted checkout URL
     if (!paymentLink && resp.data?.payment_session_id) {
-      const sessionId = String(resp.data.payment_session_id);
+      const sessionIdRaw = resp.data.payment_session_id;
+      const sessionId = typeof sessionIdRaw === 'string' ? sessionIdRaw : String(sessionIdRaw?.id || sessionIdRaw);
+      try { console.log('[cashfree/order] sessionId', sessionId); } catch(_) {}
       const isLive = /api\.cashfree\.com/i.test(config.cashfree.baseUrl || '');
       // Per Cashfree docs, the hosted page is served from payments.cashfree.com (live) or sandbox.cashfree.com
       const host = isLive ? 'https://payments.cashfree.com' : 'https://sandbox.cashfree.com';
-      paymentLink = `${host.replace(/\/$/, '')}/pg/view/paymentoptions?payment_session_id=${encodeURIComponent(sessionId)}`;
+      // Hosted checkout path per Cashfree PG v2 docs
+      paymentLink = `${host.replace(/\/$/, '')}/pg/view/checkout?payment_session_id=${encodeURIComponent(sessionId)}`;
     }
     if (!paymentLink) {
       try { console.error('[cashfree/order] response missing payment link', typeof resp.data === 'object' ? JSON.stringify(resp.data) : String(resp.data)); } catch(_) {}
       return res.status(500).json({ error: 'cashfree payment link not returned', details: resp.data });
     }
-    return res.json({ paymentLink, orderId, rentalDurationHours: Number(rental_duration_hours || 48), title: title || videoId });
+  // Also return sessionId to support JS SDK (Elements/Dropin) integration
+  const sessionIdOut = String(resp.data?.payment_session_id || '');
+  return res.json({ paymentLink, orderId, sessionId: sessionIdOut, rentalDurationHours: Number(rental_duration_hours || 48), title: title || videoId });
   } catch (err: any) {
     const status = err?.response?.status;
     const data = err?.response?.data;
