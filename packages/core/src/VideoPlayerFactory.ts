@@ -97,8 +97,11 @@ export class VideoPlayerFactory {
     if (typeof global !== 'undefined' && (global as any).nativeCallSyncHook) {
       // React Native environment
       try {
-        const { Platform } = require('react-native');
-        return Platform.OS as Platform;
+        // Use eval to prevent webpack from trying to resolve react-native
+        const RN = eval('require("react-native")');
+        if (RN && RN.Platform) {
+          return RN.Platform.OS as Platform;
+        }
       } catch (e) {
         // React Native not available, fall through to other checks
       }

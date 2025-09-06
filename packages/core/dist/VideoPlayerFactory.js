@@ -60,8 +60,10 @@ class VideoPlayerFactory {
     static detectPlatform() {
         if (typeof global !== 'undefined' && global.nativeCallSyncHook) {
             try {
-                const { Platform } = require('react-native');
-                return Platform.OS;
+                const RN = eval('require("react-native")');
+                if (RN && RN.Platform) {
+                    return RN.Platform.OS;
+                }
             }
             catch (e) {
             }
