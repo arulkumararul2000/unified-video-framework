@@ -1005,6 +1005,19 @@ export class WebPlayer extends BasePlayer {
         pointer-events: none;
       }
       
+      /* Skip button specific styles for consistency */
+      #uvf-skip-back svg,
+      #uvf-skip-forward svg {
+        width: 22px;
+        height: 22px;
+        stroke-width: 0;
+        transform: scale(1);
+      }
+      
+      #uvf-skip-forward svg {
+        transform: scale(1) scaleX(-1); /* Mirror the icon for forward */
+      }
+      
       .uvf-control-btn.play-pause {
         width: 50px;
         height: 50px;
@@ -1489,6 +1502,31 @@ export class WebPlayer extends BasePlayer {
         transform: translateY(-10px) !important;
         pointer-events: none;
       }
+      
+      /* Fullscreen specific styles */
+      .uvf-player-wrapper.uvf-fullscreen .uvf-video-container {
+        width: 100vw;
+        height: 100vh;
+        max-width: none;
+        max-height: none;
+      }
+      
+      /* Ensure overlays remain visible in fullscreen */
+      .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar,
+      .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls,
+      .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar,
+      .uvf-player-wrapper.uvf-fullscreen .uvf-top-gradient,
+      .uvf-player-wrapper.uvf-fullscreen .uvf-controls-gradient {
+        z-index: 2147483647; /* Maximum z-index value */
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen:hover .uvf-title-bar,
+      .uvf-player-wrapper.uvf-fullscreen:hover .uvf-top-controls,
+      .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-title-bar,
+      .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-top-controls {
+        opacity: 1;
+        transform: translateY(0);
+      }
     `;
   }
 
@@ -1602,17 +1640,21 @@ export class WebPlayer extends BasePlayer {
     `;
     controlsRow.appendChild(playPauseBtn);
     
-    // Skip buttons
+    // Skip buttons with consistent icons
     const skipBackBtn = document.createElement('button');
     skipBackBtn.className = 'uvf-control-btn';
     skipBackBtn.id = 'uvf-skip-back';
-    skipBackBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>';
+    skipBackBtn.setAttribute('title', 'Skip backward 10s');
+    skipBackBtn.setAttribute('aria-label', 'Skip backward 10 seconds');
+    skipBackBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>';
     controlsRow.appendChild(skipBackBtn);
     
     const skipForwardBtn = document.createElement('button');
     skipForwardBtn.className = 'uvf-control-btn';
     skipForwardBtn.id = 'uvf-skip-forward';
-    skipForwardBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12.01 19c-3.31 0-6-2.69-6-6s2.69-6 6-6V5l5 5-5 5V9c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4h2c0 3.31-2.69 6-6 6z"/></svg>';
+    skipForwardBtn.setAttribute('title', 'Skip forward 10s');
+    skipForwardBtn.setAttribute('aria-label', 'Skip forward 10 seconds');
+    skipForwardBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>';
     controlsRow.appendChild(skipForwardBtn);
     
     // Volume control
@@ -1906,6 +1948,42 @@ export class WebPlayer extends BasePlayer {
       } else {
         this.exitFullscreen();
       }
+    });
+    
+    // Fullscreen change event to maintain overlay visibility
+    document.addEventListener('fullscreenchange', () => {
+      const wrapper = this.playerWrapper || this.container?.querySelector('.uvf-player-wrapper');
+      if (wrapper) {
+        if (document.fullscreenElement) {
+          wrapper.classList.add('uvf-fullscreen');
+        } else {
+          wrapper.classList.remove('uvf-fullscreen');
+        }
+      }
+      // Update fullscreen button icon
+      const fullscreenBtn = document.getElementById('uvf-fullscreen-btn');
+      if (fullscreenBtn) {
+        fullscreenBtn.innerHTML = document.fullscreenElement 
+          ? '<svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>'
+          : '<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>';
+      }
+    });
+    
+    // Add webkit and moz prefixed fullscreen change events for compatibility
+    ['webkitfullscreenchange', 'mozfullscreenchange'].forEach(eventName => {
+      document.addEventListener(eventName, () => {
+        const wrapper = this.playerWrapper || this.container?.querySelector('.uvf-player-wrapper');
+        if (wrapper) {
+          const isFullscreen = !!(document.fullscreenElement || 
+                                 (document as any).webkitFullscreenElement || 
+                                 (document as any).mozFullScreenElement);
+          if (isFullscreen) {
+            wrapper.classList.add('uvf-fullscreen');
+          } else {
+            wrapper.classList.remove('uvf-fullscreen');
+          }
+        }
+      });
     });
     
     // Loading states
