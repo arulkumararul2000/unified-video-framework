@@ -96,8 +96,12 @@ export class VideoPlayerFactory {
     // Check if running in React Native
     if (typeof global !== 'undefined' && (global as any).nativeCallSyncHook) {
       // React Native environment
-      const { Platform } = require('react-native');
-      return Platform.OS as Platform;
+      try {
+        const { Platform } = require('react-native');
+        return Platform.OS as Platform;
+      } catch (e) {
+        // React Native not available, fall through to other checks
+      }
     }
     
     // Check if running in browser

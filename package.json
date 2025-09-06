@@ -24,14 +24,26 @@
       "require": "./packages/react-native/dist/index.js",
       "import": "./packages/react-native/dist/index.js",
       "types": "./packages/react-native/dist/index.d.ts"
+    },
+    "./packages/web/dist": {
+      "require": "./packages/web/dist/index.js",
+      "import": "./packages/web/dist/index.js",
+      "types": "./packages/web/dist/index.d.ts"
+    },
+    "./packages/core/dist": {
+      "require": "./packages/core/dist/index.js",
+      "import": "./packages/core/dist/index.js",
+      "types": "./packages/core/dist/index.d.ts"
     }
   },
   "files": [
     "index.js",
     "index.d.ts",
+    "unified-video-framework.d.ts",
     "packages/*/dist/**/*",
     "packages/*/src/**/*",
     "packages/*/package.json",
+    "scripts/fix-imports.js",
     "README.md",
     "LICENSE",
     "INSTALLATION.md"
@@ -44,7 +56,7 @@
   ],
   "scripts": {
     "bootstrap": "lerna bootstrap --legacy-peer-deps",
-    "build": "npm run build:core && npm run build:web && npm run build:rental-api && npm run fix-imports",
+    "build": "npm run build:core && npm run build:web && npm run build:react-native && npm run fix-imports",
     "build:core": "cd packages/core && npm run build",
     "build:web": "cd packages/web && npm run build",
     "build:rental-api": "cd apps/rental-api && npm run build",
@@ -59,11 +71,12 @@
     "test:watch": "jest --watch",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "type-check": "tsc --noEmit",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build:publish",
     "dev": "lerna run dev --parallel",
     "serve:demo": "node server.js",
     "docs": "typedoc --out docs packages/core/src",
-    "fix-imports": "node scripts/fix-imports.js"
+    "fix-imports": "node scripts/fix-imports.js",
+    "build:publish": "npm run build:core && npm run build:web && npm run fix-imports"
   },
   "devDependencies": {
     "@types/node": "^18.0.0",

@@ -9,6 +9,7 @@ export * from '@unified-video/core';
 // Export web player implementation
 export { WebPlayer } from './WebPlayer';
 export { WebPlayerView } from './react/WebPlayerView';
+export { SecureVideoPlayer } from './SecureVideoPlayer';
 
 // Version
 export const VERSION = '1.0.0';

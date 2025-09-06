@@ -59,8 +59,12 @@ class VideoPlayerFactory {
     }
     static detectPlatform() {
         if (typeof global !== 'undefined' && global.nativeCallSyncHook) {
-            const { Platform } = require('react-native');
-            return Platform.OS;
+            try {
+                const { Platform } = require('react-native');
+                return Platform.OS;
+            }
+            catch (e) {
+            }
         }
         if (typeof window !== 'undefined') {
             const userAgent = window.navigator.userAgent.toLowerCase();
