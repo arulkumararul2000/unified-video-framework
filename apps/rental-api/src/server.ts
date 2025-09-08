@@ -5,6 +5,7 @@ import { rentalsRouter } from './routes/rentals.js';
 import { stripeWebhookRouter } from './routes/webhooks.js';
 // import { pesapalRouter } from './routes/pesapal.js';
 import { cashfreeRouter } from './routes/cashfree.js';
+import { authRouter } from './routes/auth.js';
 import { initDb } from './db.js';
 import { config } from './config.js';
 
@@ -22,6 +23,7 @@ app.use(bodyParser.json());
 app.use('/api/rentals', rentalsRouter);
 app.use('/api/webhooks', stripeWebhookRouter);
 app.use('/api/rentals', cashfreeRouter);
+app.use('/api/auth', authRouter);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 

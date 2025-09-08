@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: uvf-postgres
+    environment:
+      POSTGRES_DB: rental_db
+      POSTGRES_USER: rental_user
+      POSTGRES_PASSWORD: rental_pass
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./apps/rental-api/scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rental_user -d rental_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rental-api:
+    build:
+      context: .
+      dockerfile: apps/rental-api/Dockerfile
+    container_name: uvf-rental-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgresql://rental_user:rental_pass@postgres:5432/rental_db
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_dummy}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
+      - CASHFREE_APP_ID=${CASHFREE_APP_ID:-test_app_id}
+      - CASHFREE_SECRET_KEY=${CASHFREE_SECRET_KEY:-test_secret}
+      - CASHFREE_ENVIRONMENT=${CASHFREE_ENVIRONMENT:-TEST}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./apps/rental-api/src:/app/src
+      - ./apps/rental-api/dist:/app/dist
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/rentals/config?userId=test&videoId=test"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
