@@ -1,4 +1,5 @@
 import { PaywallConfig } from '@unified-video/core';
+import { EmailAuthController, EmailAuthControllerOptions } from './EmailAuthController';
 
 export type PaywallControllerOptions = {
   getOverlayContainer: () => HTMLElement | null;
@@ -13,10 +14,17 @@ export class PaywallController {
   private overlayEl: HTMLElement | null = null;
   private gatewayStepEl: HTMLElement | null = null;
   private popup: Window | null = null;
+  private emailAuth: EmailAuthController | null = null;
+  private authenticatedUserId: string | null = null;
+  private sessionToken: string | null = null;
 
   constructor(config: PaywallConfig | null, opts: PaywallControllerOptions) {
     this.config = config;
     this.opts = opts;
+    
+    // Initialize EmailAuthController if email auth is enabled
+    this.initializeEmailAuth();
+    
     try {
       window.addEventListener('message', this.onMessage, false);
     } catch (_) {}
@@ -24,10 +32,32 @@ export class PaywallController {
 
   updateConfig(config: PaywallConfig | null) {
     this.config = config;
+    this.initializeEmailAuth();
+    if (this.emailAuth) {
+      this.emailAuth.updateConfig(config);
+    }
   }
 
   openOverlay() {
     if (!this.config?.enabled) return;
+    
+    // Check authentication first if email auth is enabled
+    if (this.config.emailAuth?.enabled) {
+      if (!this.emailAuth?.isAuthenticated()) {
+        // Show email authentication modal first
+        this.emailAuth?.openAuthModal();
+        return;
+      } else {
+        // Update userId for authenticated user
+        this.authenticatedUserId = this.emailAuth?.getAuthenticatedUserId() || this.config.userId;
+        // Update config with authenticated userId for API calls
+        if (this.authenticatedUserId && this.config) {
+          this.config.userId = this.authenticatedUserId;
+        }
+      }
+    }
+    
+    // Show payment overlay
     const root = this.ensureOverlay();
     if (!root) return;
     root.style.display = 'flex';
@@ -212,4 +242,107 @@ export class PaywallController {
       this.opts.onResume();
     }
   };
+
+  /**
+   * Initialize EmailAuthController if email authentication is enabled
+   */
+  private initializeEmailAuth() {
+    if (!this.config?.emailAuth?.enabled) {
+      // Clean up existing EmailAuth if disabled
+      if (this.emailAuth) {
+        this.emailAuth.destroy();
+        this.emailAuth = null;
+      }
+      return;
+    }
+
+    if (!this.emailAuth) {
+      const emailAuthOptions: EmailAuthControllerOptions = {
+        getOverlayContainer: this.opts.getOverlayContainer,
+        onAuthSuccess: (userId: string, sessionToken: string) => {
+          this.authenticatedUserId = userId;
+          this.sessionToken = sessionToken;
+          
+          // Update config with authenticated userId
+          if (this.config) {
+            this.config.userId = userId;
+          }
+          
+          // Close auth modal and open payment overlay
+          this.emailAuth?.closeAuthModal();
+          
+          // Now show the paywall for payment
+          setTimeout(() => {
+            this.openPaymentOverlay();
+          }, 100);
+        },
+        onAuthCancel: () => {
+          // User cancelled authentication, close everything
+          this.emailAuth?.closeAuthModal();
+          this.opts.onShow?.(); // Let parent know modal was shown (for cleanup)
+        },
+        onShow: this.opts.onShow,
+        onClose: this.opts.onClose,
+      };
+      
+      this.emailAuth = new EmailAuthController(this.config, emailAuthOptions);
+    }
+  }
+
+  /**
+   * Open payment overlay directly (bypassing auth check)
+   */
+  private openPaymentOverlay() {
+    const root = this.ensureOverlay();
+    if (!root) return;
+    root.style.display = 'flex';
+    root.classList.add('active');
+    this.opts.onShow?.();
+  }
+
+  /**
+   * Check if user is authenticated (for external use)
+   */
+  isAuthenticated(): boolean {
+    if (!this.config?.emailAuth?.enabled) return true;
+    return this.emailAuth?.isAuthenticated() || false;
+  }
+
+  /**
+   * Get authenticated user ID (for external use)
+   */
+  getAuthenticatedUserId(): string | null {
+    if (!this.config?.emailAuth?.enabled) return this.config?.userId || null;
+    return this.emailAuth?.getAuthenticatedUserId() || this.config?.userId || null;
+  }
+
+  /**
+   * Logout user (for external use)
+   */
+  async logout(): Promise<void> {
+    if (this.emailAuth) {
+      await this.emailAuth.logout();
+    }
+    this.authenticatedUserId = null;
+    this.sessionToken = null;
+  }
+
+  /**
+   * Cleanup on destroy
+   */
+  destroy() {
+    if (this.emailAuth) {
+      this.emailAuth.destroy();
+      this.emailAuth = null;
+    }
+    
+    if (this.overlayEl && this.overlayEl.parentElement) {
+      this.overlayEl.parentElement.removeChild(this.overlayEl);
+    }
+    this.overlayEl = null;
+    
+    try {
+      window.removeEventListener('message', this.onMessage, false);
+    } catch (_) {}
+  }
 }

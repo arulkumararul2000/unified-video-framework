@@ -11,9 +11,43 @@ export type WebPlayerViewProps = {
   enableAdaptiveBitrate?: boolean;
   debug?: boolean;
   freeDuration?: number;
-  // Paywall
+  // Paywall with Email Authentication
   paywall?: import('@unified-video/core').PaywallConfig;
   paywallConfigUrl?: string; // optional endpoint returning PaywallConfig JSON
+  
+  // Email Authentication (will be merged into paywall config)
+  emailAuth?: {
+    enabled?: boolean;                    // Enable email authentication flow
+    skipIfAuthenticated?: boolean;       // Skip email auth if user already has valid session (default: true)
+    apiEndpoints?: {
+      requestOtp?: string;               // POST endpoint for requesting OTP (default: '/auth/request-otp')
+      verifyOtp?: string;                // POST endpoint for verifying OTP (default: '/auth/verify-otp')
+      refreshToken?: string;             // POST endpoint for refreshing token (default: '/auth/refresh-token')
+      logout?: string;                   // POST endpoint for logout (default: '/auth/logout')
+    };
+    sessionStorage?: {
+      tokenKey?: string;                 // Key for storing session token (default: 'uvf_session_token')
+      refreshTokenKey?: string;          // Key for storing refresh token (default: 'uvf_refresh_token')
+      userIdKey?: string;                // Key for storing user ID (default: 'uvf_user_id')
+    };
+    ui?: {
+      title?: string;                    // Modal title (default: "Sign in to continue")
+      description?: string;              // Modal description
+      emailPlaceholder?: string;         // Email input placeholder
+      otpPlaceholder?: string;           // OTP input placeholder
+      submitButtonText?: string;         // Submit button text
+      resendButtonText?: string;         // Resend OTP button text
+      resendCooldown?: number;           // Resend cooldown in seconds (default: 30)
+    };
+    validation?: {
+      otpLength?: number;                // Expected OTP length (default: 6)
+      otpTimeout?: number;               // OTP validity timeout in seconds (default: 300)
+      rateLimiting?: {
+        maxAttempts?: number;            // Max OTP requests per hour (default: 5)
+        windowMinutes?: number;          // Rate limiting window (default: 60)
+      };
+    };
+  };
 
   // Source config
   url: string;
@@ -246,6 +280,45 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
           if (resp.ok) paywallCfg = await resp.json();
         } catch(_) {}
       }
+      
+      // Merge email authentication configuration with paywall config
+      if (props.emailAuth?.enabled && paywallCfg) {
+        paywallCfg = {
+          ...paywallCfg,
+          emailAuth: {
+            enabled: props.emailAuth.enabled,
+            skipIfAuthenticated: props.emailAuth.skipIfAuthenticated ?? true,
+            sessionStorage: {
+              tokenKey: props.emailAuth.sessionStorage?.tokenKey || 'uvf_session_token',
+              refreshTokenKey: props.emailAuth.sessionStorage?.refreshTokenKey || 'uvf_refresh_token',
+              userIdKey: props.emailAuth.sessionStorage?.userIdKey || 'uvf_user_id',
+            },
+            api: {
+              requestOtp: props.emailAuth.apiEndpoints?.requestOtp || '/auth/request-otp',
+              verifyOtp: props.emailAuth.apiEndpoints?.verifyOtp || '/auth/verify-otp',
+              refreshToken: props.emailAuth.apiEndpoints?.refreshToken || '/auth/refresh-token',
+              logout: props.emailAuth.apiEndpoints?.logout || '/auth/logout',
+            },
+            ui: {
+              title: props.emailAuth.ui?.title || 'Sign in to continue',
+              description: props.emailAuth.ui?.description || 'Enter your email to receive a verification code',
+              emailPlaceholder: props.emailAuth.ui?.emailPlaceholder || 'Enter your email',
+              otpPlaceholder: props.emailAuth.ui?.otpPlaceholder || 'Enter 6-digit code',
+              submitButtonText: props.emailAuth.ui?.submitButtonText || 'Send Code',
+              resendButtonText: props.emailAuth.ui?.resendButtonText || 'Resend Code',
+              resendCooldown: props.emailAuth.ui?.resendCooldown || 30,
+            },
+            validation: {
+              otpLength: props.emailAuth.validation?.otpLength || 6,
+              otpTimeout: props.emailAuth.validation?.otpTimeout || 300,
+              rateLimiting: {
+                maxAttempts: props.emailAuth.validation?.rateLimiting?.maxAttempts || 5,
+                windowMinutes: props.emailAuth.validation?.rateLimiting?.windowMinutes || 60,
+              },
+            },
+          },
+        };
+      }
 
       const config: PlayerConfig = {
         autoPlay: props.autoPlay ?? false,
@@ -301,6 +374,9 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     props.cast,
     props.freeDuration,
     JSON.stringify(props.responsive),
+    JSON.stringify(props.paywall),
+    JSON.stringify(props.emailAuth),
+    props.paywallConfigUrl,
   ])
 
   // Update free preview duration at runtime without full re-init
