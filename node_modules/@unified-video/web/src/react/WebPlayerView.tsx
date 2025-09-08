@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { VideoSource, SubtitleTrack, VideoMetadata, PlayerConfig } from '@unified-video/core';
 import { WebPlayer } from '../WebPlayer';
@@ -31,6 +31,30 @@ export type WebPlayerViewProps = {
   // { accent, accent2, iconColor, textPrimary, textSecondary }
   playerTheme?: string | { accent?: string; accent2?: string; iconColor?: string; textPrimary?: string; textSecondary?: string };
 
+  // Responsive configuration
+  responsive?: {
+    enabled?: boolean;                    // Enable/disable responsive behavior (default: true)
+    aspectRatio?: number;                // Aspect ratio (width/height) - default: 16/9
+    maxWidth?: string;                   // Maximum width for desktop - default: '100%'
+    maxHeight?: string;                  // Maximum height - default: '70vh'
+    breakpoints?: {                      // Custom breakpoints
+      mobile?: number;                   // Mobile breakpoint (default: 768)
+      tablet?: number;                   // Tablet breakpoint (default: 1024)
+    };
+    mobilePortrait?: {                   // Mobile portrait specific settings
+      maxHeight?: string;                // Max height in mobile portrait (default: '40vh')
+      aspectRatio?: number;              // Custom aspect ratio for mobile portrait
+    };
+    mobileLandscape?: {                  // Mobile landscape specific settings
+      maxHeight?: string;                // Max height in mobile landscape (default: '80vh')
+      aspectRatio?: number;              // Custom aspect ratio for mobile landscape
+    };
+    tablet?: {                          // Tablet specific settings
+      maxWidth?: string;                 // Max width for tablets (default: '90%')
+      maxHeight?: string;                // Max height for tablets (default: '60vh')
+    };
+  };
+
   // Callbacks
   onReady?: (player: WebPlayer) => void;
   onError?: (error: unknown) => void;
@@ -39,6 +63,140 @@ export type WebPlayerViewProps = {
 export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<WebPlayer | null>(null);
+  const [dimensions, setDimensions] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1920,
+    height: typeof window !== 'undefined' ? window.innerHeight : 1080,
+  });
+
+  // Responsive window resize handler
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // Enable responsive by default unless explicitly disabled
+    const responsiveEnabled = props.responsive?.enabled !== false;
+    if (!responsiveEnabled) return;
+
+    const handleResize = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    // Call once immediately to set initial dimensions
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, [props.responsive?.enabled]);
+
+  // Calculate responsive dimensions based on current viewport
+  const getResponsiveDimensions = (): CSSProperties => {
+    // Enable responsive by default unless explicitly disabled
+    const responsiveEnabled = props.responsive?.enabled !== false;
+    if (!responsiveEnabled) return props.style || {};
+
+    const { width, height } = dimensions;
+    const responsive = props.responsive || {};
+    
+    // Default configuration
+    const defaults = {
+      aspectRatio: responsive.aspectRatio || 16/9,
+      maxWidth: responsive.maxWidth || '100%',
+      maxHeight: responsive.maxHeight || '70vh',
+      breakpoints: {
+        mobile: responsive.breakpoints?.mobile || 768,
+        tablet: responsive.breakpoints?.tablet || 1024,
+      },
+      mobilePortrait: {
+        maxHeight: responsive.mobilePortrait?.maxHeight || '50vh', // Increased from 40vh
+        aspectRatio: responsive.mobilePortrait?.aspectRatio,
+      },
+      mobileLandscape: {
+        maxHeight: responsive.mobileLandscape?.maxHeight || '85vh', // Increased from 80vh
+        aspectRatio: responsive.mobileLandscape?.aspectRatio,
+      },
+      tablet: {
+        maxWidth: responsive.tablet?.maxWidth || '90%',
+        maxHeight: responsive.tablet?.maxHeight || '65vh', // Increased from 60vh
+      },
+    };
+
+    const isMobile = width < defaults.breakpoints.mobile;
+    const isTablet = width >= defaults.breakpoints.mobile && width < defaults.breakpoints.tablet;
+    const isPortrait = height > width;
+    const isLandscape = width > height;
+
+    // Base responsive style
+    let calculatedStyle: CSSProperties = {
+      width: '100%',
+      boxSizing: 'border-box',
+      position: 'relative',
+      margin: '0 auto',
+      ...props.style, // Apply user styles first, then override as needed
+    };
+
+    // Mobile Portrait
+    if (isMobile && isPortrait) {
+      const mobileAspectRatio = defaults.mobilePortrait.aspectRatio || defaults.aspectRatio;
+      // Use viewport width to calculate proper height for mobile
+      const calculatedHeight = Math.min(
+        width / mobileAspectRatio, // Full width divided by aspect ratio
+        height * 0.5 // 50% of viewport height max
+      );
+      calculatedStyle = {
+        ...calculatedStyle,
+        width: '100vw',
+        maxWidth: '100vw',
+        height: `${calculatedHeight}px`,
+        maxHeight: '50vh',
+        minHeight: '200px', // Ensure minimum usable height
+        aspectRatio: 'unset', // Let our height calculation take precedence
+      };
+    }
+    // Mobile Landscape
+    else if (isMobile && isLandscape) {
+      const mobileAspectRatio = defaults.mobileLandscape.aspectRatio || defaults.aspectRatio;
+      const calculatedHeight = Math.min(
+        width / mobileAspectRatio,
+        height * 0.85 // 85% of viewport height
+      );
+      calculatedStyle = {
+        ...calculatedStyle,
+        width: '100vw',
+        maxWidth: '100vw',
+        height: `${calculatedHeight}px`,
+        maxHeight: '85vh',
+        minHeight: '180px',
+        aspectRatio: 'unset', // Let our height calculation take precedence
+      };
+    }
+    // Tablet
+    else if (isTablet) {
+      const calculatedHeight = Math.min(
+        (width * 0.9) / defaults.aspectRatio,
+        height * 0.65 // 65% of viewport height max
+      );
+      calculatedStyle = {
+        ...calculatedStyle,
+        width: '90vw',
+        maxWidth: defaults.tablet.maxWidth,
+        height: `${calculatedHeight}px`,
+        maxHeight: defaults.tablet.maxHeight,
+        minHeight: '250px',
+        aspectRatio: 'unset',
+      };
+    }
+    // Desktop
+    else {
+      calculatedStyle = {
+        ...calculatedStyle,
+        maxWidth: defaults.maxWidth,
+        maxHeight: defaults.maxHeight,
+        aspectRatio: `${defaults.aspectRatio}`,
+      };
+    }
+
+    return calculatedStyle;
+  };
 
   // Checkout return bridge: forward rental=success/cancel with session_id/order_id back to opener and close
   useEffect(() => {
@@ -142,6 +300,7 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     JSON.stringify(props.metadata),
     props.cast,
     props.freeDuration,
+    JSON.stringify(props.responsive),
   ])
 
   // Update free preview duration at runtime without full re-init
@@ -170,7 +329,15 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     } catch (_) {}
   }, [JSON.stringify(props.playerTheme)]);
 
-  return <div ref={containerRef} className={props.className} style={props.style} />;
+  const responsiveStyle = getResponsiveDimensions();
+  
+  return (
+    <div 
+      ref={containerRef} 
+      className={`uvf-responsive-container ${props.className || ''}`}
+      style={responsiveStyle}
+    />
+  );
 };
 
 export default WebPlayerView;

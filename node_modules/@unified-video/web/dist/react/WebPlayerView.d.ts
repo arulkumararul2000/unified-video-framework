@@ -24,6 +24,28 @@ export type WebPlayerViewProps = {
         textPrimary?: string;
         textSecondary?: string;
     };
+    responsive?: {
+        enabled?: boolean;
+        aspectRatio?: number;
+        maxWidth?: string;
+        maxHeight?: string;
+        breakpoints?: {
+            mobile?: number;
+            tablet?: number;
+        };
+        mobilePortrait?: {
+            maxHeight?: string;
+            aspectRatio?: number;
+        };
+        mobileLandscape?: {
+            maxHeight?: string;
+            aspectRatio?: number;
+        };
+        tablet?: {
+            maxWidth?: string;
+            maxHeight?: string;
+        };
+    };
     onReady?: (player: WebPlayer) => void;
     onError?: (error: unknown) => void;
 };

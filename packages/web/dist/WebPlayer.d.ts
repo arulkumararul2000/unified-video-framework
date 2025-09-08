@@ -82,6 +82,8 @@ export declare class WebPlayer extends BasePlayer {
     private showControls;
     private hideControls;
     private scheduleHideControls;
+    private isFullscreen;
+    private setupFullscreenListeners;
     private updateTimeTooltip;
     private hideTimeTooltip;
     private showShortcutIndicator;
