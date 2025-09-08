@@ -25,6 +25,9 @@ export class PaywallController {
     // Initialize EmailAuthController if email auth is enabled
     this.initializeEmailAuth();
     
+    // ✅ NEW: Check authentication immediately on initialization
+    this.checkAuthenticationOnInit();
+    
     try {
       window.addEventListener('message', this.onMessage, false);
     } catch (_) {}
@@ -244,6 +247,35 @@ export class PaywallController {
   };
 
   /**
+   * ✅ NEW: Check authentication immediately when PaywallController is initialized
+   * This ensures email auth modal shows right away if user is not authenticated
+   */
+  private checkAuthenticationOnInit() {
+    // Only check if email auth is enabled
+    if (!this.config?.emailAuth?.enabled) {
+      console.log('[PaywallController] Email auth disabled, skipping initial auth check');
+      return;
+    }
+
+    // Check if user is already authenticated
+    if (this.emailAuth?.isAuthenticated()) {
+      console.log('[PaywallController] User already authenticated, allowing free playback');
+      // User is authenticated - they can play the free duration
+      const userId = this.emailAuth.getAuthenticatedUserId();
+      if (userId && this.config) {
+        this.config.userId = userId;
+        this.authenticatedUserId = userId;
+      }
+    } else {
+      console.log('[PaywallController] User NOT authenticated, showing email auth modal immediately');
+      // User is NOT authenticated - show email auth modal immediately
+      setTimeout(() => {
+        this.emailAuth?.openAuthModal();
+      }, 500); // Small delay to let player initialize
+    }
+  }
+
+  /**
    * Initialize EmailAuthController if email authentication is enabled
    */
   private initializeEmailAuth() {
@@ -268,13 +300,11 @@ export class PaywallController {
             this.config.userId = userId;
           }
           
-          // Close auth modal and open payment overlay
+          // Close auth modal - user can now play free duration
           this.emailAuth?.closeAuthModal();
           
-          // Now show the paywall for payment
-          setTimeout(() => {
-            this.openPaymentOverlay();
-          }, 100);
+          console.log('[PaywallController] Authentication successful, user can now play free duration');
+          // Don't show paywall yet - let them play the free duration first
         },
         onAuthCancel: () => {
           // User cancelled authentication, close everything

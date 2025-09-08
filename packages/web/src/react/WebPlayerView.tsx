@@ -282,7 +282,18 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
       }
       
       // Merge email authentication configuration with paywall config
-      if (props.emailAuth?.enabled && paywallCfg) {
+      if (props.emailAuth?.enabled) {
+        // Ensure paywall config exists if email auth is enabled
+        if (!paywallCfg) {
+          paywallCfg = {
+            enabled: true,
+            apiBase: 'http://localhost:3000', // Default API base
+            userId: 'user-' + Math.random().toString(36).substr(2, 9), // Generate temp userId
+            videoId: 'video-' + Math.random().toString(36).substr(2, 9), // Generate temp videoId
+            gateways: ['stripe'], // Default gateway
+          };
+        }
+        
         paywallCfg = {
           ...paywallCfg,
           emailAuth: {
