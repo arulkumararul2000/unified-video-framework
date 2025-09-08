@@ -725,6 +725,32 @@ export class WebPlayer extends BasePlayer {
         --uvf-firefox-scrollbar-color: rgba(255,255,255,0.25);
       }
       
+      /* Responsive Container Styles */
+      .uvf-responsive-container {
+        width: 100%;
+        margin: 0 auto;
+        box-sizing: border-box;
+        display: block;
+        position: relative;
+      }
+      
+      .uvf-responsive-container .uvf-player-wrapper {
+        width: 100%;
+        height: 100%;
+        max-width: inherit;
+        max-height: inherit;
+        box-sizing: border-box;
+      }
+      
+      .uvf-responsive-container .uvf-video-container {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 100%);
+        overflow: hidden;
+        box-sizing: border-box;
+      }
+      
       /* Gradient border effect */
       .uvf-player-wrapper::before {
         content: '';
@@ -1527,6 +1553,293 @@ export class WebPlayer extends BasePlayer {
         opacity: 1;
         transform: translateY(0);
       }
+      
+      /* Responsive Media Queries */
+      /* Mobile devices (portrait) */
+      @media screen and (max-width: 767px) and (orientation: portrait) {
+        .uvf-responsive-container {
+          padding: 0;
+          width: 100vw !important;
+          margin: 0;
+        }
+        
+        .uvf-responsive-container .uvf-player-wrapper {
+          width: 100vw !important;
+        }
+        
+        .uvf-responsive-container .uvf-video-container {
+          width: 100vw !important;
+          aspect-ratio: unset !important; /* Let JS handle the aspect ratio */
+        }
+        
+        .uvf-controls-bar {
+          padding: 12px 8px;
+        }
+        
+        .uvf-controls-row {
+          gap: 6px;
+        }
+        
+        .uvf-control-btn {
+          width: 34px;
+          height: 34px;
+          min-width: 34px;
+          min-height: 34px;
+        }
+        
+        .uvf-control-btn.play-pause {
+          width: 42px;
+          height: 42px;
+          min-width: 42px;
+          min-height: 42px;
+        }
+        
+        .uvf-time-display {
+          font-size: 11px;
+          min-width: 70px;
+          padding: 0 4px;
+        }
+        
+        .uvf-top-controls {
+          top: 8px;
+          right: 8px;
+          gap: 6px;
+        }
+        
+        .uvf-top-btn {
+          width: 34px;
+          height: 34px;
+          min-width: 34px;
+          min-height: 34px;
+        }
+        
+        .uvf-title-bar {
+          padding: 8px;
+        }
+        
+        .uvf-video-title {
+          font-size: 15px;
+        }
+        
+        .uvf-video-subtitle {
+          font-size: 11px;
+        }
+        
+        .uvf-center-play-btn {
+          width: 56px;
+          height: 56px;
+        }
+        
+        .uvf-center-play-btn svg {
+          width: 26px;
+          height: 26px;
+        }
+        
+        .uvf-progress-bar-wrapper {
+          height: 8px;
+          margin-bottom: 10px;
+        }
+        
+        .uvf-progress-handle {
+          width: 16px;
+          height: 16px;
+        }
+        
+        .uvf-settings-menu {
+          min-width: 150px;
+          bottom: 35px;
+          right: 5px;
+        }
+      }
+      
+      /* Mobile devices (landscape) */
+      @media screen and (max-width: 767px) and (orientation: landscape) {
+        .uvf-responsive-container {
+          width: 100vw !important;
+          height: 100vh !important;
+          margin: 0;
+          padding: 0;
+        }
+        
+        .uvf-responsive-container .uvf-player-wrapper {
+          width: 100vw !important;
+          height: 100vh !important;
+        }
+        
+        .uvf-responsive-container .uvf-video-container {
+          width: 100vw !important;
+          height: 100vh !important;
+          aspect-ratio: unset !important;
+        }
+        
+        .uvf-controls-bar {
+          padding: 8px;
+        }
+        
+        .uvf-top-controls {
+          top: 6px;
+          right: 6px;
+        }
+        
+        .uvf-title-bar {
+          padding: 6px;
+        }
+        
+        .uvf-control-btn {
+          width: 32px;
+          height: 32px;
+        }
+        
+        .uvf-control-btn.play-pause {
+          width: 40px;
+          height: 40px;
+        }
+      }
+      
+      /* Tablet devices */
+      @media screen and (min-width: 768px) and (max-width: 1023px) {
+        .uvf-controls-bar {
+          padding: 18px 15px;
+        }
+        
+        .uvf-control-btn {
+          width: 42px;
+          height: 42px;
+        }
+        
+        .uvf-control-btn.play-pause {
+          width: 48px;
+          height: 48px;
+        }
+        
+        .uvf-top-controls {
+          top: 15px;
+          right: 15px;
+        }
+        
+        .uvf-title-bar {
+          padding: 15px;
+        }
+        
+        .uvf-center-play-btn {
+          width: 70px;
+          height: 70px;
+        }
+      }
+      
+      /* Large screens */
+      @media screen and (min-width: 1024px) {
+        .uvf-responsive-container {
+          padding: 10px;
+        }
+      }
+      
+      /* Touch device optimizations */
+      @media (hover: none) and (pointer: coarse) {
+        .uvf-control-btn {
+          min-width: 44px;
+          min-height: 44px;
+        }
+        
+        .uvf-top-btn {
+          min-width: 44px;
+          min-height: 44px;
+        }
+        
+        .uvf-progress-bar-wrapper {
+          height: 8px;
+          cursor: pointer;
+        }
+        
+        .uvf-progress-handle {
+          width: 20px;
+          height: 20px;
+        }
+        
+        .uvf-volume-slider {
+          height: 10px;
+        }
+      }
+      
+      /* Paywall Responsive Styles */
+      .uvf-paywall-overlay {
+        position: absolute !important;
+        inset: 0 !important;
+        background: rgba(0,0,0,0.9) !important;
+        z-index: 2147483000 !important;
+        display: none !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+      }
+      
+      .uvf-paywall-modal {
+        width: 90vw !important;
+        height: auto !important;
+        max-width: 500px !important;
+        max-height: 90vh !important;
+        background: #0f0f10 !important;
+        border: 1px solid rgba(255,255,255,0.15) !important;
+        border-radius: 12px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: auto !important;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.7) !important;
+      }
+      
+      /* Paywall Mobile Portrait */
+      @media screen and (max-width: 767px) and (orientation: portrait) {
+        .uvf-paywall-modal {
+          width: 95vw !important;
+          max-width: none !important;
+          max-height: 85vh !important;
+          margin: 0 !important;
+        }
+        
+        .uvf-paywall-modal > div:first-child {
+          padding: 12px 16px !important;
+          font-size: 16px !important;
+        }
+        
+        .uvf-paywall-modal > div:last-child {
+          padding: 16px !important;
+        }
+      }
+      
+      /* Paywall Mobile Landscape */
+      @media screen and (max-width: 767px) and (orientation: landscape) {
+        .uvf-paywall-modal {
+          width: 85vw !important;
+          max-height: 80vh !important;
+        }
+        
+        .uvf-paywall-modal > div:first-child {
+          padding: 10px 16px !important;
+        }
+        
+        .uvf-paywall-modal > div:last-child {
+          padding: 14px !important;
+        }
+      }
+      
+      /* Paywall Tablet */
+      @media screen and (min-width: 768px) and (max-width: 1023px) {
+        .uvf-paywall-modal {
+          width: 80vw !important;
+          max-width: 600px !important;
+          max-height: 80vh !important;
+        }
+      }
+      
+      /* Paywall Desktop */
+      @media screen and (min-width: 1024px) {
+        .uvf-paywall-modal {
+          width: 70vw !important;
+          max-width: 800px !important;
+          max-height: 70vh !important;
+        }
+      }
     `;
   }
 
@@ -1569,11 +1882,6 @@ export class WebPlayer extends BasePlayer {
         </svg>
         <span>Stop Casting</span>
       </button>
-      <div class="uvf-top-btn" id="uvf-playlist-btn" title="Add to Playlist">
-        <svg viewBox="0 0 24 24">
-          <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/>
-        </svg>
-      </div>
       <div class="uvf-top-btn" id="uvf-share-btn" title="Share">
         <svg viewBox="0 0 24 24">
           <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
@@ -2057,12 +2365,10 @@ export class WebPlayer extends BasePlayer {
     // Top control buttons
     const castBtn = document.getElementById('uvf-cast-btn');
     const stopCastBtn = document.getElementById('uvf-stop-cast-btn');
-    const playlistBtn = document.getElementById('uvf-playlist-btn');
     const shareBtn = document.getElementById('uvf-share-btn');
     
     castBtn?.addEventListener('click', () => this.onCastButtonClick());
     stopCastBtn?.addEventListener('click', () => this.stopCasting());
-    playlistBtn?.addEventListener('click', () => this.showNotification('Added to playlist'));
     shareBtn?.addEventListener('click', () => this.shareVideo());
     
     // Hide settings menu when clicking outside

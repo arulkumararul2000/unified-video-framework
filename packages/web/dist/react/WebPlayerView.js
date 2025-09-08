@@ -29,6 +29,112 @@ const WebPlayer_1 = require("../WebPlayer");
 const WebPlayerView = (props) => {
     const containerRef = (0, react_1.useRef)(null);
     const playerRef = (0, react_1.useRef)(null);
+    const [dimensions, setDimensions] = (0, react_1.useState)({
+        width: typeof window !== 'undefined' ? window.innerWidth : 1920,
+        height: typeof window !== 'undefined' ? window.innerHeight : 1080,
+    });
+    (0, react_1.useEffect)(() => {
+        if (typeof window === 'undefined')
+            return;
+        const responsiveEnabled = props.responsive?.enabled !== false;
+        if (!responsiveEnabled)
+            return;
+        const handleResize = () => {
+            setDimensions({
+                width: window.innerWidth,
+                height: window.innerHeight,
+            });
+        };
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        return () => window.removeEventListener('resize', handleResize);
+    }, [props.responsive?.enabled]);
+    const getResponsiveDimensions = () => {
+        const responsiveEnabled = props.responsive?.enabled !== false;
+        if (!responsiveEnabled)
+            return props.style || {};
+        const { width, height } = dimensions;
+        const responsive = props.responsive || {};
+        const defaults = {
+            aspectRatio: responsive.aspectRatio || 16 / 9,
+            maxWidth: responsive.maxWidth || '100%',
+            maxHeight: responsive.maxHeight || '70vh',
+            breakpoints: {
+                mobile: responsive.breakpoints?.mobile || 768,
+                tablet: responsive.breakpoints?.tablet || 1024,
+            },
+            mobilePortrait: {
+                maxHeight: responsive.mobilePortrait?.maxHeight || '50vh',
+                aspectRatio: responsive.mobilePortrait?.aspectRatio,
+            },
+            mobileLandscape: {
+                maxHeight: responsive.mobileLandscape?.maxHeight || '85vh',
+                aspectRatio: responsive.mobileLandscape?.aspectRatio,
+            },
+            tablet: {
+                maxWidth: responsive.tablet?.maxWidth || '90%',
+                maxHeight: responsive.tablet?.maxHeight || '65vh',
+            },
+        };
+        const isMobile = width < defaults.breakpoints.mobile;
+        const isTablet = width >= defaults.breakpoints.mobile && width < defaults.breakpoints.tablet;
+        const isPortrait = height > width;
+        const isLandscape = width > height;
+        let calculatedStyle = {
+            width: '100%',
+            boxSizing: 'border-box',
+            position: 'relative',
+            margin: '0 auto',
+            ...props.style,
+        };
+        if (isMobile && isPortrait) {
+            const mobileAspectRatio = defaults.mobilePortrait.aspectRatio || defaults.aspectRatio;
+            const calculatedHeight = Math.min(width / mobileAspectRatio, height * 0.5);
+            calculatedStyle = {
+                ...calculatedStyle,
+                width: '100vw',
+                maxWidth: '100vw',
+                height: `${calculatedHeight}px`,
+                maxHeight: '50vh',
+                minHeight: '200px',
+                aspectRatio: 'unset',
+            };
+        }
+        else if (isMobile && isLandscape) {
+            const mobileAspectRatio = defaults.mobileLandscape.aspectRatio || defaults.aspectRatio;
+            const calculatedHeight = Math.min(width / mobileAspectRatio, height * 0.85);
+            calculatedStyle = {
+                ...calculatedStyle,
+                width: '100vw',
+                maxWidth: '100vw',
+                height: `${calculatedHeight}px`,
+                maxHeight: '85vh',
+                minHeight: '180px',
+                aspectRatio: 'unset',
+            };
+        }
+        else if (isTablet) {
+            const calculatedHeight = Math.min((width * 0.9) / defaults.aspectRatio, height * 0.65);
+            calculatedStyle = {
+                ...calculatedStyle,
+                width: '90vw',
+                maxWidth: defaults.tablet.maxWidth,
+                height: `${calculatedHeight}px`,
+                maxHeight: defaults.tablet.maxHeight,
+                minHeight: '250px',
+                aspectRatio: 'unset',
+            };
+        }
+        else {
+            calculatedStyle = {
+                ...calculatedStyle,
+                maxWidth: defaults.maxWidth,
+                maxHeight: defaults.maxHeight,
+                aspectRatio: `${defaults.aspectRatio}`,
+            };
+        }
+        return calculatedStyle;
+    };
     (0, react_1.useEffect)(() => {
         try {
             const params = new URLSearchParams(window.location.search);
@@ -129,6 +235,7 @@ const WebPlayerView = (props) => {
         JSON.stringify(props.metadata),
         props.cast,
         props.freeDuration,
+        JSON.stringify(props.responsive),
     ]);
     (0, react_1.useEffect)(() => {
         const p = playerRef.current;
@@ -157,7 +264,8 @@ const WebPlayerView = (props) => {
         }
         catch (_) { }
     }, [JSON.stringify(props.playerTheme)]);
-    return react_1.default.createElement("div", { ref: containerRef, className: props.className, style: props.style });
+    const responsiveStyle = getResponsiveDimensions();
+    return (react_1.default.createElement("div", { ref: containerRef, className: `uvf-responsive-container ${props.className || ''}`, style: responsiveStyle }));
 };
 exports.WebPlayerView = WebPlayerView;
 exports.default = exports.WebPlayerView;
