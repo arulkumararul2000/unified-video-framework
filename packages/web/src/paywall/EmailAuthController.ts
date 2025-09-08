@@ -745,7 +745,12 @@ export class EmailAuthController {
 
       if (data.success && data.data?.sessionToken && data.data?.userId) {
         // Store authentication tokens
-        this.storeAuthTokens(data.data);
+        this.storeAuthTokens({
+          sessionToken: data.data.sessionToken,
+          refreshToken: data.data.refreshToken,
+          userId: data.data.userId,
+          expiresIn: data.data.expiresIn
+        });
         
         this.setStep('success');
         
