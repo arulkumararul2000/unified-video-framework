@@ -112,6 +112,7 @@ export class WebPlayer extends BasePlayer {
     this.setupControlsEventListeners();
     this.setupKeyboardShortcuts();
     this.setupWatermark();
+    this.setupFullscreenListeners();
 
     // Initialize paywall controller if provided
     try {
@@ -608,17 +609,26 @@ export class WebPlayer extends BasePlayer {
   }
 
   async enterFullscreen(): Promise<void> {
-    if (!this.video) return;
+    if (!this.playerWrapper) return;
 
     try {
-      if (this.video.requestFullscreen) {
-        await this.video.requestFullscreen();
-      } else if ((this.video as any).webkitRequestFullscreen) {
-        await (this.video as any).webkitRequestFullscreen();
-      } else if ((this.video as any).msRequestFullscreen) {
-        await (this.video as any).msRequestFullscreen();
+      // Target the player wrapper to maintain custom controls
+      const element = this.playerWrapper;
+      
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+      } else if ((element as any).webkitRequestFullscreen) {
+        await (element as any).webkitRequestFullscreen();
+      } else if ((element as any).mozRequestFullScreen) {
+        await (element as any).mozRequestFullScreen();
+      } else if ((element as any).msRequestFullscreen) {
+        await (element as any).msRequestFullscreen();
+      } else {
+        throw new Error('Fullscreen API not supported');
       }
       
+      // Add fullscreen class for styling
+      this.playerWrapper.classList.add('uvf-fullscreen');
       this.emit('onFullscreenChanged', true);
     } catch (error) {
       console.error('Failed to enter fullscreen:', error);
@@ -632,10 +642,16 @@ export class WebPlayer extends BasePlayer {
         await document.exitFullscreen();
       } else if ((document as any).webkitExitFullscreen) {
         await (document as any).webkitExitFullscreen();
+      } else if ((document as any).mozCancelFullScreen) {
+        await (document as any).mozCancelFullScreen();
       } else if ((document as any).msExitFullscreen) {
         await (document as any).msExitFullscreen();
       }
       
+      // Remove fullscreen class
+      if (this.playerWrapper) {
+        this.playerWrapper.classList.remove('uvf-fullscreen');
+      }
       this.emit('onFullscreenChanged', false);
     } catch (error) {
       console.error('Failed to exit fullscreen:', error);
@@ -1534,14 +1550,83 @@ export class WebPlayer extends BasePlayer {
       }
       
       /* Fullscreen specific styles */
-      .uvf-player-wrapper.uvf-fullscreen .uvf-video-container {
-        width: 100vw;
-        height: 100vh;
-        max-width: none;
-        max-height: none;
+      .uvf-player-wrapper.uvf-fullscreen {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 2147483647;
+        background: #000;
       }
       
-      /* Ensure overlays remain visible in fullscreen */
+      .uvf-player-wrapper.uvf-fullscreen .uvf-video-container {
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: none !important;
+        max-height: none !important;
+        aspect-ratio: unset !important;
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-video {
+        width: 100vw !important;
+        height: 100vh !important;
+      }
+      
+      /* Maintain consistent control sizing in fullscreen */
+      .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn.play-pause {
+        width: 50px;
+        height: 50px;
+        min-width: 50px;
+        min-height: 50px;
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn svg {
+        width: 20px;
+        height: 20px;
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn.play-pause svg {
+        width: 24px;
+        height: 24px;
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-top-btn {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-top-btn svg {
+        width: 20px;
+        height: 20px;
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-time-display {
+        font-size: 14px;
+        min-width: 120px;
+        padding: 0 10px;
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-center-play-btn {
+        width: 80px;
+        height: 80px;
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-center-play-btn svg {
+        width: 35px;
+        height: 35px;
+      }
+      
+      /* Ensure overlays remain visible in fullscreen with consistent spacing */
       .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar,
       .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls,
       .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar,
@@ -1550,12 +1635,84 @@ export class WebPlayer extends BasePlayer {
         z-index: 2147483647; /* Maximum z-index value */
       }
       
+      .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar {
+        padding: 20px 30px; /* More generous padding in fullscreen */
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-controls-row {
+        gap: 15px; /* Consistent gap in fullscreen */
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar {
+        padding: 20px 30px;
+      }
+      
+      .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls {
+        top: 20px;
+        right: 30px;
+        gap: 10px;
+      }
+      
+      /* Fullscreen hover and visibility states */
       .uvf-player-wrapper.uvf-fullscreen:hover .uvf-title-bar,
       .uvf-player-wrapper.uvf-fullscreen:hover .uvf-top-controls,
       .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-title-bar,
       .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-top-controls {
         opacity: 1;
         transform: translateY(0);
+      }
+      
+      /* Fullscreen mobile responsive adjustments */
+      @media screen and (max-width: 767px) {
+        .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar {
+          padding: 15px 20px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar {
+          padding: 15px 20px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls {
+          top: 15px;
+          right: 20px;
+        }
+        
+        /* Mobile controls in fullscreen - slightly larger than normal mobile */
+        .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn {
+          width: 36px;
+          height: 36px;
+          min-width: 36px;
+          min-height: 36px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn.play-pause {
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          min-height: 44px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn svg {
+          width: 18px;
+          height: 18px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn.play-pause svg {
+          width: 22px;
+          height: 22px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-top-btn {
+          width: 36px;
+          height: 36px;
+          min-width: 36px;
+          min-height: 36px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-top-btn svg {
+          width: 18px;
+          height: 18px;
+        }
       }
       
       /* Responsive Media Queries */
@@ -2393,50 +2550,27 @@ export class WebPlayer extends BasePlayer {
       }
     });
     
-    // Fullscreen
+    // Fullscreen button
     fullscreenBtn?.addEventListener('click', () => {
-      if (!document.fullscreenElement) {
-        this.enterFullscreen();
-      } else {
+      if (this.isFullscreen()) {
         this.exitFullscreen();
+      } else {
+        this.enterFullscreen();
       }
     });
     
-    // Fullscreen change event to maintain overlay visibility
-    document.addEventListener('fullscreenchange', () => {
-      const wrapper = this.playerWrapper || this.container?.querySelector('.uvf-player-wrapper');
-      if (wrapper) {
-        if (document.fullscreenElement) {
-          wrapper.classList.add('uvf-fullscreen');
-        } else {
-          wrapper.classList.remove('uvf-fullscreen');
-        }
-      }
-      // Update fullscreen button icon
+    // Update fullscreen button icon based on state
+    const updateFullscreenIcon = () => {
       const fullscreenBtn = document.getElementById('uvf-fullscreen-btn');
       if (fullscreenBtn) {
-        fullscreenBtn.innerHTML = document.fullscreenElement 
+        fullscreenBtn.innerHTML = this.isFullscreen() 
           ? '<svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>'
           : '<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>';
       }
-    });
+    };
     
-    // Add webkit and moz prefixed fullscreen change events for compatibility
-    ['webkitfullscreenchange', 'mozfullscreenchange'].forEach(eventName => {
-      document.addEventListener(eventName, () => {
-        const wrapper = this.playerWrapper || this.container?.querySelector('.uvf-player-wrapper');
-        if (wrapper) {
-          const isFullscreen = !!(document.fullscreenElement || 
-                                 (document as any).webkitFullscreenElement || 
-                                 (document as any).mozFullScreenElement);
-          if (isFullscreen) {
-            wrapper.classList.add('uvf-fullscreen');
-          } else {
-            wrapper.classList.remove('uvf-fullscreen');
-          }
-        }
-      });
-    });
+    // Listen for fullscreen state changes to update icon
+    this.on('onFullscreenChanged', updateFullscreenIcon);
     
     // Loading states
     this.video.addEventListener('waiting', () => {
@@ -2449,19 +2583,7 @@ export class WebPlayer extends BasePlayer {
       if (loading) loading.classList.remove('active');
     });
     
-    // Auto-hide controls
-    wrapper?.addEventListener('mousemove', () => {
-      this.showControls();
-      if (this.state.isPlaying) {
-        this.scheduleHideControls();
-      }
-    });
-    
-    wrapper?.addEventListener('mouseleave', () => {
-      if (this.state.isPlaying) {
-        this.hideControls();
-      }
-    });
+    // Note: Enhanced mouse movement and control visibility handled in setupFullscreenListeners()
     
     this.controlsContainer?.addEventListener('mouseenter', () => {
       clearTimeout(this.hideControlsTimeout);
@@ -2826,11 +2948,91 @@ export class WebPlayer extends BasePlayer {
     if (!this.state.isPlaying) return;
     
     clearTimeout(this.hideControlsTimeout);
+    // Use longer timeout in fullscreen for better UX
+    const timeout = this.isFullscreen() ? 4000 : 3000;
     this.hideControlsTimeout = setTimeout(() => {
       if (this.state.isPlaying && !this.controlsContainer?.matches(':hover')) {
         this.hideControls();
       }
-    }, 3000);
+    }, timeout);
+  }
+  
+  private isFullscreen(): boolean {
+    return !!(document.fullscreenElement ||
+              (document as any).webkitFullscreenElement ||
+              (document as any).mozFullScreenElement ||
+              (document as any).msFullscreenElement);
+  }
+  
+  private setupFullscreenListeners(): void {
+    // Handle fullscreen changes from browser/keyboard shortcuts
+    const handleFullscreenChange = () => {
+      const isFullscreen = this.isFullscreen();
+      
+      if (this.playerWrapper) {
+        if (isFullscreen) {
+          this.playerWrapper.classList.add('uvf-fullscreen');
+        } else {
+          this.playerWrapper.classList.remove('uvf-fullscreen');
+        }
+      }
+      
+      // Show controls when entering/exiting fullscreen
+      this.showControls();
+      if (isFullscreen && this.state.isPlaying) {
+        this.scheduleHideControls();
+      }
+      
+      this.emit('onFullscreenChanged', isFullscreen);
+    };
+    
+    // Listen for fullscreen change events (all browser prefixes)
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    
+    // Enhanced mouse/touch movement detection for control visibility
+    let lastMouseMoveTime = 0;
+    let mouseInactivityTimeout: any = null;
+    
+    const handleMouseMovement = () => {
+      const now = Date.now();
+      lastMouseMoveTime = now;
+      
+      // Show controls immediately on mouse movement
+      this.showControls();
+      
+      // Clear existing inactivity timeout
+      clearTimeout(mouseInactivityTimeout);
+      
+      // Set new inactivity timeout
+      if (this.state.isPlaying) {
+        const timeout = this.isFullscreen() ? 4000 : 3000;
+        mouseInactivityTimeout = setTimeout(() => {
+          const timeSinceLastMove = Date.now() - lastMouseMoveTime;
+          if (timeSinceLastMove >= timeout && this.state.isPlaying) {
+            this.hideControls();
+          }
+        }, timeout);
+      }
+    };
+    
+    // Touch movement detection for mobile
+    const handleTouchMovement = () => {
+      this.showControls();
+      if (this.state.isPlaying) {
+        this.scheduleHideControls();
+      }
+    };
+    
+    // Add event listeners to the player wrapper
+    if (this.playerWrapper) {
+      this.playerWrapper.addEventListener('mousemove', handleMouseMovement, { passive: true });
+      this.playerWrapper.addEventListener('mouseenter', () => this.showControls());
+      this.playerWrapper.addEventListener('touchstart', handleTouchMovement, { passive: true });
+      this.playerWrapper.addEventListener('touchmove', handleTouchMovement, { passive: true });
+    }
   }
   
   private updateTimeTooltip(e: MouseEvent): void {
