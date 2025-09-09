@@ -25,8 +25,8 @@ export class PaywallController {
     // Initialize EmailAuthController if email auth is enabled
     this.initializeEmailAuth();
     
-    // ✅ NEW: Check authentication immediately on initialization
-    this.checkAuthenticationOnInit();
+    // Don't check authentication immediately - allow free preview first
+    // Authentication will be triggered when free preview ends
     
     try {
       window.addEventListener('message', this.onMessage, false);
@@ -42,17 +42,31 @@ export class PaywallController {
   }
 
   openOverlay() {
-    if (!this.config?.enabled) return;
+    console.log('[PaywallController] openOverlay called');
+    console.log('[PaywallController] config enabled:', this.config?.enabled);
+    console.log('[PaywallController] email auth enabled:', this.config?.emailAuth?.enabled);
+    console.log('[PaywallController] emailAuth instance:', !!this.emailAuth);
+    
+    if (!this.config?.enabled) {
+      console.log('[PaywallController] Paywall disabled, exiting');
+      return;
+    }
     
     // Check authentication first if email auth is enabled
     if (this.config.emailAuth?.enabled) {
-      if (!this.emailAuth?.isAuthenticated()) {
+      console.log('[PaywallController] Email auth is enabled, checking authentication');
+      const isAuthenticated = this.emailAuth?.isAuthenticated();
+      console.log('[PaywallController] User authenticated:', isAuthenticated);
+      
+      if (!isAuthenticated) {
+        console.log('[PaywallController] User not authenticated, opening email auth modal');
         // Show email authentication modal first
         this.emailAuth?.openAuthModal();
         return;
       } else {
+        console.log('[PaywallController] User already authenticated, proceeding to payment overlay');
         // Update userId for authenticated user
-        this.authenticatedUserId = this.emailAuth?.getAuthenticatedUserId() || this.config.userId;
+        this.authenticatedUserId = this.emailAuth?.getAuthenticatedUserId() || this.config.userId || null;
         // Update config with authenticated userId for API calls
         if (this.authenticatedUserId && this.config) {
           this.config.userId = this.authenticatedUserId;
@@ -61,6 +75,7 @@ export class PaywallController {
     }
     
     // Show payment overlay
+    console.log('[PaywallController] Showing payment overlay');
     const root = this.ensureOverlay();
     if (!root) return;
     root.style.display = 'flex';
@@ -142,11 +157,11 @@ export class PaywallController {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:center;';
 
-    for (const g of this.config.gateways) {
+    for (const g of (this.config.gateways || [])) {
       const btn = document.createElement('button');
       btn.textContent = g === 'cashfree' ? 'Cashfree' : 'Stripe';
       btn.style.cssText = 'background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:12px 16px;cursor:pointer;min-width:120px;';
-      btn.addEventListener('click', () => this.openGateway(g));
+      btn.addEventListener('click', () => this.openGateway(g as 'stripe' | 'cashfree'));
       wrap.appendChild(btn);
     }
     this.gatewayStepEl!.appendChild(title);
@@ -238,7 +253,7 @@ export class PaywallController {
           });
         }
         if (d.orderId && this.config) {
-          await fetch(`${this.config.apiBase}/api/rentals/cashfree/verify?orderId=${encodeURIComponent(d.orderId)}&userId=${encodeURIComponent(this.config.userId)}&videoId=${encodeURIComponent(this.config.videoId)}`);
+          await fetch(`${this.config.apiBase}/api/rentals/cashfree/verify?orderId=${encodeURIComponent(d.orderId)}&userId=${encodeURIComponent(this.config.userId || '')}&videoId=${encodeURIComponent(this.config.videoId || '')}`);
         }
       } catch (_) {}
       this.closeOverlay();
@@ -246,40 +261,16 @@ export class PaywallController {
     }
   };
 
-  /**
-   * ✅ NEW: Check authentication immediately when PaywallController is initialized
-   * This ensures email auth modal shows right away if user is not authenticated
-   */
-  private checkAuthenticationOnInit() {
-    // Only check if email auth is enabled
-    if (!this.config?.emailAuth?.enabled) {
-      console.log('[PaywallController] Email auth disabled, skipping initial auth check');
-      return;
-    }
-
-    // Check if user is already authenticated
-    if (this.emailAuth?.isAuthenticated()) {
-      console.log('[PaywallController] User already authenticated, allowing free playback');
-      // User is authenticated - they can play the free duration
-      const userId = this.emailAuth.getAuthenticatedUserId();
-      if (userId && this.config) {
-        this.config.userId = userId;
-        this.authenticatedUserId = userId;
-      }
-    } else {
-      console.log('[PaywallController] User NOT authenticated, showing email auth modal immediately');
-      // User is NOT authenticated - show email auth modal immediately
-      setTimeout(() => {
-        this.emailAuth?.openAuthModal();
-      }, 500); // Small delay to let player initialize
-    }
-  }
 
   /**
    * Initialize EmailAuthController if email authentication is enabled
    */
   private initializeEmailAuth() {
+    console.log('[PaywallController] initializeEmailAuth called');
+    console.log('[PaywallController] email auth config:', this.config?.emailAuth);
+    
     if (!this.config?.emailAuth?.enabled) {
+      console.log('[PaywallController] Email auth disabled, cleaning up existing instance');
       // Clean up existing EmailAuth if disabled
       if (this.emailAuth) {
         this.emailAuth.destroy();
@@ -288,10 +279,12 @@ export class PaywallController {
       return;
     }
 
+    console.log('[PaywallController] Email auth enabled, checking for existing instance:', !!this.emailAuth);
     if (!this.emailAuth) {
+      console.log('[PaywallController] Creating new EmailAuthController');
       const emailAuthOptions: EmailAuthControllerOptions = {
         getOverlayContainer: this.opts.getOverlayContainer,
-        onAuthSuccess: (userId: string, sessionToken: string) => {
+        onAuthSuccess: (userId: string, sessionToken: string, accessData?: any) => {
           this.authenticatedUserId = userId;
           this.sessionToken = sessionToken;
           
@@ -300,11 +293,60 @@ export class PaywallController {
             this.config.userId = userId;
           }
           
-          // Close auth modal - user can now play free duration
+          // Close auth modal
           this.emailAuth?.closeAuthModal();
           
-          console.log('[PaywallController] Authentication successful, user can now play free duration');
-          // Don't show paywall yet - let them play the free duration first
+          // Handle access logic based on server response
+          // Handle access logic based on server response
+          if (accessData) {
+            const { 
+              access_granted = false,
+              requires_payment = false, 
+              free_duration = 0,
+              price = null
+            } = accessData;
+            
+            // Update price from server response if provided
+            if (price && this.config) {
+              this.config.pricing = {
+                ...this.config.pricing,
+                amount: parseFloat(price.toString().replace(/[^\d.]/g, ''))
+              };
+            }
+
+            console.log('[PaywallController] Auth response:', { access_granted, requires_payment, free_duration });
+            
+            if (access_granted) {
+              // Full access - play immediately
+              console.log('[PaywallController] Access granted, playing video');
+              this.opts.onResume();
+            }
+            else if (!access_granted && requires_payment) {
+              if (free_duration > 0) {
+                // Start free preview, show paywall after duration
+                console.log(`[PaywallController] Starting ${free_duration}s preview`);
+                this.opts.onResume();
+                
+                // Let preview play, WebPlayer will handle showing paywall
+                // after free_duration via onFreePreviewEnded event
+              } else {
+                // No preview available - show paywall immediately
+                console.log('[PaywallController] No preview available, showing paywall');
+                setTimeout(() => {
+                  this.openPaymentOverlay();
+                }, 100);
+              }
+            } 
+            else {
+              // Default behavior - resume playback
+              console.log('[PaywallController] Default behavior, resuming playback');
+              this.opts.onResume();
+            }
+          } else {
+            // Backward compatibility - use configured free duration
+            console.log('[PaywallController] No access data, resuming with default preview');
+            this.opts.onResume();
+          }
         },
         onAuthCancel: () => {
           // User cancelled authentication, close everything
@@ -316,6 +358,7 @@ export class PaywallController {
       };
       
       this.emailAuth = new EmailAuthController(this.config, emailAuthOptions);
+      console.log('[PaywallController] EmailAuthController created successfully');
     }
   }
 

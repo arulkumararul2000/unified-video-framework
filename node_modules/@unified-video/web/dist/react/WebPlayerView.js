@@ -1,39 +1,13 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WebPlayerView = void 0;
-const react_1 = __importStar(require("react"));
-const WebPlayer_1 = require("../WebPlayer");
-const WebPlayerView = (props) => {
-    const containerRef = (0, react_1.useRef)(null);
-    const playerRef = (0, react_1.useRef)(null);
-    const [dimensions, setDimensions] = (0, react_1.useState)({
+import React, { useEffect, useRef, useState } from 'react';
+import { WebPlayer } from '../WebPlayer';
+export const WebPlayerView = (props) => {
+    const containerRef = useRef(null);
+    const playerRef = useRef(null);
+    const [dimensions, setDimensions] = useState({
         width: typeof window !== 'undefined' ? window.innerWidth : 1920,
         height: typeof window !== 'undefined' ? window.innerHeight : 1080,
     });
-    (0, react_1.useEffect)(() => {
+    useEffect(() => {
         if (typeof window === 'undefined')
             return;
         const responsiveEnabled = props.responsive?.enabled !== false;
@@ -57,23 +31,23 @@ const WebPlayerView = (props) => {
         const responsive = props.responsive || {};
         const defaults = {
             aspectRatio: responsive.aspectRatio || 16 / 9,
-            maxWidth: responsive.maxWidth || '100%',
-            maxHeight: responsive.maxHeight || '70vh',
+            maxWidth: responsive.maxWidth || '100vw',
+            maxHeight: responsive.maxHeight || '100vh',
             breakpoints: {
                 mobile: responsive.breakpoints?.mobile || 768,
                 tablet: responsive.breakpoints?.tablet || 1024,
             },
             mobilePortrait: {
-                maxHeight: responsive.mobilePortrait?.maxHeight || '50vh',
+                maxHeight: responsive.mobilePortrait?.maxHeight || '100vh',
                 aspectRatio: responsive.mobilePortrait?.aspectRatio,
             },
             mobileLandscape: {
-                maxHeight: responsive.mobileLandscape?.maxHeight || '85vh',
+                maxHeight: responsive.mobileLandscape?.maxHeight || '100vh',
                 aspectRatio: responsive.mobileLandscape?.aspectRatio,
             },
             tablet: {
-                maxWidth: responsive.tablet?.maxWidth || '90%',
-                maxHeight: responsive.tablet?.maxHeight || '65vh',
+                maxWidth: responsive.tablet?.maxWidth || '100vw',
+                maxHeight: responsive.tablet?.maxHeight || '100vh',
             },
         };
         const isMobile = width < defaults.breakpoints.mobile;
@@ -81,61 +55,74 @@ const WebPlayerView = (props) => {
         const isPortrait = height > width;
         const isLandscape = width > height;
         let calculatedStyle = {
-            width: '100%',
+            width: '100vw',
+            height: '100vh',
+            maxWidth: '100vw',
+            maxHeight: '100vh',
             boxSizing: 'border-box',
-            position: 'relative',
-            margin: '0 auto',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            zIndex: 1000,
+            backgroundColor: '#000000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0,
+            padding: 0,
             ...props.style,
         };
         if (isMobile && isPortrait) {
-            const mobileAspectRatio = defaults.mobilePortrait.aspectRatio || defaults.aspectRatio;
-            const calculatedHeight = Math.min(width / mobileAspectRatio, height * 0.5);
             calculatedStyle = {
                 ...calculatedStyle,
                 width: '100vw',
+                height: '100vh',
                 maxWidth: '100vw',
-                height: `${calculatedHeight}px`,
-                maxHeight: '50vh',
-                minHeight: '200px',
-                aspectRatio: 'unset',
+                maxHeight: '100vh',
+                position: 'fixed',
+                top: 0,
+                left: 0,
             };
         }
         else if (isMobile && isLandscape) {
-            const mobileAspectRatio = defaults.mobileLandscape.aspectRatio || defaults.aspectRatio;
-            const calculatedHeight = Math.min(width / mobileAspectRatio, height * 0.85);
             calculatedStyle = {
                 ...calculatedStyle,
                 width: '100vw',
+                height: '100vh',
                 maxWidth: '100vw',
-                height: `${calculatedHeight}px`,
-                maxHeight: '85vh',
-                minHeight: '180px',
-                aspectRatio: 'unset',
+                maxHeight: '100vh',
+                position: 'fixed',
+                top: 0,
+                left: 0,
             };
         }
         else if (isTablet) {
-            const calculatedHeight = Math.min((width * 0.9) / defaults.aspectRatio, height * 0.65);
             calculatedStyle = {
                 ...calculatedStyle,
-                width: '90vw',
-                maxWidth: defaults.tablet.maxWidth,
-                height: `${calculatedHeight}px`,
-                maxHeight: defaults.tablet.maxHeight,
-                minHeight: '250px',
-                aspectRatio: 'unset',
+                width: '100vw',
+                height: '100vh',
+                maxWidth: '100vw',
+                maxHeight: '100vh',
+                position: 'fixed',
+                top: 0,
+                left: 0,
             };
         }
         else {
             calculatedStyle = {
                 ...calculatedStyle,
-                maxWidth: defaults.maxWidth,
-                maxHeight: defaults.maxHeight,
-                aspectRatio: `${defaults.aspectRatio}`,
+                width: '100vw',
+                height: '100vh',
+                maxWidth: '100vw',
+                maxHeight: '100vh',
+                position: 'fixed',
+                top: 0,
+                left: 0,
             };
         }
         return calculatedStyle;
     };
-    (0, react_1.useEffect)(() => {
+    useEffect(() => {
         try {
             const params = new URLSearchParams(window.location.search);
             const popup = (params.get('popup') || '').toLowerCase() === '1';
@@ -155,12 +142,12 @@ const WebPlayerView = (props) => {
         }
         catch (_) { }
     }, []);
-    (0, react_1.useEffect)(() => {
+    useEffect(() => {
         let cancelled = false;
         async function boot() {
             if (!containerRef.current)
                 return;
-            const player = new WebPlayer_1.WebPlayer();
+            const player = new WebPlayer();
             playerRef.current = player;
             if (props.cast) {
                 try {
@@ -184,6 +171,52 @@ const WebPlayerView = (props) => {
                         paywallCfg = await resp.json();
                 }
                 catch (_) { }
+            }
+            if (props.emailAuth?.enabled) {
+                if (!paywallCfg) {
+                    paywallCfg = {
+                        enabled: true,
+                        apiBase: 'http://localhost:3000',
+                        userId: 'user-' + Math.random().toString(36).substr(2, 9),
+                        videoId: 'video-' + Math.random().toString(36).substr(2, 9),
+                        gateways: ['stripe'],
+                    };
+                }
+                paywallCfg = {
+                    ...paywallCfg,
+                    emailAuth: {
+                        enabled: props.emailAuth.enabled,
+                        skipIfAuthenticated: props.emailAuth.skipIfAuthenticated ?? true,
+                        sessionStorage: {
+                            tokenKey: props.emailAuth.sessionStorage?.tokenKey || 'uvf_session_token',
+                            refreshTokenKey: props.emailAuth.sessionStorage?.refreshTokenKey || 'uvf_refresh_token',
+                            userIdKey: props.emailAuth.sessionStorage?.userIdKey || 'uvf_user_id',
+                        },
+                        api: {
+                            requestOtp: props.emailAuth.apiEndpoints?.requestOtp || '/auth/request-otp',
+                            verifyOtp: props.emailAuth.apiEndpoints?.verifyOtp || '/auth/verify-otp',
+                            refreshToken: props.emailAuth.apiEndpoints?.refreshToken || '/auth/refresh-token',
+                            logout: props.emailAuth.apiEndpoints?.logout || '/auth/logout',
+                        },
+                        ui: {
+                            title: props.emailAuth.ui?.title || 'Sign in to continue',
+                            description: props.emailAuth.ui?.description || 'Enter your email to receive a verification code',
+                            emailPlaceholder: props.emailAuth.ui?.emailPlaceholder || 'Enter your email',
+                            otpPlaceholder: props.emailAuth.ui?.otpPlaceholder || 'Enter 6-digit code',
+                            submitButtonText: props.emailAuth.ui?.submitButtonText || 'Send Code',
+                            resendButtonText: props.emailAuth.ui?.resendButtonText || 'Resend Code',
+                            resendCooldown: props.emailAuth.ui?.resendCooldown || 30,
+                        },
+                        validation: {
+                            otpLength: props.emailAuth.validation?.otpLength || 6,
+                            otpTimeout: props.emailAuth.validation?.otpTimeout || 300,
+                            rateLimiting: {
+                                maxAttempts: props.emailAuth.validation?.rateLimiting?.maxAttempts || 5,
+                                windowMinutes: props.emailAuth.validation?.rateLimiting?.windowMinutes || 60,
+                            },
+                        },
+                    },
+                };
             }
             const config = {
                 autoPlay: props.autoPlay ?? false,
@@ -236,8 +269,11 @@ const WebPlayerView = (props) => {
         props.cast,
         props.freeDuration,
         JSON.stringify(props.responsive),
+        JSON.stringify(props.paywall),
+        JSON.stringify(props.emailAuth),
+        props.paywallConfigUrl,
     ]);
-    (0, react_1.useEffect)(() => {
+    useEffect(() => {
         const p = playerRef.current;
         if (p && typeof p.setFreeDuration === 'function' && typeof props.freeDuration !== 'undefined') {
             try {
@@ -246,7 +282,7 @@ const WebPlayerView = (props) => {
             catch (_) { }
         }
     }, [props.freeDuration]);
-    (0, react_1.useEffect)(() => {
+    useEffect(() => {
         const p = playerRef.current;
         if (p && typeof p.setPaywallConfig === 'function' && props.paywall) {
             try {
@@ -255,7 +291,7 @@ const WebPlayerView = (props) => {
             catch (_) { }
         }
     }, [JSON.stringify(props.paywall)]);
-    (0, react_1.useEffect)(() => {
+    useEffect(() => {
         const p = playerRef.current;
         try {
             if (p && typeof p.setTheme === 'function') {
@@ -265,8 +301,7 @@ const WebPlayerView = (props) => {
         catch (_) { }
     }, [JSON.stringify(props.playerTheme)]);
     const responsiveStyle = getResponsiveDimensions();
-    return (react_1.default.createElement("div", { ref: containerRef, className: `uvf-responsive-container ${props.className || ''}`, style: responsiveStyle }));
+    return (React.createElement("div", { ref: containerRef, className: `uvf-responsive-container ${props.className || ''}`, style: responsiveStyle }));
 };
-exports.WebPlayerView = WebPlayerView;
-exports.default = exports.WebPlayerView;
+export default WebPlayerView;
 //# sourceMappingURL=WebPlayerView.js.map

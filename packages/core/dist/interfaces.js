@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DRMType = exports.PlayerState = exports.PlatformType = void 0;
-var PlatformType;
+export var PlatformType;
 (function (PlatformType) {
     PlatformType["IOS"] = "ios";
     PlatformType["ANDROID"] = "android";
@@ -12,8 +9,8 @@ var PlatformType;
     PlatformType["APPLE_TV"] = "appletv";
     PlatformType["WEB"] = "web";
     PlatformType["WINDOWS"] = "windows";
-})(PlatformType = exports.PlatformType || (exports.PlatformType = {}));
-var PlayerState;
+})(PlatformType || (PlatformType = {}));
+export var PlayerState;
 (function (PlayerState) {
     PlayerState["IDLE"] = "idle";
     PlayerState["LOADING"] = "loading";
@@ -23,12 +20,12 @@ var PlayerState;
     PlayerState["BUFFERING"] = "buffering";
     PlayerState["ENDED"] = "ended";
     PlayerState["ERROR"] = "error";
-})(PlayerState = exports.PlayerState || (exports.PlayerState = {}));
-var DRMType;
+})(PlayerState || (PlayerState = {}));
+export var DRMType;
 (function (DRMType) {
     DRMType["FAIRPLAY"] = "fairplay";
     DRMType["WIDEVINE"] = "widevine";
     DRMType["PLAYREADY"] = "playready";
     DRMType["CLEARKEY"] = "clearkey";
-})(DRMType = exports.DRMType || (exports.DRMType = {}));
+})(DRMType || (DRMType = {}));
 //# sourceMappingURL=interfaces.js.map

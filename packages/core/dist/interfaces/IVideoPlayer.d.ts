@@ -88,6 +88,38 @@ export interface PaywallConfig {
         width?: number;
         height?: number;
     };
+    emailAuth?: {
+        enabled: boolean;
+        skipIfAuthenticated?: boolean;
+        sessionStorage?: {
+            tokenKey?: string;
+            refreshTokenKey?: string;
+            userIdKey?: string;
+        };
+        api?: {
+            requestOtp: string;
+            verifyOtp: string;
+            refreshToken?: string;
+            logout?: string;
+        };
+        ui?: {
+            title?: string;
+            description?: string;
+            emailPlaceholder?: string;
+            otpPlaceholder?: string;
+            submitButtonText?: string;
+            resendButtonText?: string;
+            resendCooldown?: number;
+        };
+        validation?: {
+            otpLength?: number;
+            otpTimeout?: number;
+            rateLimiting?: {
+                maxAttempts?: number;
+                windowMinutes?: number;
+            };
+        };
+    };
 }
 export interface PlayerConfig {
     autoPlay?: boolean;

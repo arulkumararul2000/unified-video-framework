@@ -1,6 +1,5 @@
 import { WebPlayer } from './WebPlayer';
-import { PlayerConfig } from '@unified-video/core';
-export interface SecurePlayerConfig extends PlayerConfig {
+export interface SecurePlayerConfig {
     drm?: {
         widevine?: {
             licenseUrl: string;
@@ -94,7 +93,7 @@ export declare class SecureVideoPlayer extends WebPlayer {
     private screenRecordingProtection?;
     constructor();
     protected setupPlayer(): Promise<void>;
-    initialize(container: HTMLElement | string, config?: SecurePlayerConfig): Promise<void>;
+    initialize(container: HTMLElement | string, config?: any): Promise<void>;
     private applySecurityMeasures;
     private preventInspection;
     private handleDevToolsOpen;

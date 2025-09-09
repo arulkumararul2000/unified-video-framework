@@ -93,6 +93,40 @@ export interface PaywallConfig {
   gateways: Array<'stripe' | 'cashfree'>;
   branding?: { title?: string; description?: string; logoUrl?: string; theme?: any };
   popup?: { width?: number; height?: number };
+  
+  // Email OTP Authentication (optional - if not provided, assumes user is already authenticated)
+  emailAuth?: {
+    enabled: boolean;                    // Enable email authentication flow
+    skipIfAuthenticated?: boolean;       // Skip email auth if user already has valid session (default: true)
+    sessionStorage?: {
+      tokenKey?: string;                 // Key for storing session token (default: 'uvf_session_token')
+      refreshTokenKey?: string;          // Key for storing refresh token (default: 'uvf_refresh_token')
+      userIdKey?: string;                // Key for storing user ID (default: 'uvf_user_id')
+    };
+    api?: {
+      requestOtp: string;                // POST /auth/request-otp endpoint
+      verifyOtp: string;                 // POST /auth/verify-otp endpoint  
+      refreshToken?: string;             // POST /auth/refresh-token endpoint
+      logout?: string;                   // POST /auth/logout endpoint
+    };
+    ui?: {
+      title?: string;                    // Modal title (default: "Sign in to continue")
+      description?: string;              // Modal description
+      emailPlaceholder?: string;         // Email input placeholder
+      otpPlaceholder?: string;           // OTP input placeholder
+      submitButtonText?: string;         // Submit button text
+      resendButtonText?: string;         // Resend OTP button text
+      resendCooldown?: number;           // Resend cooldown in seconds (default: 30)
+    };
+    validation?: {
+      otpLength?: number;                // Expected OTP length (default: 6)
+      otpTimeout?: number;               // OTP validity timeout in seconds (default: 300)
+      rateLimiting?: {
+        maxAttempts?: number;            // Max OTP requests per hour (default: 5)
+        windowMinutes?: number;          // Rate limiting window (default: 60)
+      };
+    };
+  };
 }
 
 export interface PlayerConfig {

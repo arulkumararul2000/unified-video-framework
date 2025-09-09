@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PlatformDetector = void 0;
-const interfaces_1 = require("../interfaces");
-class PlatformDetector {
+import { PlatformType } from '../interfaces';
+export class PlatformDetector {
     constructor() {
         this.cachedPlatform = null;
     }
@@ -21,7 +18,7 @@ class PlatformDetector {
             return this.detectWebPlatform();
         }
         return {
-            type: interfaces_1.PlatformType.WEB,
+            type: PlatformType.WEB,
             os: 'unknown',
             version: 'unknown',
             isTV: false,
@@ -34,7 +31,7 @@ class PlatformDetector {
             const { Platform } = require('react-native');
             if (Platform.isTV) {
                 return {
-                    type: Platform.OS === 'ios' ? interfaces_1.PlatformType.APPLE_TV : interfaces_1.PlatformType.ANDROID_TV,
+                    type: Platform.OS === 'ios' ? PlatformType.APPLE_TV : PlatformType.ANDROID_TV,
                     os: Platform.OS,
                     version: Platform.Version?.toString() || 'unknown',
                     isTV: true,
@@ -43,7 +40,7 @@ class PlatformDetector {
                 };
             }
             return {
-                type: Platform.OS === 'ios' ? interfaces_1.PlatformType.IOS : interfaces_1.PlatformType.ANDROID,
+                type: Platform.OS === 'ios' ? PlatformType.IOS : PlatformType.ANDROID,
                 os: Platform.OS,
                 version: Platform.Version?.toString() || 'unknown',
                 isTV: false,
@@ -60,7 +57,7 @@ class PlatformDetector {
         const platform = navigator.platform?.toLowerCase() || '';
         if (userAgent.includes('tizen') || window.tizen) {
             return {
-                type: interfaces_1.PlatformType.TIZEN,
+                type: PlatformType.TIZEN,
                 os: 'tizen',
                 version: this.getTizenVersion(),
                 isTV: true,
@@ -71,7 +68,7 @@ class PlatformDetector {
         }
         if (userAgent.includes('webos') || userAgent.includes('web0s') || window.webOS) {
             return {
-                type: interfaces_1.PlatformType.WEBOS,
+                type: PlatformType.WEBOS,
                 os: 'webos',
                 version: this.getWebOSVersion(),
                 isTV: true,
@@ -82,7 +79,7 @@ class PlatformDetector {
         }
         if (userAgent.includes('roku')) {
             return {
-                type: interfaces_1.PlatformType.ROKU,
+                type: PlatformType.ROKU,
                 os: 'roku',
                 version: this.getRokuVersion(userAgent),
                 isTV: true,
@@ -92,7 +89,7 @@ class PlatformDetector {
         }
         if (platform.includes('win') || userAgent.includes('windows')) {
             return {
-                type: interfaces_1.PlatformType.WINDOWS,
+                type: PlatformType.WINDOWS,
                 os: 'windows',
                 version: this.getWindowsVersion(userAgent),
                 isTV: false,
@@ -105,7 +102,7 @@ class PlatformDetector {
         if (/iphone|ipad|ipod/.test(userAgent) ||
             (platform === 'macintel' && navigator.maxTouchPoints > 1)) {
             return {
-                type: interfaces_1.PlatformType.IOS,
+                type: PlatformType.IOS,
                 os: 'ios',
                 version: this.getIOSVersion(userAgent),
                 isTV: false,
@@ -118,7 +115,7 @@ class PlatformDetector {
         if (userAgent.includes('android')) {
             const isTV = userAgent.includes('tv') || userAgent.includes('aft');
             return {
-                type: isTV ? interfaces_1.PlatformType.ANDROID_TV : interfaces_1.PlatformType.ANDROID,
+                type: isTV ? PlatformType.ANDROID_TV : PlatformType.ANDROID,
                 os: 'android',
                 version: this.getAndroidVersion(userAgent),
                 isTV: isTV,
@@ -130,7 +127,7 @@ class PlatformDetector {
         }
         if (userAgent.includes('appletv')) {
             return {
-                type: interfaces_1.PlatformType.APPLE_TV,
+                type: PlatformType.APPLE_TV,
                 os: 'tvos',
                 version: 'unknown',
                 isTV: true,
@@ -139,7 +136,7 @@ class PlatformDetector {
             };
         }
         return {
-            type: interfaces_1.PlatformType.WEB,
+            type: PlatformType.WEB,
             os: this.getOS(),
             version: 'unknown',
             isTV: false,
@@ -240,24 +237,23 @@ class PlatformDetector {
     }
     isApple() {
         const platform = this.detect().type;
-        return [interfaces_1.PlatformType.IOS, interfaces_1.PlatformType.APPLE_TV].includes(platform);
+        return [PlatformType.IOS, PlatformType.APPLE_TV].includes(platform);
     }
     isAndroid() {
         const platform = this.detect().type;
-        return [interfaces_1.PlatformType.ANDROID, interfaces_1.PlatformType.ANDROID_TV].includes(platform);
+        return [PlatformType.ANDROID, PlatformType.ANDROID_TV].includes(platform);
     }
     isSamsung() {
-        return this.detect().type === interfaces_1.PlatformType.TIZEN;
+        return this.detect().type === PlatformType.TIZEN;
     }
     isLG() {
-        return this.detect().type === interfaces_1.PlatformType.WEBOS;
+        return this.detect().type === PlatformType.WEBOS;
     }
     isRoku() {
-        return this.detect().type === interfaces_1.PlatformType.ROKU;
+        return this.detect().type === PlatformType.ROKU;
     }
     clearCache() {
         this.cachedPlatform = null;
     }
 }
-exports.PlatformDetector = PlatformDetector;
 //# sourceMappingURL=PlatformDetector.js.map

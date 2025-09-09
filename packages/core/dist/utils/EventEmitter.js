@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EventEmitter = void 0;
-class EventEmitter {
+export class EventEmitter {
     constructor() {
         this.events = new Map();
     }
@@ -55,5 +52,4 @@ class EventEmitter {
         return Array.from(this.events.keys());
     }
 }
-exports.EventEmitter = EventEmitter;
 //# sourceMappingURL=EventEmitter.js.map

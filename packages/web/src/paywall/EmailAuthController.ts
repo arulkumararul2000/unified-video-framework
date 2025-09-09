@@ -2,7 +2,7 @@ import { PaywallConfig } from '@unified-video/core';
 
 export type EmailAuthControllerOptions = {
   getOverlayContainer: () => HTMLElement | null;
-  onAuthSuccess: (userId: string, sessionToken: string) => void;
+  onAuthSuccess: (userId: string, sessionToken: string, accessData?: any) => void;
   onAuthCancel: () => void;
   onShow?: () => void;
   onClose?: () => void;
@@ -698,17 +698,43 @@ export class EmailAuthController {
     this.requestStartTime = Date.now();
 
     try {
+      // Build request body with email and video context
+      const requestBody: any = { email };
+      
+      // Add slug from paywall metadata if available
+      const configWithMetadata = this.config as any;
+      if (configWithMetadata?.metadata?.slug) {
+        requestBody.slug = configWithMetadata.metadata.slug;
+        console.log('[UVF Auth] Including slug in OTP request:', configWithMetadata.metadata.slug);
+      }
+      
+      // Add videoId from paywall config
+      if (this.config?.videoId) {
+        requestBody.videoId = this.config.videoId;
+        console.log('[UVF Auth] Including videoId in OTP request:', this.config.videoId);
+      } else if (configWithMetadata?.videoId) {
+        requestBody.videoId = configWithMetadata.videoId;
+        console.log('[UVF Auth] Including videoId in OTP request:', configWithMetadata.videoId);
+      }
+      
+      if (!requestBody.slug && !requestBody.videoId) {
+        console.log('[UVF Auth] No video context (slug/videoId) in config - sending email only');
+      }
+
       const response = await fetch(`${this.config.apiBase}${this.config.emailAuth.api.requestOtp}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(requestBody),
       });
 
-      const data: AuthResponse = await response.json();
+      const data = await response.json();
 
-      if (data.success) {
+      if (data.status) {
+        // Store session token for OTP verification
+        this.storeSessionToken(data.data.session_token);
+        
         this.setStep('otp');
         if (isResend) {
           this.showSuccessMessage('Code sent again!');
@@ -733,30 +759,49 @@ export class EmailAuthController {
     this.setStep('loading');
 
     try {
+      // Get stored session token
+      const sessionToken = this.getStoredSessionToken();
+      
       const response = await fetch(`${this.config.apiBase}${this.config.emailAuth.api.verifyOtp}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, otp }),
+        body: JSON.stringify({ 
+          session_token: sessionToken,
+          email, 
+          otp 
+        }),
       });
 
-      const data: AuthResponse = await response.json();
+      const data = await response.json();
 
-      if (data.success && data.data?.sessionToken && data.data?.userId) {
-        // Store authentication tokens
+      if (data.status && data.data) {
+        // Store updated session information
         this.storeAuthTokens({
-          sessionToken: data.data.sessionToken,
-          refreshToken: data.data.refreshToken,
-          userId: data.data.userId,
-          expiresIn: data.data.expiresIn
+          sessionToken: data.data.session_token,
+          userId: data.data.email, // Use email as userId
+          videoId: data.data.video_id,
+          videoSlug: data.data.video_slug,
+          emailVerified: data.data.email_verified,
+          accessGranted: data.data.access_granted,
+          requiresPayment: data.data.requires_payment,
+          accessType: data.data.access_type,
+          price: data.data.price
         });
         
         this.setStep('success');
         
-        // Call success callback
+        // Call success callback with access information
         setTimeout(() => {
-          this.opts.onAuthSuccess(data.data!.userId!, data.data!.sessionToken!);
+          this.opts.onAuthSuccess(data.data.email, data.data.session_token, {
+            accessGranted: data.data.access_granted,
+            requiresPayment: data.data.requires_payment,
+            videoId: data.data.video_id,
+            videoSlug: data.data.video_slug,
+            price: data.data.price,
+            accessType: data.data.access_type
+          });
         }, 1500);
         
       } else {
@@ -771,27 +816,53 @@ export class EmailAuthController {
   }
 
   /**
+   * Store session token temporarily for OTP verification
+   */
+  private storeSessionToken(token: string) {
+    try {
+      sessionStorage.setItem('uvf_temp_session_token', token);
+    } catch (error) {
+      console.warn('[UVF Auth] Failed to store session token:', error);
+    }
+  }
+
+  /**
+   * Get stored session token
+   */
+  private getStoredSessionToken(): string | null {
+    try {
+      return sessionStorage.getItem('uvf_temp_session_token');
+    } catch (error) {
+      console.warn('[UVF Auth] Failed to get session token:', error);
+      return null;
+    }
+  }
+
+  /**
    * Store authentication tokens in localStorage
    */
-  private storeAuthTokens(authData: { sessionToken: string; refreshToken?: string; userId: string; expiresIn?: number }) {
+  private storeAuthTokens(authData: any) {
     try {
       const storage = this.config?.emailAuth?.sessionStorage || {};
       const sessionKey = storage.tokenKey || 'uvf_session_token';
-      const refreshKey = storage.refreshTokenKey || 'uvf_refresh_token';
       const userIdKey = storage.userIdKey || 'uvf_user_id';
 
       localStorage.setItem(sessionKey, authData.sessionToken);
       localStorage.setItem(userIdKey, authData.userId);
       
-      if (authData.refreshToken) {
-        localStorage.setItem(refreshKey, authData.refreshToken);
-      }
+      // Store additional video access information
+      localStorage.setItem('uvf_video_access', JSON.stringify({
+        videoId: authData.videoId,
+        videoSlug: authData.videoSlug,
+        emailVerified: authData.emailVerified,
+        accessGranted: authData.accessGranted,
+        requiresPayment: authData.requiresPayment,
+        accessType: authData.accessType,
+        price: authData.price
+      }));
 
-      // Store expiry time if provided
-      if (authData.expiresIn) {
-        const expiryTime = Date.now() + (authData.expiresIn * 1000);
-        localStorage.setItem(`${sessionKey}_expires`, expiryTime.toString());
-      }
+      // Clear temporary session token
+      sessionStorage.removeItem('uvf_temp_session_token');
     } catch (error) {
       console.warn('[UVF Auth] Failed to store auth tokens:', error);
     }

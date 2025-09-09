@@ -1,31 +1,5 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WebPlayer = void 0;
-const core_1 = require("../../core/dist");
-class WebPlayer extends core_1.BasePlayer {
+import { BasePlayer } from '@unified-video/core';
+export class WebPlayer extends BasePlayer {
     constructor() {
         super(...arguments);
         this.video = null;
@@ -92,7 +66,7 @@ class WebPlayer extends core_1.BasePlayer {
         try {
             const pw = this.config.paywall || null;
             if (pw && pw.enabled) {
-                const { PaywallController } = await Promise.resolve().then(() => __importStar(require('./paywall/PaywallController')));
+                const { PaywallController } = await import('./paywall/PaywallController');
                 this.paywallController = new PaywallController(pw, {
                     getOverlayContainer: () => this.playerWrapper,
                     onResume: () => { try {
@@ -103,10 +77,13 @@ class WebPlayer extends core_1.BasePlayer {
                     onClose: () => { }
                 });
                 this.on('onFreePreviewEnded', () => {
+                    console.log('[WebPlayer] onFreePreviewEnded event triggered, calling paywallController.openOverlay()');
                     try {
                         this.paywallController?.openOverlay();
                     }
-                    catch (_) { }
+                    catch (error) {
+                        console.error('[WebPlayer] Error calling paywallController.openOverlay():', error);
+                    }
                 });
             }
         }
@@ -215,7 +192,7 @@ class WebPlayer extends core_1.BasePlayer {
     }
     async load(source) {
         this.source = source;
-        this.subtitles = source.subtitles || [];
+        this.subtitles = (source.subtitles || []);
         await this.cleanup();
         if (!this.video) {
             throw new Error('Video element not initialized');
@@ -415,10 +392,9 @@ class WebPlayer extends core_1.BasePlayer {
         existingTracks.forEach(track => track.remove());
         subtitles.forEach((subtitle, index) => {
             const track = document.createElement('track');
-            track.kind = subtitle.kind;
+            track.kind = subtitle.kind || 'subtitles';
             track.label = subtitle.label;
-            track.srclang = subtitle.language;
-            track.src = subtitle.url;
+            track.src = subtitle.url || '';
             if (subtitle.default || index === 0) {
                 track.default = true;
             }
@@ -2605,13 +2581,24 @@ class WebPlayer extends core_1.BasePlayer {
             }
             else {
                 if (config.enabled) {
-                    Promise.resolve().then(() => __importStar(require('./paywall/PaywallController'))).then((m) => {
+                    import('./paywall/PaywallController').then((m) => {
                         this.paywallController = new m.PaywallController(config, {
                             getOverlayContainer: () => this.playerWrapper,
-                            onResume: () => { try {
-                                this.play();
+                            onResume: () => {
+                                try {
+                                    this.play();
+                                    this.previewGateHit = false;
+                                }
+                                catch (_) { }
+                            },
+                            onShow: () => {
+                                try {
+                                    this.pause();
+                                }
+                                catch (_) { }
+                            },
+                            onClose: () => {
                             }
-                            catch (_) { } }
                         });
                     }).catch(() => { });
                 }
@@ -2636,8 +2623,16 @@ class WebPlayer extends core_1.BasePlayer {
                 return;
             if (current >= lim - 0.01 && !this.previewGateHit) {
                 this.previewGateHit = true;
-                this.showNotification('Free preview ended. Please rent to continue.');
+                this.showNotification('Free preview ended.');
                 this.emit('onFreePreviewEnded');
+                console.log('[WebPlayer] Free preview gate hit, paywallController exists:', !!this.paywallController);
+                if (this.paywallController) {
+                    console.log('[WebPlayer] Calling paywallController.openOverlay() directly');
+                    this.paywallController.openOverlay();
+                }
+                else {
+                    console.log('[WebPlayer] No paywallController available');
+                }
             }
             if (current >= lim - 0.01) {
                 if (this.isCasting && this.remoteController) {
@@ -3167,7 +3162,8 @@ class WebPlayer extends core_1.BasePlayer {
         if (quality !== 'auto' && this.qualities.length > 0) {
             const qualityLevel = this.qualities.find(q => q.label === quality + 'p');
             if (qualityLevel) {
-                this.setQuality(qualityLevel.index);
+                const index = this.qualities.findIndex(q => q.label === quality + 'p');
+                this.setQuality(index);
             }
         }
         else if (quality === 'auto') {
@@ -3662,5 +3658,4 @@ class WebPlayer extends core_1.BasePlayer {
         this.events.removeAllListeners();
     }
 }
-exports.WebPlayer = WebPlayer;
 //# sourceMappingURL=WebPlayer.js.map

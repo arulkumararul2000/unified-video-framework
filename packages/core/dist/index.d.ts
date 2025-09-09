@@ -1,4 +1,4 @@
-export * from './interfaces/IVideoPlayer';
+export * from './interfaces';
 export { BasePlayer } from './BasePlayer';
 export { VideoPlayerFactory } from './VideoPlayerFactory';
 export type { Platform } from './VideoPlayerFactory';

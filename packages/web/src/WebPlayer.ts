@@ -127,7 +127,12 @@ export class WebPlayer extends BasePlayer {
         });
         // When free preview ends, open overlay
         this.on('onFreePreviewEnded' as any, () => {
-          try { this.paywallController?.openOverlay(); } catch(_) {}
+          console.log('[WebPlayer] onFreePreviewEnded event triggered, calling paywallController.openOverlay()');
+          try { 
+            this.paywallController?.openOverlay(); 
+          } catch(error) {
+            console.error('[WebPlayer] Error calling paywallController.openOverlay():', error);
+          }
         });
       }
     } catch (_) {}
@@ -252,9 +257,9 @@ export class WebPlayer extends BasePlayer {
     }
   }
 
-  async load(source: VideoSource): Promise<void> {
-    this.source = source;
-    this.subtitles = source.subtitles || [];
+  async load(source: any): Promise<void> {
+    this.source = source as any;
+    this.subtitles = (source.subtitles || []) as any;
 
     // Clean up previous instances
     await this.cleanup();
@@ -358,7 +363,7 @@ export class WebPlayer extends BasePlayer {
       this.hls.on(window.Hls.Events.LEVEL_SWITCHED, (event: any, data: any) => {
         if (this.qualities[data.level]) {
           this.currentQualityIndex = data.level;
-          this.state.currentQuality = this.qualities[data.level];
+          this.state.currentQuality = this.qualities[data.level] as any;
           this.emit('onQualityChanged', this.qualities[data.level]);
         }
       });
@@ -461,7 +466,7 @@ export class WebPlayer extends BasePlayer {
   private updateDASHQuality(qualityIndex: number): void {
     if (this.qualities[qualityIndex]) {
       this.currentQualityIndex = qualityIndex;
-      this.state.currentQuality = this.qualities[qualityIndex];
+      this.state.currentQuality = this.qualities[qualityIndex] as any;
       this.emit('onQualityChanged', this.qualities[qualityIndex]);
     }
   }
@@ -492,10 +497,9 @@ export class WebPlayer extends BasePlayer {
     // Add new subtitle tracks
     subtitles.forEach((subtitle, index) => {
       const track = document.createElement('track');
-      track.kind = subtitle.kind;
+      track.kind = subtitle.kind || 'subtitles';
       track.label = subtitle.label;
-      track.srclang = subtitle.language;
-      track.src = subtitle.url;
+      track.src = subtitle.url || '';
       
       if (subtitle.default || index === 0) {
         track.default = true;
@@ -571,12 +575,12 @@ export class WebPlayer extends BasePlayer {
     return super.getCurrentTime();
   }
 
-  getQualities(): Quality[] {
-    return this.qualities;
+  getQualities(): any[] {
+    return this.qualities as any;
   }
 
-  getCurrentQuality(): Quality | null {
-    return this.currentQualityIndex >= 0 ? this.qualities[this.currentQualityIndex] : null;
+  getCurrentQuality(): any {
+    return this.currentQualityIndex >= 0 ? (this.qualities[this.currentQualityIndex] as any) : null;
   }
 
   setQuality(index: number): void {
@@ -685,7 +689,7 @@ export class WebPlayer extends BasePlayer {
     }
   }
 
-  protected applySubtitleTrack(track: SubtitleTrack): void {
+  protected applySubtitleTrack(track: any): void {
     if (!this.video) return;
     
     const tracks = this.video.textTracks;
@@ -2799,7 +2803,20 @@ export class WebPlayer extends BasePlayer {
           import('./paywall/PaywallController').then((m: any) => {
             this.paywallController = new m.PaywallController(config, {
               getOverlayContainer: () => this.playerWrapper,
-              onResume: () => { try { this.play(); } catch(_) {} }
+              onResume: () => { 
+                try { 
+                  this.play(); 
+                  // Reset preview gate after successful auth/payment
+                  this.previewGateHit = false;
+                } catch(_) {} 
+              },
+              onShow: () => {
+                // Pause video when overlay shows
+                try { this.pause(); } catch(_) {}
+              },
+              onClose: () => {
+                // Resume video if auth was successful
+              }
             });
           }).catch(() => {});
         }
@@ -2823,8 +2840,17 @@ export class WebPlayer extends BasePlayer {
       if (this.previewGateHit && !fromSeek) return;
       if (current >= lim - 0.01 && !this.previewGateHit) {
         this.previewGateHit = true;
-        this.showNotification('Free preview ended. Please rent to continue.');
+        this.showNotification('Free preview ended.');
         this.emit('onFreePreviewEnded');
+        
+        // Trigger paywall controller which will handle auth/payment flow
+        console.log('[WebPlayer] Free preview gate hit, paywallController exists:', !!this.paywallController);
+        if (this.paywallController) {
+          console.log('[WebPlayer] Calling paywallController.openOverlay() directly');
+          this.paywallController.openOverlay();
+        } else {
+          console.log('[WebPlayer] No paywallController available');
+        }
       }
       if (current >= lim - 0.01) {
         if (this.isCasting && this.remoteController) {
@@ -3376,7 +3402,8 @@ export class WebPlayer extends BasePlayer {
     if (quality !== 'auto' && this.qualities.length > 0) {
       const qualityLevel = this.qualities.find(q => q.label === quality + 'p');
       if (qualityLevel) {
-        this.setQuality(qualityLevel.index);
+        const index = this.qualities.findIndex(q => q.label === quality + 'p');
+        this.setQuality(index);
       }
     } else if (quality === 'auto') {
       this.setAutoQuality(true);

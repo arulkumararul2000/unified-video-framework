@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SecureVideoPlayer = void 0;
-const WebPlayer_1 = require("./WebPlayer");
-class SecureVideoPlayer extends WebPlayer_1.WebPlayer {
+import { WebPlayer } from './WebPlayer';
+export class SecureVideoPlayer extends WebPlayer {
     constructor() {
         super();
         this.analyticsData = [];
@@ -576,7 +573,7 @@ class SecureVideoPlayer extends WebPlayer_1.WebPlayer {
                 data: {
                     errorCode: error.code,
                     errorMessage: error.message,
-                    errorType: error.type,
+                    errorType: error.type || 'unknown',
                     fatal: error.fatal
                 }
             });
@@ -861,6 +858,5 @@ class SecureVideoPlayer extends WebPlayer_1.WebPlayer {
         await super.destroy();
     }
 }
-exports.SecureVideoPlayer = SecureVideoPlayer;
-exports.default = SecureVideoPlayer;
+export default SecureVideoPlayer;
 //# sourceMappingURL=SecureVideoPlayer.js.map

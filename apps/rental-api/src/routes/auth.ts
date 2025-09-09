@@ -4,7 +4,7 @@ import { db } from '../db.js';
 export const authRouter = Router();
 
 // In-memory OTP store for demo (in production, use Redis or database)
-const otpStore = new Map<string, { otp: string; expires: number; attempts: number }>();
+const otpStore = new Map<string, { otp: string; expires: number; attempts: number; slug: string; videoId: string; }>();
 const sessionStore = new Map<string, { userId: string; email: string; expires: number }>();
 
 // Generate random OTP
@@ -17,15 +17,19 @@ function generateSessionToken(): string {
   return 'session_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 // POST /auth/request-otp
 // Body: { email }
 authRouter.post('/request-otp', async (req: Request, res: Response) => {
   try {
-    const { email } = req.body || {};
+    const { email, slug, videoId } = req.body || {};
     
-    if (!email || !email.includes('@')) {
+    if (!email || !isValidEmail(email)) {
       return res.status(400).json({ 
-        error: 'Valid email address is required',
+        error: 'Valid email is required',
         code: 'INVALID_EMAIL'
       });
     }
@@ -48,8 +52,14 @@ authRouter.post('/request-otp', async (req: Request, res: Response) => {
     const expires = Date.now() + (5 * 60 * 1000); // 5 minutes
     const attempts = existing ? existing.attempts + 1 : 1;
     
-    // Store OTP
-    otpStore.set(normalizedEmail, { otp, expires, attempts });
+    // Store OTP with video context
+    otpStore.set(normalizedEmail, { 
+      otp, 
+      expires, 
+      attempts,
+      slug: slug || 'demo-tenant',
+      videoId: videoId || 'big-buck-bunny'
+    });
     
     // In production, send email via SendGrid, AWS SES, etc.
     // For demo, we'll log it to console
@@ -147,17 +157,85 @@ authRouter.post('/verify-otp', async (req: Request, res: Response) => {
       console.log('[AUTH] Database unavailable for user storage:', dbError);
     }
     
+    // Get video and slug from stored context
+    const videoId = stored.videoId || req.body.videoId || 'big-buck-bunny';
+    const slug = stored.slug || req.body.slug || 'demo-tenant';
+    
+    // Check user's access to this video
+    let accessType = 'free'; // Default to free
+    let requiresPayment = false;
+    let hasAccess = true;
+    let price = 0;
+    
+    try {
+      // Check for existing rental
+      const rentalResult = await db.query(`
+        SELECT r.*, v.price, v.title
+        FROM rentals r
+        JOIN videos v ON r.video_id = v.video_id
+        WHERE r.user_id = $1 AND r.video_id = $2
+          AND r.expires_at > NOW()
+        ORDER BY r.expires_at DESC
+        LIMIT 1
+      `, [userId, videoId]);
+      
+      if (rentalResult.rows.length > 0) {
+        // User has active rental
+        accessType = 'rental';
+        requiresPayment = false;
+        hasAccess = true;
+      } else {
+        // Check if video requires payment
+        const videoResult = await db.query(`
+          SELECT video_id, price_cents, title, is_free
+          FROM videos
+          WHERE video_id = $1
+        `, [videoId]);
+        
+        if (videoResult.rows.length > 0) {
+          const video = videoResult.rows[0];
+          if (video.is_free || video.price_cents === 0) {
+            accessType = 'free';
+            requiresPayment = false;
+            hasAccess = true;
+          } else {
+            accessType = 'ppv';
+            requiresPayment = true;
+            hasAccess = false;
+            price = video.price_cents / 100; // Convert cents to dollars
+          }
+        }
+      }
+    } catch (dbError) {
+      // Database error - default to requiring payment for safety
+      console.log('[AUTH] Could not check video access:', dbError);
+      accessType = 'ppv';
+      requiresPayment = true;
+      hasAccess = false;
+    }
+    
     console.log(`[AUTH] User authenticated: ${normalizedEmail} -> ${userId}`);
+    console.log(`[AUTH] Video access: ${videoId} -> accessType: ${accessType}, requiresPayment: ${requiresPayment}`);
     
     return res.json({
-      success: true,
-      message: 'Authentication successful',
-      userId,
-      email: normalizedEmail,
-      sessionToken,
-      refreshToken,
-      expiresIn: 24 * 60 * 60, // seconds
-      expiresAt: sessionExpires
+      status: true,
+      data: {
+        message: 'Authentication successful',
+        user_id: userId,
+        email: normalizedEmail,
+        session_token: sessionToken,
+        refresh_token: refreshToken,
+        expires_in: 24 * 60 * 60, // seconds
+        expires_at: sessionExpires,
+        // Video access information
+        video_id: videoId,
+        video_slug: slug,
+        email_verified: true,
+        access_granted: hasAccess,
+        requires_payment: requiresPayment,
+        access_type: accessType,
+        price: price
+      }
     });
     
   } catch (error: any) {

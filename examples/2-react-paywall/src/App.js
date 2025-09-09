@@ -7,6 +7,7 @@ const videoCatalog = [
   {
     id: 'video1',
     title: 'Big Buck Bunny',
+    slug: 'big-buck-bunny',
     description: 'A large and lovable rabbit deals with three tiny bullies, led by a flying squirrel.',
     thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Big_Buck_Bunny_-_forest.jpg/1200px-Big_Buck_Bunny_-_forest.jpg',
     url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
@@ -17,6 +18,7 @@ const videoCatalog = [
   {
     id: 'video2',
     title: 'Tears of Steel',
+    slug: 'tears-of-steel',
     description: 'Premium content with paywall - Watch 2 minutes free!',
     thumbnail: 'https://mango.blender.org/wp-content/uploads/2013/05/01_thom_celia_bridge.jpg',
     url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
@@ -29,6 +31,7 @@ const videoCatalog = [
   {
     id: 'video3',
     title: 'Advanced Streaming Demo',
+    slug: 'advanced-streaming-demo',
     description: 'Premium HLS stream with adaptive bitrate - 3 minutes free preview',
     thumbnail: 'https://via.placeholder.com/400x225/007bff/ffffff?text=Premium+Content',
     url: 'https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8',
@@ -86,6 +89,20 @@ function App() {
       userId: user.id,
       videoId: video.id,
       gateways: ['stripe', 'cashfree'],
+      metadata: {
+        slug: video.slug
+      },
+      emailAuth: {
+        enabled: true,
+        api: {
+          requestOtp: '/api/rentals/auth/send-email-otp',
+          verifyOtp: '/api/rentals/auth/verify-otp'
+        },
+        ui: {
+          title: 'Sign in to watch',
+          description: 'Enter your email to continue watching'
+        }
+      },
       pricing: {
         amount: video.rentalPrice,
         currency: 'USD',

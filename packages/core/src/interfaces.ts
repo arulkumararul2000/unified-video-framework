@@ -238,3 +238,66 @@ export interface EventEmitter {
   emit(event: PlayerEvent, data?: any): void;
   removeAllListeners(event?: PlayerEvent): void;
 }
+
+export interface PaywallConfig {
+  enabled?: boolean;
+  apiBase?: string;
+  userId?: string;
+  videoId?: string;
+  gateways?: string[];
+  pricing?: {
+    amount?: number;
+    currency?: string;
+    title?: string;
+    description?: string;
+  };
+  branding?: {
+    title?: string;
+    description?: string;
+  };
+  popup?: {
+    width?: number;
+    height?: number;
+  };
+  metadata?: {
+    slug?: string;
+    [key: string]: any;
+  };
+  emailAuth?: {
+    enabled?: boolean;
+    skipIfAuthenticated?: boolean;
+    api?: {
+      requestOtp?: string;
+      verifyOtp?: string;
+      refreshToken?: string;
+      logout?: string;
+    };
+    sessionStorage?: {
+      tokenKey?: string;
+      refreshTokenKey?: string;
+      userIdKey?: string;
+    };
+    ui?: {
+      title?: string;
+      description?: string;
+      emailPlaceholder?: string;
+      otpPlaceholder?: string;
+      submitButtonText?: string;
+      resendButtonText?: string;
+      resendCooldown?: number;
+    };
+    validation?: {
+      otpLength?: number;
+      otpTimeout?: number;
+      rateLimiting?: {
+        maxAttempts?: number;
+        windowMinutes?: number;
+      };
+    };
+  };
+}
+
+export interface PlayerConfig extends VideoPlayerConfig {
+  freeDuration?: number;
+  paywall?: PaywallConfig;
+}

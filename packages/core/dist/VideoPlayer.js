@@ -1,9 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.VideoPlayer = void 0;
-const events_1 = require("events");
-const interfaces_1 = require("./interfaces");
-class VideoPlayer {
+import { EventEmitter } from 'events';
+import { PlayerState } from './interfaces';
+export class VideoPlayer {
     constructor(config = {}) {
         this.errors = [];
         this.config = {
@@ -15,8 +12,8 @@ class VideoPlayer {
             playsInline: true,
             ...config
         };
-        this.eventEmitter = new events_1.EventEmitter();
-        this.state = interfaces_1.PlayerState.IDLE;
+        this.eventEmitter = new EventEmitter();
+        this.state = PlayerState.IDLE;
         this.metrics = this.initializeMetrics();
     }
     on(event, handler) {
@@ -83,7 +80,7 @@ class VideoPlayer {
         this.errors.push(error);
         this.emit('error', error);
         if (error.fatal) {
-            this.setState(interfaces_1.PlayerState.ERROR);
+            this.setState(PlayerState.ERROR);
         }
     }
     trackAnalytics(event, data) {
@@ -109,7 +106,7 @@ class VideoPlayer {
     }
     cleanup() {
         this.removeAllListeners();
-        this.state = interfaces_1.PlayerState.IDLE;
+        this.state = PlayerState.IDLE;
         this.currentSource = undefined;
     }
     formatTime(seconds) {
@@ -127,8 +124,7 @@ class VideoPlayer {
         return num.toString().padStart(2, '0');
     }
     isBuffering() {
-        return this.state === interfaces_1.PlayerState.BUFFERING;
+        return this.state === PlayerState.BUFFERING;
     }
 }
-exports.VideoPlayer = VideoPlayer;
 //# sourceMappingURL=VideoPlayer.js.map

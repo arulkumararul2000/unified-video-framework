@@ -131,26 +131,26 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     const { width, height } = dimensions;
     const responsive = props.responsive || {};
     
-    // Default configuration
+    // Default configuration - Fullscreen cinematic experience by default
     const defaults = {
       aspectRatio: responsive.aspectRatio || 16/9,
-      maxWidth: responsive.maxWidth || '100%',
-      maxHeight: responsive.maxHeight || '70vh',
+      maxWidth: responsive.maxWidth || '100vw',
+      maxHeight: responsive.maxHeight || '100vh',
       breakpoints: {
         mobile: responsive.breakpoints?.mobile || 768,
         tablet: responsive.breakpoints?.tablet || 1024,
       },
       mobilePortrait: {
-        maxHeight: responsive.mobilePortrait?.maxHeight || '50vh', // Increased from 40vh
+        maxHeight: responsive.mobilePortrait?.maxHeight || '100vh', // Full viewport height
         aspectRatio: responsive.mobilePortrait?.aspectRatio,
       },
       mobileLandscape: {
-        maxHeight: responsive.mobileLandscape?.maxHeight || '85vh', // Increased from 80vh
+        maxHeight: responsive.mobileLandscape?.maxHeight || '100vh', // Full viewport height
         aspectRatio: responsive.mobileLandscape?.aspectRatio,
       },
       tablet: {
-        maxWidth: responsive.tablet?.maxWidth || '90%',
-        maxHeight: responsive.tablet?.maxHeight || '65vh', // Increased from 60vh
+        maxWidth: responsive.tablet?.maxWidth || '100vw',
+        maxHeight: responsive.tablet?.maxHeight || '100vh', // Full viewport height
       },
     };
 
@@ -159,73 +159,76 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     const isPortrait = height > width;
     const isLandscape = width > height;
 
-    // Base responsive style
+    // Base responsive style - Fullscreen cinematic experience
     let calculatedStyle: CSSProperties = {
-      width: '100%',
+      width: '100vw',
+      height: '100vh',
+      maxWidth: '100vw',
+      maxHeight: '100vh',
       boxSizing: 'border-box',
-      position: 'relative',
-      margin: '0 auto',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      zIndex: 1000,
+      backgroundColor: '#000000',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      margin: 0,
+      padding: 0,
       ...props.style, // Apply user styles first, then override as needed
     };
 
-    // Mobile Portrait
+    // Mobile Portrait - Full viewport
     if (isMobile && isPortrait) {
-      const mobileAspectRatio = defaults.mobilePortrait.aspectRatio || defaults.aspectRatio;
-      // Use viewport width to calculate proper height for mobile
-      const calculatedHeight = Math.min(
-        width / mobileAspectRatio, // Full width divided by aspect ratio
-        height * 0.5 // 50% of viewport height max
-      );
       calculatedStyle = {
         ...calculatedStyle,
         width: '100vw',
+        height: '100vh',
         maxWidth: '100vw',
-        height: `${calculatedHeight}px`,
-        maxHeight: '50vh',
-        minHeight: '200px', // Ensure minimum usable height
-        aspectRatio: 'unset', // Let our height calculation take precedence
+        maxHeight: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0,
       };
     }
-    // Mobile Landscape
+    // Mobile Landscape - Full viewport
     else if (isMobile && isLandscape) {
-      const mobileAspectRatio = defaults.mobileLandscape.aspectRatio || defaults.aspectRatio;
-      const calculatedHeight = Math.min(
-        width / mobileAspectRatio,
-        height * 0.85 // 85% of viewport height
-      );
       calculatedStyle = {
         ...calculatedStyle,
         width: '100vw',
+        height: '100vh',
         maxWidth: '100vw',
-        height: `${calculatedHeight}px`,
-        maxHeight: '85vh',
-        minHeight: '180px',
-        aspectRatio: 'unset', // Let our height calculation take precedence
+        maxHeight: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0,
       };
     }
-    // Tablet
+    // Tablet - Full viewport
     else if (isTablet) {
-      const calculatedHeight = Math.min(
-        (width * 0.9) / defaults.aspectRatio,
-        height * 0.65 // 65% of viewport height max
-      );
       calculatedStyle = {
         ...calculatedStyle,
-        width: '90vw',
-        maxWidth: defaults.tablet.maxWidth,
-        height: `${calculatedHeight}px`,
-        maxHeight: defaults.tablet.maxHeight,
-        minHeight: '250px',
-        aspectRatio: 'unset',
+        width: '100vw',
+        height: '100vh',
+        maxWidth: '100vw',
+        maxHeight: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0,
       };
     }
-    // Desktop
+    // Desktop - Full viewport cinematic experience
     else {
       calculatedStyle = {
         ...calculatedStyle,
-        maxWidth: defaults.maxWidth,
-        maxHeight: defaults.maxHeight,
-        aspectRatio: `${defaults.aspectRatio}`,
+        width: '100vw',
+        height: '100vh',
+        maxWidth: '100vw',
+        maxHeight: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0,
       };
     }
 

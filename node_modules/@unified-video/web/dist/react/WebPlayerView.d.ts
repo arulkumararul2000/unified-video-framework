@@ -10,6 +10,38 @@ export type WebPlayerViewProps = {
     freeDuration?: number;
     paywall?: import('@unified-video/core').PaywallConfig;
     paywallConfigUrl?: string;
+    emailAuth?: {
+        enabled?: boolean;
+        skipIfAuthenticated?: boolean;
+        apiEndpoints?: {
+            requestOtp?: string;
+            verifyOtp?: string;
+            refreshToken?: string;
+            logout?: string;
+        };
+        sessionStorage?: {
+            tokenKey?: string;
+            refreshTokenKey?: string;
+            userIdKey?: string;
+        };
+        ui?: {
+            title?: string;
+            description?: string;
+            emailPlaceholder?: string;
+            otpPlaceholder?: string;
+            submitButtonText?: string;
+            resendButtonText?: string;
+            resendCooldown?: number;
+        };
+        validation?: {
+            otpLength?: number;
+            otpTimeout?: number;
+            rateLimiting?: {
+                maxAttempts?: number;
+                windowMinutes?: number;
+            };
+        };
+    };
     url: string;
     type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto';
     subtitles?: SubtitleTrack[];

@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.VideoPlayerFactory = void 0;
-class VideoPlayerFactory {
+export class VideoPlayerFactory {
     static async create(platform, container, config) {
         switch (platform) {
             case 'web':
@@ -95,5 +92,4 @@ class VideoPlayerFactory {
         return this.create(platform, container, config);
     }
 }
-exports.VideoPlayerFactory = VideoPlayerFactory;
 //# sourceMappingURL=VideoPlayerFactory.js.map

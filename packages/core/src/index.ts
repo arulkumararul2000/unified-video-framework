@@ -4,7 +4,7 @@
  */
 
 // Export all interfaces
-export * from './interfaces/IVideoPlayer';
+export * from './interfaces';
 
 // Export base classes
 export { BasePlayer } from './BasePlayer';

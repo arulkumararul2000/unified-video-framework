@@ -1,5 +1,4 @@
 import { BasePlayer } from '@unified-video/core';
-import { VideoSource, Quality, SubtitleTrack } from '@unified-video/core';
 declare global {
     interface Window {
         Hls: any;
@@ -37,7 +36,7 @@ export declare class WebPlayer extends BasePlayer {
     private setupVideoEventListeners;
     private getMediaErrorMessage;
     private updateBufferProgress;
-    load(source: VideoSource): Promise<void>;
+    load(source: any): Promise<void>;
     private detectSourceType;
     private loadHLS;
     private handleHLSError;
@@ -54,15 +53,15 @@ export declare class WebPlayer extends BasePlayer {
     unmute(): void;
     setPlaybackRate(rate: number): void;
     getCurrentTime(): number;
-    getQualities(): Quality[];
-    getCurrentQuality(): Quality | null;
+    getQualities(): any[];
+    getCurrentQuality(): any;
     setQuality(index: number): void;
     setAutoQuality(enabled: boolean): void;
     enterFullscreen(): Promise<void>;
     exitFullscreen(): Promise<void>;
     enterPictureInPicture(): Promise<void>;
     exitPictureInPicture(): Promise<void>;
-    protected applySubtitleTrack(track: SubtitleTrack): void;
+    protected applySubtitleTrack(track: any): void;
     protected removeSubtitles(): void;
     private injectStyles;
     private getPlayerStyles;

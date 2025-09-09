@@ -1,15 +1,12 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BasePlayer = void 0;
-const EventEmitter_1 = require("./utils/EventEmitter");
-class BasePlayer {
+import { EventEmitter } from './utils/EventEmitter';
+export class BasePlayer {
     constructor() {
         this.container = null;
         this.source = null;
         this.subtitles = [];
         this.currentSubtitleIndex = -1;
         this.config = this.getDefaultConfig();
-        this.events = new EventEmitter_1.EventEmitter();
+        this.events = new EventEmitter();
         this.state = this.getDefaultState();
     }
     getDefaultConfig() {
@@ -175,5 +172,4 @@ class BasePlayer {
         this.emit('onBuffering', isBuffering);
     }
 }
-exports.BasePlayer = BasePlayer;
 //# sourceMappingURL=BasePlayer.js.map

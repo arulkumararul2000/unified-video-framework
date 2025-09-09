@@ -11,7 +11,7 @@ import {
 } from '@unified-video/core';
 
 // Extended configuration for secure player
-export interface SecurePlayerConfig extends PlayerConfig {
+export interface SecurePlayerConfig {
   // DRM Configuration
   drm?: {
     widevine?: {
@@ -153,7 +153,7 @@ export class SecureVideoPlayer extends WebPlayer {
     this.startHeartbeat();
   }
 
-  async initialize(container: HTMLElement | string, config?: SecurePlayerConfig): Promise<void> {
+  async initialize(container: HTMLElement | string, config?: any): Promise<void> {
     this.secureConfig = config || {} as SecurePlayerConfig;
     
     // Validate domain if domain lock is enabled
@@ -166,7 +166,7 @@ export class SecureVideoPlayer extends WebPlayer {
       await this.validateToken();
     }
     
-    await super.initialize(container, this.secureConfig);
+    await super.initialize(container, this.secureConfig as any);
   }
 
   private applySecurityMeasures(): void {
@@ -828,7 +828,7 @@ videoId: ((this.source as any)?.metadata?.id ?? this.source?.metadata?.title),
         data: {
           errorCode: error.code,
           errorMessage: error.message,
-          errorType: error.type,
+          errorType: (error as any).type || 'unknown',
           fatal: error.fatal
         }
       });

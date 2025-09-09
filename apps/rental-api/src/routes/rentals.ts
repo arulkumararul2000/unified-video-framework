@@ -79,6 +79,53 @@ rentalsRouter.get('/entitlement', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/rentals/simulate - Testing endpoint
+// Body: { userId, videoId }
+rentalsRouter.post('/simulate', async (req: Request, res: Response) => {
+  try {
+    const { userId, videoId } = req.body || {};
+    
+    if (!userId || !videoId) {
+      return res.status(400).json({ error: 'userId and videoId required' });
+    }
+    
+    // Create a simulated payment record
+    const payment = await upsertPayment({
+      gateway: 'stripe',
+      gatewayRef: `test_${Date.now()}`,
+      amountCents: 499, // $4.99
+      currency: 'USD',
+      status: 'succeeded',
+      rawPayload: { test: true },
+      userId,
+      videoId
+    });
+    
+    // Issue rental entitlement for 48 hours
+    await issueRentalEntitlement({ 
+      userId, 
+      videoId, 
+      paymentId: payment.id, 
+      rentalDurationHours: 48 
+    });
+    
+    console.log(`[SIMULATE] Created test rental for user ${userId} video ${videoId}`);
+    
+    return res.json({ 
+      success: true, 
+      message: 'Test rental created',
+      rentalId: payment.id,
+      expiresIn: '48 hours'
+    });
+    
+  } catch (error: any) {
+    console.error('[SIMULATE] Error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to simulate rental',
+      details: error?.message || String(error)
+    });
+  }
+});
 
 // POST /api/rentals/stripe/checkout-session
 // Body: { userId, videoId, successUrl, cancelUrl }
