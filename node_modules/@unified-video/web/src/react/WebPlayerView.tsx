@@ -405,7 +405,16 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
   useEffect(() => {
     const p = playerRef.current as any;
     if (p && typeof p.setPaywallConfig === 'function' && props.paywall) {
-      try { p.setPaywallConfig(props.paywall as any); } catch(_) {}
+      // Only update if paywall is enabled and properly configured
+      const paywall = props.paywall as any;
+      if (paywall.enabled && (paywall.apiBase || paywall.userId || paywall.videoId)) {
+        try { 
+          console.log('[WebPlayerView] Updating paywall config:', paywall);
+          p.setPaywallConfig(paywall); 
+        } catch(err) {
+          console.warn('[WebPlayerView] Failed to update paywall config:', err);
+        }
+      }
     }
   }, [JSON.stringify(props.paywall)]);
 

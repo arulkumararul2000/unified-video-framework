@@ -1,4 +1,4 @@
-import { EventEmitter } from './utils/EventEmitter.js';
+import { EventEmitter } from './utils/EventEmitter';
 export class BasePlayer {
     constructor() {
         this.container = null;

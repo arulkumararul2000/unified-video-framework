@@ -34,10 +34,29 @@ export class PaywallController {
   }
 
   updateConfig(config: PaywallConfig | null) {
-    this.config = config;
-    this.initializeEmailAuth();
-    if (this.emailAuth) {
-      this.emailAuth.updateConfig(config);
+    // Defensive logic: if new config is null/undefined but we have a working email auth,
+    // preserve the email auth instance to prevent destruction during re-initialization
+    const hadWorkingEmailAuth = this.config?.emailAuth?.enabled && !!this.emailAuth;
+    const newConfigLacksEmailAuth = !config?.emailAuth?.enabled;
+    
+    if (hadWorkingEmailAuth && newConfigLacksEmailAuth) {
+      console.log('[PaywallController] Preserving email auth instance during config update');
+      // Only update non-email auth related config, keep the email auth part
+      this.config = {
+        ...config,
+        emailAuth: this.config?.emailAuth // Preserve existing email auth config
+      };
+      
+      if (this.emailAuth) {
+        this.emailAuth.updateConfig(this.config);
+      }
+    } else {
+      // Normal config update
+      this.config = config;
+      this.initializeEmailAuth();
+      if (this.emailAuth) {
+        this.emailAuth.updateConfig(config);
+      }
     }
   }
 
@@ -55,21 +74,34 @@ export class PaywallController {
     // Check authentication first if email auth is enabled
     if (this.config.emailAuth?.enabled) {
       console.log('[PaywallController] Email auth is enabled, checking authentication');
-      const isAuthenticated = this.emailAuth?.isAuthenticated();
-      console.log('[PaywallController] User authenticated:', isAuthenticated);
       
-      if (!isAuthenticated) {
-        console.log('[PaywallController] User not authenticated, opening email auth modal');
-        // Show email authentication modal first
-        this.emailAuth?.openAuthModal();
-        return;
+      // If email auth is enabled but instance doesn't exist, try to initialize it
+      if (!this.emailAuth) {
+        console.log('[PaywallController] Email auth enabled but no instance found, initializing now');
+        this.initializeEmailAuth();
+      }
+      
+      // If still no instance after initialization, show error
+      if (!this.emailAuth) {
+        console.error('[PaywallController] Failed to initialize email auth, proceeding to payment overlay');
+        // Continue to payment overlay as fallback
       } else {
-        console.log('[PaywallController] User already authenticated, proceeding to payment overlay');
-        // Update userId for authenticated user
-        this.authenticatedUserId = this.emailAuth?.getAuthenticatedUserId() || this.config.userId || null;
-        // Update config with authenticated userId for API calls
-        if (this.authenticatedUserId && this.config) {
-          this.config.userId = this.authenticatedUserId;
+        const isAuthenticated = this.emailAuth.isAuthenticated();
+        console.log('[PaywallController] User authenticated:', isAuthenticated);
+        
+        if (!isAuthenticated) {
+          console.log('[PaywallController] User not authenticated, opening email auth modal');
+          // Show email authentication modal first
+          this.emailAuth.openAuthModal();
+          return;
+        } else {
+          console.log('[PaywallController] User already authenticated, proceeding to payment overlay');
+          // Update userId for authenticated user
+          this.authenticatedUserId = this.emailAuth.getAuthenticatedUserId() || this.config.userId || null;
+          // Update config with authenticated userId for API calls
+          if (this.authenticatedUserId && this.config) {
+            this.config.userId = this.authenticatedUserId;
+          }
         }
       }
     }
@@ -77,16 +109,47 @@ export class PaywallController {
     // Show payment overlay
     console.log('[PaywallController] Showing payment overlay');
     const root = this.ensureOverlay();
-    if (!root) return;
+    if (!root) {
+      console.log('[PaywallController] Failed to create overlay');
+      return;
+    }
+    
+    // Show overlay with proper animation
     root.style.display = 'flex';
     root.classList.add('active');
+    
+    // Force reflow then fade in with animation
+    void root.offsetWidth;
+    root.style.opacity = '1';
+    
+    // Also animate the modal inside
+    const modal = root.querySelector('.uvf-paywall-modal') as HTMLElement;
+    if (modal) {
+      modal.style.transform = 'translateY(0)';
+      modal.style.opacity = '1';
+    }
+    
+    console.log('[PaywallController] Payment overlay displayed successfully');
     this.opts.onShow?.();
   }
 
   closeOverlay() {
     if (this.overlayEl) {
-      this.overlayEl.classList.remove('active');
-      this.overlayEl.style.display = 'none';
+      // Animate out
+      this.overlayEl.style.opacity = '0';
+      const modal = this.overlayEl.querySelector('.uvf-paywall-modal') as HTMLElement;
+      if (modal) {
+        modal.style.transform = 'translateY(20px)';
+        modal.style.opacity = '0';
+      }
+      
+      // Hide after animation
+      setTimeout(() => {
+        if (this.overlayEl) {
+          this.overlayEl.classList.remove('active');
+          this.overlayEl.style.display = 'none';
+        }
+      }, 300); // Match the CSS transition duration
     }
     this.opts.onClose?.();
   }
@@ -99,11 +162,38 @@ export class PaywallController {
     ov.className = 'uvf-paywall-overlay';
     ov.setAttribute('role', 'dialog');
     ov.setAttribute('aria-modal', 'true');
-    ov.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.85);z-index:2147483000;display:none;align-items:center;justify-content:center;';
+    ov.style.cssText = `
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 2147483647;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    `;
 
     const modal = document.createElement('div');
     modal.className = 'uvf-paywall-modal';
-    modal.style.cssText = 'width:80vw;height:80vh;max-width:1100px;max-height:800px;background:#0f0f10;border:1px solid rgba(255,255,255,0.15);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.7)';
+    modal.style.cssText = `
+      width: 90vw;
+      height: 85vh;
+      max-width: 1000px;
+      max-height: 700px;
+      background: #0f0f10;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+      transform: translateY(20px);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    `;
 
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;gap:16px;align-items:center;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1)';
@@ -268,10 +358,21 @@ export class PaywallController {
   private initializeEmailAuth() {
     console.log('[PaywallController] initializeEmailAuth called');
     console.log('[PaywallController] email auth config:', this.config?.emailAuth);
+    console.log('[PaywallController] config enabled:', this.config?.enabled);
     
+    // If paywall is disabled entirely, clean up everything
+    if (!this.config?.enabled) {
+      console.log('[PaywallController] Paywall completely disabled, cleaning up email auth');
+      if (this.emailAuth) {
+        this.emailAuth.destroy();
+        this.emailAuth = null;
+      }
+      return;
+    }
+    
+    // If email auth specifically is disabled, clean up only email auth
     if (!this.config?.emailAuth?.enabled) {
       console.log('[PaywallController] Email auth disabled, cleaning up existing instance');
-      // Clean up existing EmailAuth if disabled
       if (this.emailAuth) {
         this.emailAuth.destroy();
         this.emailAuth = null;
@@ -366,11 +467,33 @@ export class PaywallController {
    * Open payment overlay directly (bypassing auth check)
    */
   private openPaymentOverlay() {
+    console.log('[PaywallController] Opening payment overlay');
     const root = this.ensureOverlay();
-    if (!root) return;
-    root.style.display = 'flex';
-    root.classList.add('active');
-    this.opts.onShow?.();
+    if (!root) {
+      console.error('[PaywallController] Failed to create overlay');
+      return;
+    }
+
+    try {
+      root.style.display = 'flex';
+      root.classList.add('active');
+      
+      // Force reflow then fade in with animation
+      void root.offsetWidth;
+      root.style.opacity = '1';
+      
+      // Also animate the modal inside
+      const modal = root.querySelector('.uvf-paywall-modal') as HTMLElement;
+      if (modal) {
+        modal.style.transform = 'translateY(0)';
+        modal.style.opacity = '1';
+      }
+      
+      this.opts.onShow?.();
+      console.log('[PaywallController] Payment overlay shown');
+    } catch (err) {
+      console.error('[PaywallController] Error showing overlay:', err);
+    }
   }
 
   /**
