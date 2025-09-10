@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.19] - 2024-09-09
+
+### Fixed
+- Fixed ES module import resolution issues when consumers install the package
+- Updated fix-imports.js script to properly handle ES module import statements
+- Fixed internal imports to include .js extensions for ES module compatibility
+- Resolved "Cannot resolve module" errors in consumer projects
+- Fixed directory import issues by updating all import statements to reference specific files
+
+### Changed
+- Enhanced build process to ensure ES modules work correctly when installed via npm
+- Improved fix-imports script to handle both CommonJS and ES module import patterns
+
 ## [1.4.1] - 2024-09-06
 
 ### Fixed

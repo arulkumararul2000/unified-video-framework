@@ -13,14 +13,64 @@ function fixImports(filePath) {
   
   // Replace @unified-video/core imports with relative paths
   if (filePath.includes(path.join('packages', 'web', 'dist'))) {
+    // Fix CommonJS require statements
     content = content.replace(
       /require\(["']@unified-video\/core["']\)/g,
       'require("../../core/dist")'
     );
+    // Fix ES module import statements
+    content = content.replace(
+      /from\s+["']@unified-video\/core["']/g,
+      'from "../../core/dist/index.js"'
+    );
+    content = content.replace(
+      /import\s+["']@unified-video\/core["']/g,
+      'import "../../core/dist/index.js"'
+    );
+    
+    // Fix relative imports within the same package to include .js extension
+    content = content.replace(
+      /from\s+["']\.\/([^"']+)(?<!\.js)["']/g,
+      'from "./$1.js"'
+    );
+    content = content.replace(
+      /from\s+["']\.\.?\/([^"']+)(?<!\.js)["']/g,
+      (match, p1) => {
+        if (p1.includes('/')) {
+          return `from "../${p1.replace(/([^\/]+)$/, '$1.js')}"`;
+        }
+        return `from "../${p1}.js"`;
+      }
+    );
   } else if (filePath.includes(path.join('packages', 'react-native', 'dist'))) {
+    // Fix CommonJS require statements
     content = content.replace(
       /require\(["']@unified-video\/core["']\)/g,
       'require("../../core/dist")'
+    );
+    // Fix ES module import statements
+    content = content.replace(
+      /from\s+["']@unified-video\/core["']/g,
+      'from "../../core/dist/index.js"'
+    );
+    content = content.replace(
+      /import\s+["']@unified-video\/core["']/g,
+      'import "../../core/dist/index.js"'
+    );
+    
+    // Fix relative imports within the same package to include .js extension
+    content = content.replace(
+      /from\s+["']\.\/([^"']+)(?<!\.js)["']/g,
+      'from "./$1.js"'
+    );
+    content = content.replace(
+      /from\s+["']\.\.?\/([^"']+)(?<!\.js)["']/g,
+      (match, p1) => {
+        if (p1.includes('/')) {
+          return `from "../${p1.replace(/([^\/]+)$/, '$1.js')}"`;
+        }
+        return `from "../${p1}.js"`;
+      }
     );
   }
   

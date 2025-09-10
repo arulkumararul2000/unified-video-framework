@@ -1,4 +1,4 @@
-import { BasePlayer } from '@unified-video/core';
+import { BasePlayer } from "../../core/dist/index.js";
 export class WebPlayer extends BasePlayer {
     constructor() {
         super(...arguments);
