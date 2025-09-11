@@ -552,13 +552,12 @@ export class PaywallController {
       metadata: { gateway: gateway.id, sessionToken: this.sessionToken, authenticatedUserId: this.authenticatedUserId }
     };
 
-    const body = cfg.mapRequest ? cfg.mapRequest(paymentData) : {
-      unit_amount: Math.round(paymentData.amount || 0),
-      source_type_id: 1,
-      source_id: paymentData.videoId,
-      success_url: window.location.origin + window.location.pathname + '?rental=success&popup=1',
-      failure_url: window.location.origin + window.location.pathname + '?rental=cancel&popup=1'
-    };
+    // Use user's mapRequest function, or error if none provided
+    if (!cfg.mapRequest) {
+      throw new Error('paymentLink.mapRequest is required - please provide a function to map payment data to your API format');
+    }
+    
+    const body = cfg.mapRequest(paymentData);
 
     const res = await fetch(cfg.endpoint, {
       method: cfg.method || 'POST',
@@ -743,12 +742,11 @@ export class PaywallController {
           // Handle access logic based on server response
           // Handle access logic based on server response
           if (accessData) {
-            const { 
-              access_granted = false,
-              requires_payment = false, 
-              free_duration = 0,
-              price = null
-            } = accessData;
+            // Support both camelCase (from EmailAuthController) and snake_case (legacy)
+            const access_granted = accessData.accessGranted ?? accessData.access_granted ?? false;
+            const requires_payment = accessData.requiresPayment ?? accessData.requires_payment ?? false;
+            const free_duration = accessData.freeDuration ?? accessData.free_duration ?? 0;
+            const price = accessData.price ?? null;
             
             // Update price from server response if provided
             if (price && this.config) {

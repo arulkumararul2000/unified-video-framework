@@ -17,24 +17,7 @@ const UnifiedVideoPlayer = () => {
 
     const [loading, setLoading] = useState(true)
 
-    const timeToSeconds = (timeString) => {
-        if (!timeString) return null;
-
-        const parts = timeString.split(":").map(Number);
-
-        if (parts.length === 3) {
-            const [hh, mm, ss] = parts;
-            return hh * 3600 + mm * 60 + ss;
-        } else if (parts.length === 2) {
-            const [mm, ss] = parts;
-            return mm * 60 + ss;
-        } else if (parts.length === 1) {
-            return parts[0];
-        }
-
-        return null;
-    };
-
+    // All React hooks must be called at the top level - NEVER conditionally
     useEffect(() => {
         if (slug) {
             const fetchVideoBySlug = async () => {
@@ -71,36 +54,50 @@ const UnifiedVideoPlayer = () => {
         }
     }, [slug, baseURL])
 
-    if (loading) {
-        return (
-            <div className="player-loading-container" style={{
-                height: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-            }}>
-                <Defaultloadinggif />
-            </div>
-        )
-    }
+    // Handle URL parameters for payment success/failure (from popup redirects)
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search)
+        const paymentStatus = urlParams.get('payment')
+        const isPopup = urlParams.get('popup')
+        const gateway = urlParams.get('gateway')
+        const orderId = urlParams.get('order_id')
 
-    if (videoData?.error) {
-        return (
-            <div className="player-error-container" style={{
-                height: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'column',
-                padding: '20px'
-            }}>
-                <MessageBox
-                    text={`Error: ${videoData?.error}`}
-                    classname="warningColor text-center my-5 d-block"
-                />
-            </div>
-        )
-    }
+        if (paymentStatus && isPopup) {
+            // This page is loaded in a popup window after payment
+            console.log(`🔔 Payment ${paymentStatus} in popup`, { gateway, orderId })
+
+            // Send message to parent window
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'uvfCheckout',
+                    status: paymentStatus, // 'success', 'failed', 'cancel'
+                    orderId: orderId,
+                    gatewayId: gateway
+                }, '*')
+                
+                // Close the popup
+                window.close()
+            }
+        }
+    }, []) // Empty dependency array - this only runs once on mount
+
+    const timeToSeconds = (timeString) => {
+        if (!timeString) return null;
+
+        const parts = timeString.split(":").map(Number);
+
+        if (parts.length === 3) {
+            const [hh, mm, ss] = parts;
+            return hh * 3600 + mm * 60 + ss;
+        } else if (parts.length === 2) {
+            const [mm, ss] = parts;
+            return mm * 60 + ss;
+        } else if (parts.length === 1) {
+            return parts[0];
+        }
+
+        return null;
+    };
 
     const getPaywallConfig = () => {
         return {
@@ -116,37 +113,14 @@ const UnifiedVideoPlayer = () => {
                 description: `Watch "${videoData?.title || ''}"`,
             },
             
-            // OPTION 2: Payment Link Configuration with your Cashfree API
+            // Payment gateway configuration - use objects, not strings
             gateways: [
-                // Remove hardcoded 'stripe' and 'cashfree' strings that cause 404
-                // Use custom gateway objects instead
                 {
                     id: 'cashfree',
                     name: 'Cashfree',
                     description: 'UPI, Cards, Wallets',
                     icon: '💳',
                     color: '#00d4aa'
-                },
-                {
-                    id: 'razorpay',
-                    name: 'Razorpay',
-                    description: 'UPI, Netbanking',
-                    icon: '🏦',
-                    color: '#3395ff'
-                },
-                {
-                    id: 'phonepe',
-                    name: 'PhonePe',
-                    description: 'UPI Payments',
-                    icon: '📱',
-                    color: '#5f2d91'
-                },
-                {
-                    id: 'payu',
-                    name: 'PayU',
-                    description: 'Credit/Debit Cards',
-                    icon: '💰',
-                    color: '#17bf43'
                 }
             ],
             
@@ -159,62 +133,57 @@ const UnifiedVideoPlayer = () => {
                     'Content-Type': 'application/json',
                 },
                 
-                // Map the payment data to your API's expected format
+                // Map the payment data to Cashfree Payment Links API format
                 mapRequest: (paymentData) => {
-                    console.log('🔄 Mapping payment request for Cashfree:', paymentData);
+                    console.log('🔄 Mapping payment request for Cashfree Payment Links API:', paymentData);
                     
                     // Get the current page URL for success/failure redirects
                     const currentUrl = window.location.origin + window.location.pathname;
                     
-                    // Generate unique link ID using timestamp and random string
-                    const linkId = `cf_ppv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    // Generate unique link ID using timestamp and video ID
+                    const linkId = `video_${videoData?.id || 'unknown'}_${Date.now()}`;
                     const amount = Math.round(paymentData.amount || videoData?.price || 100);
                     
-                    return {
-                        // Cashfree Payment Links API requires these exact field names
+                    // Cashfree Payment Links API v3 required fields
+                    const requestPayload = {
                         link_id: linkId,
-                        link_amount: amount.toFixed(2), // Must be string with 2 decimal places
+                        link_amount: amount.toFixed(2), // String with 2 decimal places
                         link_currency: paymentData.currency || 'INR',
-                        link_purpose: `Payment for video: ${videoData?.title || 'Premium Video'}`,
+                        link_purpose: `Video Purchase: ${videoData?.title || 'Premium Content'}`,
                         customer_details: {
-                            customer_name: paymentData.userId || 'Guest User',
-                            customer_email: paymentData.userId || sessionStorage.getItem('uvf_user_email') || 'guest@example.com',
-                            customer_phone: '9999999999' // You can make this dynamic
+                            customer_name: sessionStorage.getItem('uvf_user_email')?.split('@')[0] || 'Guest User',
+                            customer_email: sessionStorage.getItem('uvf_user_email') || 'guest@example.com',
+                            customer_phone: '9999999999' // Required field for Cashfree
                         },
                         link_partial_payments: false,
-                        link_minimum_partial_amount: null,
-                        link_expiry_time: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+                        link_expiry_time: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
                         link_notify: {
                             send_sms: false,
                             send_email: false
                         },
-                        link_auto_reminders: false,
                         link_notes: {
-                            video_id: paymentData.videoId || videoData?.id,
-                            source_type: 'video',
-                            user_id: paymentData.userId || sessionStorage.getItem('uvf_user_id') || 'guest'
+                            video_id: (videoData?.id || 0).toString(),
+                            video_slug: slug,
+                            source_type: 'video_rental',
+                            user_id: sessionStorage.getItem('uvf_user_id') || 'guest',
+                            framework: 'unified-video-framework'
                         },
                         link_meta: {
                             return_url: `${currentUrl}?payment=success&popup=1&gateway=${paymentData.gateway}&order_id={order_id}`,
                             cancel_url: `${currentUrl}?payment=failed&popup=1&gateway=${paymentData.gateway}&order_id={order_id}`
                         }
                     };
+                    
+                    console.log('📤 Final Cashfree Payment Links API request:', requestPayload);
+                    return requestPayload;
                 },
                 
                 // Map your API's response to the expected format
                 mapResponse: (apiResponse) => {
                     console.log('🔄 Mapping Cashfree API response:', apiResponse);
                     
-                    // Your API returns:
-                    // {
-                    //   "status": true,
-                    //   "message": "Payment Link created Successfully", 
-                    //   "Payment_Link_URL": "https://payments-test.cashfree.com/links/U95gstng2b7g",
-                    //   "order_id": "cf_ppv_1757586777903_i0h1d94qx"
-                    // }
-                    
                     if (!apiResponse.status) {
-                        throw new Error(apiResponse.message || 'Failed to create payment link');
+                        throw new Error(apiResponse.message || apiResponse.errors?.join(', ') || 'Failed to create payment link');
                     }
                     
                     return {
@@ -233,7 +202,7 @@ const UnifiedVideoPlayer = () => {
             
             branding: {
                 title: 'Unlock Premium Content',
-                description: `Pay ₹${videoData?.price || '100'} to watch "${videoData?.title || ''}" instantly!!`,
+                description: `Pay ₹${videoData?.price || '100'} to watch "${videoData?.title || ''}" instantly!`,
                 brandColor: '#ff6b35',
                 paymentTitle: 'Choose your preferred payment method'
             },
@@ -290,32 +259,37 @@ const UnifiedVideoPlayer = () => {
         };
     };
 
-    // Handle URL parameters for payment success/failure (from popup redirects)
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const paymentStatus = urlParams.get('payment');
-        const isPopup = urlParams.get('popup');
-        const gateway = urlParams.get('gateway');
-        const orderId = urlParams.get('order_id');
+    // Early returns AFTER all hooks have been called
+    if (loading) {
+        return (
+            <div className="player-loading-container" style={{
+                height: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <Defaultloadinggif />
+            </div>
+        )
+    }
 
-        if (paymentStatus && isPopup) {
-            // This page is loaded in a popup window after payment
-            console.log(`🔔 Payment ${paymentStatus} in popup`, { gateway, orderId });
-
-            // Send message to parent window
-            if (window.opener) {
-                window.opener.postMessage({
-                    type: 'uvfCheckout',
-                    status: paymentStatus, // 'success', 'failed', 'cancel'
-                    orderId: orderId,
-                    gatewayId: gateway
-                }, '*');
-                
-                // Close the popup
-                window.close();
-            }
-        }
-    }, []);
+    if (videoData?.error) {
+        return (
+            <div className="player-error-container" style={{
+                height: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'column',
+                padding: '20px'
+            }}>
+                <MessageBox
+                    text={`Error: ${videoData?.error}`}
+                    classname="warningColor text-center my-5 d-block"
+                />
+            </div>
+        )
+    }
 
     return (
         <>
@@ -375,7 +349,6 @@ const UnifiedVideoPlayer = () => {
                 overflow: 'hidden' 
             }}>
                 <WebPlayerView
-                    // url={videoData?.video_url || 'https://storageservice.flicknexs.com/storage/node-org/hls/593c63f7-9646-4a62-9e44-ea5345591652/master.m3u8'}
                     url={'https://storageservice.flicknexs.com/storage/node-org/hls/593c63f7-9646-4a62-9e44-ea5345591652/master.m3u8'}
                     freeDuration={timeToSeconds(videoData?.free_duration)}
 
