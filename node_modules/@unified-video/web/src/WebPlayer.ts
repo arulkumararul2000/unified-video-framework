@@ -52,6 +52,12 @@ export class WebPlayer extends BasePlayer {
   // Paywall
   private paywallController: any = null;
 
+  // Play/pause coordination to prevent race conditions
+  private _playPromise: Promise<void> | null = null;
+  private _deferredPause = false;
+  private _lastToggleAt = 0;
+  private _TOGGLE_DEBOUNCE_MS = 120;
+
 
   protected async setupPlayer(): Promise<void> {
     if (!this.container) {
@@ -122,7 +128,10 @@ export class WebPlayer extends BasePlayer {
         this.paywallController = new (PaywallController as any)(pw, {
           getOverlayContainer: () => this.playerWrapper,
           onResume: () => { try { this.play(); } catch(_) {} },
-          onShow: () => {},
+          onShow: () => { 
+            // Use safe pause method to avoid race conditions
+            try { this.requestPause(); } catch(_) {} 
+          },
           onClose: () => {}
         });
         // When free preview ends, open overlay
@@ -151,9 +160,9 @@ export class WebPlayer extends BasePlayer {
       // Enforce free preview before letting play proceed
       if (this.config.freeDuration && this.config.freeDuration > 0) {
         const lim = Number(this.config.freeDuration);
-        const cur = this.video!.currentTime || 0;
+        const cur = (this.video?.currentTime || 0);
         if (!this.previewGateHit && cur >= lim) {
-          try { this.video!.pause(); } catch (_) {}
+          try { this.video?.pause(); } catch (_) {}
           this.showNotification('Free preview ended. Please rent to continue.');
           return;
         }
@@ -161,6 +170,14 @@ export class WebPlayer extends BasePlayer {
       this.state.isPlaying = true;
       this.state.isPaused = false;
       this.emit('onPlay');
+    });
+
+    this.video.addEventListener('playing', () => {
+      // Handle deferred pause requests
+      if (this._deferredPause) {
+        this._deferredPause = false;
+        try { this.video?.pause(); } catch (_) {}
+      }
     });
 
     this.video.addEventListener('pause', () => {
@@ -176,7 +193,8 @@ export class WebPlayer extends BasePlayer {
     });
 
     this.video.addEventListener('timeupdate', () => {
-      const t = this.video!.currentTime;
+      if (!this.video) return;
+      const t = this.video.currentTime || 0;
       this.updateTime(t);
       // Enforce free preview gate on local playback
       this.enforceFreePreviewGate(t);
@@ -193,25 +211,34 @@ export class WebPlayer extends BasePlayer {
     this.video.addEventListener('canplay', () => {
       this.setBuffering(false);
       this.emit('onReady');
+      
+      // Handle deferred pause requests
+      if (this._deferredPause) {
+        this._deferredPause = false;
+        try { this.video?.pause(); } catch (_) {}
+      }
     });
 
     this.video.addEventListener('loadedmetadata', () => {
-      this.state.duration = this.video!.duration;
+      if (!this.video) return;
+      this.state.duration = this.video.duration || 0;
       this.emit('onLoadedMetadata', {
-        duration: this.video!.duration,
-        width: this.video!.videoWidth,
-        height: this.video!.videoHeight
+        duration: this.video.duration || 0,
+        width: this.video.videoWidth || 0,
+        height: this.video.videoHeight || 0
       });
     });
 
     this.video.addEventListener('volumechange', () => {
-      this.state.volume = this.video!.volume;
-      this.state.isMuted = this.video!.muted;
-      this.emit('onVolumeChanged', this.video!.volume);
+      if (!this.video) return;
+      this.state.volume = this.video.volume;
+      this.state.isMuted = this.video.muted;
+      this.emit('onVolumeChanged', this.video.volume);
     });
 
     this.video.addEventListener('error', (e) => {
-      const error = this.video!.error;
+      if (!this.video) return;
+      const error = this.video.error;
       if (error) {
         this.handleError({
           code: `MEDIA_ERR_${error.code}`,
@@ -229,7 +256,8 @@ export class WebPlayer extends BasePlayer {
 
     this.video.addEventListener('seeked', () => {
       // Apply gate if user seeks beyond free preview
-      const t = this.video!.currentTime || 0;
+      if (!this.video) return;
+      const t = this.video.currentTime || 0;
       this.enforceFreePreviewGate(t, true);
       this.emit('onSeeked');
     });
@@ -509,29 +537,76 @@ export class WebPlayer extends BasePlayer {
     });
   }
 
+  private isAbortPlayError(err: any): boolean {
+    return !!err && (
+      (err.name === 'AbortError') ||
+      (typeof err.message === 'string' && /interrupted by a call to pause\(\)/i.test(err.message))
+    );
+  }
+
   async play(): Promise<void> {
     if (!this.video) throw new Error('Video element not initialized');
 
-    
+    const now = Date.now();
+    if (now - this._lastToggleAt < this._TOGGLE_DEBOUNCE_MS) return;
+    this._lastToggleAt = now;
+
+    // If already playing or a play is in-flight, no-op
+    if (!this.video.paused || this._playPromise) return;
+
     try {
-      await this.video.play();
+      this._deferredPause = false; // a new play cancels any prior deferred pause
+      this._playPromise = this.video.play();
+      await this._playPromise; // await to sequence future actions
+      this._playPromise = null;
+
+      // If someone asked to pause while we were starting playback, do it now
+      if (this._deferredPause) {
+        this._deferredPause = false;
+        this.video.pause();
+      }
+
       await super.play();
-    } catch (error) {
+    } catch (err) {
+      this._playPromise = null;
+      if (this.isAbortPlayError(err)) {
+        // Benign: pause() raced play(); ignore the error.
+        return;
+      }
       this.handleError({
         code: 'PLAY_ERROR',
-        message: `Failed to start playback: ${error}`,
+        message: `Failed to start playbook: ${err}`,
         type: 'media',
         fatal: false,
-        details: error
+        details: err
       });
-      throw error;
+      throw err;
     }
   }
 
   pause(): void {
     if (!this.video) return;
+
+    const now = Date.now();
+    if (now - this._lastToggleAt < this._TOGGLE_DEBOUNCE_MS) return;
+    this._lastToggleAt = now;
+
+    // If a play is still pending, defer the pause to avoid interrupt error
+    if (this._playPromise || this.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      this._deferredPause = true;
+      return;
+    }
+
     this.video.pause();
     super.pause();
+  }
+
+  // Safe method for external components like PaywallController to request pause
+  public requestPause(): void {
+    this._deferredPause = true;
+    if (!this._playPromise && this.video && this.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      try { this.video.pause(); } catch (_) {}
+    }
   }
 
   seek(time: number): void {
@@ -2811,8 +2886,8 @@ export class WebPlayer extends BasePlayer {
                 } catch(_) {} 
               },
               onShow: () => {
-                // Pause video when overlay shows
-                try { this.pause(); } catch(_) {}
+                // Use safe pause method to avoid race conditions
+                try { this.requestPause(); } catch(_) {}
               },
               onClose: () => {
                 // Resume video if auth was successful
@@ -2860,9 +2935,10 @@ export class WebPlayer extends BasePlayer {
             }
           } catch (_) {}
         } else if (this.video) {
-          try { this.video.pause(); } catch (_) {}
-          try {
-            if (fromSeek || (this.video.currentTime > lim)) {
+          try { 
+            // Use deferred pause to avoid race conditions
+            this.requestPause(); 
+            if (fromSeek || ((this.video.currentTime || 0) > lim)) {
               this.video.currentTime = Math.max(0, lim - 0.1);
             }
           } catch (_) {}
@@ -2877,7 +2953,7 @@ export class WebPlayer extends BasePlayer {
       const s = Math.max(0, Number(seconds) || 0);
       (this.config as any).freeDuration = s;
       // Reset gate if we extended duration below current gate
-      if (s === 0 || (this.video && this.video.currentTime < s)) {
+      if (s === 0 || (this.video && (this.video.currentTime || 0) < s)) {
         this.previewGateHit = false;
       }
       // If already past new limit, enforce immediately

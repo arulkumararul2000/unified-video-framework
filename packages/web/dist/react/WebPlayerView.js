@@ -285,10 +285,16 @@ export const WebPlayerView = (props) => {
     useEffect(() => {
         const p = playerRef.current;
         if (p && typeof p.setPaywallConfig === 'function' && props.paywall) {
-            try {
-                p.setPaywallConfig(props.paywall);
+            const paywall = props.paywall;
+            if (paywall.enabled && (paywall.apiBase || paywall.userId || paywall.videoId)) {
+                try {
+                    console.log('[WebPlayerView] Updating paywall config:', paywall);
+                    p.setPaywallConfig(paywall);
+                }
+                catch (err) {
+                    console.warn('[WebPlayerView] Failed to update paywall config:', err);
+                }
             }
-            catch (_) { }
         }
     }, [JSON.stringify(props.paywall)]);
     useEffect(() => {

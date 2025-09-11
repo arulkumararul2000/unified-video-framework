@@ -32,6 +32,10 @@ export declare class WebPlayer extends BasePlayer {
     private selectedSubtitleKey;
     private _kiTo;
     private paywallController;
+    private _playPromise;
+    private _deferredPause;
+    private _lastToggleAt;
+    private _TOGGLE_DEBOUNCE_MS;
     protected setupPlayer(): Promise<void>;
     private setupVideoEventListeners;
     private getMediaErrorMessage;
@@ -45,8 +49,10 @@ export declare class WebPlayer extends BasePlayer {
     private loadNative;
     protected loadScript(src: string): Promise<void>;
     private loadSubtitles;
+    private isAbortPlayError;
     play(): Promise<void>;
     pause(): void;
+    requestPause(): void;
     seek(time: number): void;
     setVolume(level: number): void;
     mute(): void;

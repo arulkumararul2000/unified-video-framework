@@ -244,7 +244,7 @@ export interface PaywallConfig {
   apiBase?: string;
   userId?: string;
   videoId?: string;
-  gateways?: string[];
+  gateways?: (string | PaywallGateway)[];
   pricing?: {
     amount?: number;
     currency?: string;
@@ -254,6 +254,8 @@ export interface PaywallConfig {
   branding?: {
     title?: string;
     description?: string;
+    brandColor?: string;
+    paymentTitle?: string;
   };
   popup?: {
     width?: number;
@@ -262,6 +264,19 @@ export interface PaywallConfig {
   metadata?: {
     slug?: string;
     [key: string]: any;
+  };
+  // Payment Link Configuration for generic payment gateways
+  paymentLink?: {
+    endpoint: string;
+    method?: 'POST' | 'GET';
+    headers?: Record<string, string>;
+    mapRequest?: (paymentData: any) => any;
+    mapResponse?: (response: any) => { url: string; orderId?: string; };
+    popup?: {
+      width?: number;
+      height?: number;
+      features?: string;
+    };
   };
   emailAuth?: {
     enabled?: boolean;
@@ -276,6 +291,10 @@ export interface PaywallConfig {
       tokenKey?: string;
       refreshTokenKey?: string;
       userIdKey?: string;
+      emailKey?: string;
+    };
+    requestPayload?: {
+      [key: string]: any;
     };
     ui?: {
       title?: string;
@@ -285,6 +304,8 @@ export interface PaywallConfig {
       submitButtonText?: string;
       resendButtonText?: string;
       resendCooldown?: number;
+      verifyButtonText?: string;
+      brandColor?: string;
     };
     validation?: {
       otpLength?: number;
@@ -295,6 +316,14 @@ export interface PaywallConfig {
       };
     };
   };
+}
+
+export interface PaywallGateway {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
 }
 
 export interface PlayerConfig extends VideoPlayerConfig {

@@ -1,11 +1,37 @@
 import { PaywallConfig } from '@unified-video/core';
 import { EmailAuthController, EmailAuthControllerOptions } from './EmailAuthController';
 
+export type PaywallGateway = {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+};
+
+export type PaymentLinkConfig = {
+  endpoint: string;
+  method?: 'POST' | 'GET';
+  headers?: Record<string, string>;
+  mapRequest?: (paymentData: any) => any;
+  mapResponse?: (response: any) => { url: string; orderId?: string; };
+  popup?: {
+    width?: number;
+    height?: number;
+    features?: string;
+  };
+};
+
 export type PaywallControllerOptions = {
   getOverlayContainer: () => HTMLElement | null;
   onResume: () => void;
   onShow?: () => void;
   onClose?: () => void;
+  // Custom payment handlers
+  onPaymentRequested?: (gateway: PaywallGateway, paymentData: any) => Promise<void> | void;
+  onPaymentSuccess?: (gateway: PaywallGateway, result: any) => void;
+  onPaymentError?: (gateway: PaywallGateway, error: any) => void;
+  onPaymentCancel?: (gateway: PaywallGateway) => void;
 };
 
 export class PaywallController {
@@ -17,6 +43,7 @@ export class PaywallController {
   private emailAuth: EmailAuthController | null = null;
   private authenticatedUserId: string | null = null;
   private sessionToken: string | null = null;
+  private currentGateway: PaywallGateway | null = null; // Track current payment gateway
 
   constructor(config: PaywallConfig | null, opts: PaywallControllerOptions) {
     this.config = config;
@@ -242,20 +269,138 @@ export class PaywallController {
     this.gatewayStepEl!.style.display = 'flex';
 
     const title = document.createElement('div');
-    title.textContent = 'Choose a payment method';
-    title.style.cssText = 'color:#fff;font-size:16px;';
+    title.textContent = this.config.branding?.paymentTitle || 'Choose a payment method';
+    title.style.cssText = 'color:#fff;font-size:16px;margin-bottom:20px;';
+    
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;justify-content:center;';
 
-    for (const g of (this.config.gateways || [])) {
-      const btn = document.createElement('button');
-      btn.textContent = g === 'cashfree' ? 'Cashfree' : 'Stripe';
-      btn.style.cssText = 'background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:12px 16px;cursor:pointer;min-width:120px;';
-      btn.addEventListener('click', () => this.openGateway(g as 'stripe' | 'cashfree'));
+    // Support both legacy string array and new gateway objects
+    const gateways = this.getGateways();
+    
+    for (const gateway of gateways) {
+      const btn = this.createGatewayButton(gateway);
+      btn.addEventListener('click', () => this.handleGatewayClick(gateway));
       wrap.appendChild(btn);
     }
+    
     this.gatewayStepEl!.appendChild(title);
     this.gatewayStepEl!.appendChild(wrap);
+  }
+
+  private getGateways(): PaywallGateway[] {
+    if (!this.config?.gateways) return [];
+    
+    return this.config.gateways.map((g: any) => {
+      if (typeof g === 'string') {
+        // Legacy support for string arrays
+        return this.getLegacyGateway(g);
+      }
+      // New gateway object format
+      return g as PaywallGateway;
+    });
+  }
+  
+  private getLegacyGateway(id: string): PaywallGateway {
+    const legacyGateways: Record<string, PaywallGateway> = {
+      stripe: {
+        id: 'stripe',
+        name: 'Credit/Debit Card',
+        description: 'Pay with Stripe',
+        color: '#6772e5'
+      },
+      cashfree: {
+        id: 'cashfree',
+        name: 'UPI/Netbanking',
+        description: 'Pay with Cashfree',
+        color: '#00d4aa'
+      },
+      custom: {
+        id: 'custom',
+        name: 'Pay Now',
+        description: 'Secure Payment',
+        color: '#4f9eff'
+      }
+    };
+    
+    return legacyGateways[id] || {
+      id,
+      name: id.charAt(0).toUpperCase() + id.slice(1),
+      description: `Pay with ${id}`,
+      color: '#666666'
+    };
+  }
+  
+  private createGatewayButton(gateway: PaywallGateway): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.className = 'uvf-gateway-btn';
+    
+    // Create button content
+    const content = document.createElement('div');
+    content.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:8px;';
+    
+    // Icon or emoji
+    if (gateway.icon) {
+      const icon = document.createElement('div');
+      icon.innerHTML = gateway.icon;
+      icon.style.cssText = 'font-size:24px;';
+      content.appendChild(icon);
+    }
+    
+    // Gateway name
+    const name = document.createElement('div');
+    name.textContent = gateway.name;
+    name.style.cssText = 'font-weight:600;font-size:14px;';
+    content.appendChild(name);
+    
+    // Description (optional)
+    if (gateway.description) {
+      const desc = document.createElement('div');
+      desc.textContent = gateway.description;
+      desc.style.cssText = 'font-size:12px;opacity:0.8;';
+      content.appendChild(desc);
+    }
+    
+    btn.appendChild(content);
+    
+    // Styling
+    const bgColor = gateway.color || '#4f9eff';
+    btn.style.cssText = `
+      background: linear-gradient(135deg, ${bgColor}, ${this.adjustBrightness(bgColor, -20)});
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      min-width: 140px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      font-family: inherit;
+    `;
+    
+    // Hover effects
+    btn.addEventListener('mouseenter', () => {
+      btn.style.transform = 'translateY(-2px)';
+      btn.style.boxShadow = `0 8px 20px rgba(0,0,0,0.3), 0 4px 8px ${bgColor}40`;
+    });
+    
+    btn.addEventListener('mouseleave', () => {
+      btn.style.transform = 'translateY(0)';
+      btn.style.boxShadow = 'none';
+    });
+    
+    return btn;
+  }
+  
+  private adjustBrightness(color: string, amount: number): string {
+    // Simple color brightness adjustment
+    if (!color.startsWith('#')) return color;
+    
+    const num = parseInt(color.slice(1), 16);
+    const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+    const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amount));
+    const b = Math.max(0, Math.min(255, (num & 0x0000FF) + amount));
+    
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
   }
 
   private async openGateway(gateway: 'stripe' | 'cashfree') {
@@ -325,31 +470,228 @@ export class PaywallController {
     }, 3000);
   }
 
+  // Handle gateway button clicks with flexible routing
+  private async handleGatewayClick(gateway: PaywallGateway) {
+    try {
+      // Track current gateway for message handling
+      this.currentGateway = gateway;
+      
+      console.log(`[PaywallController] Processing payment for gateway: ${gateway.id}`);
+      
+      // Check if user provided a custom payment handler
+      if (this.opts.onPaymentRequested) {
+        console.log(`[PaywallController] Using custom handler for gateway: ${gateway.id}`);
+        const paymentData = {
+          userId: this.authenticatedUserId || this.config?.userId,
+          videoId: this.config?.videoId,
+          amount: this.config?.pricing?.amount,
+          currency: this.config?.pricing?.currency || 'INR',
+          gateway: gateway.id,
+          sessionToken: this.sessionToken
+        };
+        
+        await this.opts.onPaymentRequested(gateway, paymentData);
+        return;
+      }
+      
+      // Handle built-in gateways (Stripe, Cashfree)
+      if (gateway.id === 'stripe' || gateway.id === 'cashfree') {
+        console.log(`[PaywallController] Using built-in handler for: ${gateway.id}`);
+        await this.openGateway(gateway.id);
+        return;
+      }
+      
+      // Handle generic payment link for custom gateways
+      const paymentLinkConfig = (this.config as any)?.paymentLink;
+      if (paymentLinkConfig?.endpoint) {
+        console.log(`[PaywallController] Using payment link for gateway: ${gateway.id}`);
+        await this.handlePaymentLink(gateway);
+        return;
+      }
+      
+      // No handler available
+      console.error(`[PaywallController] No payment handler configured for gateway: ${gateway.id}`);
+      alert('Payment method not configured. Please contact support.');
+      
+    } catch (error) {
+      console.error(`[PaywallController] Payment error for ${gateway.id}:`, error);
+      
+      // Notify user of payment error via callback
+      if (this.opts.onPaymentError) {
+        this.opts.onPaymentError(gateway, error);
+      } else {
+        alert('Payment failed. Please try again or contact support.');
+      }
+      
+      // Return to gateway selection
+      this.showGateways();
+    }
+  }
+
+  // Option B: config-only payment link handler
+  private async handlePaymentLink(gateway: PaywallGateway) {
+    const cfg = (this.config as any).paymentLink as PaymentLinkConfig | undefined;
+    if (!cfg?.endpoint) throw new Error('paymentLink.endpoint is required');
+
+    const w = Math.min(window.screen.width - 100, cfg.popup?.width || this.config?.popup?.width || 1000);
+    const h = Math.min(window.screen.height - 100, cfg.popup?.height || this.config?.popup?.height || 800);
+    const left = Math.max(0, Math.round((window.screen.width - w) / 2));
+    const top = Math.max(0, Math.round((window.screen.height - h) / 2));
+    const features = cfg.popup?.features || `popup=1,width=${w},height=${h},left=${left},top=${top}`;
+
+    // Pre-open popup to avoid blockers
+    let pre: Window | null = null;
+    try { pre = window.open('', 'uvfCheckout', features); } catch (_) { pre = null; }
+
+    const paymentData = {
+      userId: this.config?.userId,
+      videoId: this.config?.videoId,
+      amount: this.config?.pricing?.amount,
+      currency: this.config?.pricing?.currency || 'INR',
+      metadata: { gateway: gateway.id, sessionToken: this.sessionToken, authenticatedUserId: this.authenticatedUserId }
+    };
+
+    const body = cfg.mapRequest ? cfg.mapRequest(paymentData) : {
+      unit_amount: Math.round(paymentData.amount || 0),
+      source_type_id: 1,
+      source_id: paymentData.videoId,
+      success_url: window.location.origin + window.location.pathname + '?rental=success&popup=1',
+      failure_url: window.location.origin + window.location.pathname + '?rental=cancel&popup=1'
+    };
+
+    const res = await fetch(cfg.endpoint, {
+      method: cfg.method || 'POST',
+      headers: { 'Content-Type': 'application/json', ...(cfg.headers || {}) },
+      body: (cfg.method || 'POST') === 'POST' ? JSON.stringify(body) : undefined
+    });
+
+    const raw = await res.json();
+    const mapped = cfg.mapResponse ? cfg.mapResponse(raw) : {
+      url: raw?.Payment_Link_URL || raw?.paymentLink || raw?.link_url,
+      orderId: raw?.order_id || raw?.orderId
+    };
+
+    if (!mapped?.url) {
+      // Close pre-opened popup if failed
+      try { pre && !pre.closed && pre.close(); } catch (_) {}
+      throw new Error(raw?.message || 'Failed to create payment link');
+    }
+
+    try { this.popup && !this.popup.closed && this.popup.close(); } catch (_) {}
+    this.popup = pre && !pre.closed ? pre : window.open('', 'uvfCheckout', features);
+    try { if (this.popup) this.popup.location.href = mapped.url; } catch(_) {}
+
+    // Store orderId and gateway context for later confirmation if needed
+    (window as any)._uvf_orderId = mapped.orderId || null;
+    (window as any)._uvf_gatewayId = gateway.id;
+
+    // Rely on success_url page to postMessage back with { type:'uvfCheckout', status:'success', orderId, gatewayId }
+    this.startPolling();
+  }
+
   private onMessage = async (ev: MessageEvent) => {
     const d: any = ev?.data || {};
     if (!d || d.type !== 'uvfCheckout') return;
+    
     try { if (this.popup && !this.popup.closed) this.popup.close(); } catch (_) {}
     this.popup = null;
+    
+    // Determine which gateway was used based on the message data
+    const gateway = this.findGatewayById(d.gatewayId) || this.currentGateway || {
+      id: 'unknown',
+      name: 'Payment Gateway'
+    };
+    
+    // Clear current gateway after processing
+    if (d.status === 'success' || d.status === 'cancel' || d.status === 'error') {
+      this.currentGateway = null;
+    }
+    
     if (d.status === 'cancel') {
+      console.log(`[PaywallController] Payment cancelled for gateway: ${gateway.id}`);
+      
+      // Notify user callback of cancellation
+      if (this.opts.onPaymentCancel) {
+        this.opts.onPaymentCancel(gateway);
+      }
+      
+      // Return to gateway selection
       this.showGateways();
       return;
     }
+    
     if (d.status === 'success') {
+      console.log(`[PaywallController] Payment successful for gateway: ${gateway.id}`);
+      
       try {
+        // Handle built-in gateway verification
         if (d.sessionId && this.config) {
+          console.log('[PaywallController] Verifying Stripe session');
           await fetch(`${this.config.apiBase}/api/rentals/stripe/confirm`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionId: d.sessionId })
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              sessionId: d.sessionId,
+              userId: this.authenticatedUserId || this.config.userId,
+              videoId: this.config.videoId
+            })
           });
         }
+        
         if (d.orderId && this.config) {
-          await fetch(`${this.config.apiBase}/api/rentals/cashfree/verify?orderId=${encodeURIComponent(d.orderId)}&userId=${encodeURIComponent(this.config.userId || '')}&videoId=${encodeURIComponent(this.config.videoId || '')}`);
+          console.log('[PaywallController] Verifying Cashfree order');
+          await fetch(`${this.config.apiBase}/api/rentals/cashfree/verify?orderId=${encodeURIComponent(d.orderId)}&userId=${encodeURIComponent(this.authenticatedUserId || this.config.userId || '')}&videoId=${encodeURIComponent(this.config.videoId || '')}`);
         }
-      } catch (_) {}
+        
+        // For custom payment links or other gateways, verification might be handled differently
+        // The success callback will be triggered regardless
+        
+      } catch (error) {
+        console.error('[PaywallController] Payment verification failed:', error);
+        
+        // Notify error callback
+        if (this.opts.onPaymentError) {
+          this.opts.onPaymentError(gateway, error);
+          return;
+        }
+      }
+      
+      // Notify success callback
+      if (this.opts.onPaymentSuccess) {
+        this.opts.onPaymentSuccess(gateway, {
+          sessionId: d.sessionId,
+          orderId: d.orderId,
+          transactionId: d.transactionId,
+          ...d // Pass all data from the message
+        });
+      }
+      
+      // Close overlay and resume playback
       this.closeOverlay();
       this.opts.onResume();
+      return;
+    }
+    
+    // Handle error status
+    if (d.status === 'error') {
+      console.error(`[PaywallController] Payment error for gateway: ${gateway.id}`, d.error);
+      
+      if (this.opts.onPaymentError) {
+        this.opts.onPaymentError(gateway, d.error || 'Payment failed');
+      }
+      
+      // Return to gateway selection
+      this.showGateways();
     }
   };
+  
+  // Helper method to find gateway by ID
+  private findGatewayById(gatewayId?: string): PaywallGateway | null {
+    if (!gatewayId) return null;
+    
+    const gateways = this.getGateways();
+    return gateways.find(g => g.id === gatewayId) || null;
+  }
 
 
   /**
@@ -524,6 +866,52 @@ export class PaywallController {
   }
 
   /**
+   * Add a custom payment gateway dynamically
+   */
+  addGateway(gateway: PaywallGateway) {
+    if (!this.config) {
+      console.warn('[PaywallController] Cannot add gateway: config is null');
+      return;
+    }
+    
+    if (!this.config.gateways) {
+      this.config.gateways = [];
+    }
+    
+    // Remove existing gateway with same ID
+    this.config.gateways = this.config.gateways.filter((g: any) => {
+      const id = typeof g === 'string' ? g : g.id;
+      return id !== gateway.id;
+    });
+    
+    // Add new gateway
+    this.config.gateways.push(gateway);
+    
+    console.log(`[PaywallController] Added gateway: ${gateway.id}`);
+  }
+  
+  /**
+   * Remove a payment gateway by ID
+   */
+  removeGateway(gatewayId: string) {
+    if (!this.config?.gateways) return;
+    
+    this.config.gateways = this.config.gateways.filter((g: any) => {
+      const id = typeof g === 'string' ? g : g.id;
+      return id !== gatewayId;
+    });
+    
+    console.log(`[PaywallController] Removed gateway: ${gatewayId}`);
+  }
+  
+  /**
+   * Get all configured gateways (for external use)
+   */
+  getConfiguredGateways(): PaywallGateway[] {
+    return this.getGateways();
+  }
+
+  /**
    * Cleanup on destroy
    */
   destroy() {
@@ -536,6 +924,17 @@ export class PaywallController {
       this.overlayEl.parentElement.removeChild(this.overlayEl);
     }
     this.overlayEl = null;
+    
+    // Close any open popup
+    try {
+      if (this.popup && !this.popup.closed) {
+        this.popup.close();
+      }
+    } catch (_) {}
+    this.popup = null;
+    
+    // Clean up gateway tracking
+    this.currentGateway = null;
     
     try {
       window.removeEventListener('message', this.onMessage, false);

@@ -25,6 +25,10 @@ export class WebPlayer extends BasePlayer {
         this.selectedSubtitleKey = 'off';
         this._kiTo = null;
         this.paywallController = null;
+        this._playPromise = null;
+        this._deferredPause = false;
+        this._lastToggleAt = 0;
+        this._TOGGLE_DEBOUNCE_MS = 120;
     }
     async setupPlayer() {
         if (!this.container) {
@@ -73,7 +77,12 @@ export class WebPlayer extends BasePlayer {
                         this.play();
                     }
                     catch (_) { } },
-                    onShow: () => { },
+                    onShow: () => {
+                        try {
+                            this.requestPause();
+                        }
+                        catch (_) { }
+                    },
                     onClose: () => { }
                 });
                 this.on('onFreePreviewEnded', () => {
@@ -97,10 +106,10 @@ export class WebPlayer extends BasePlayer {
         this.video.addEventListener('play', () => {
             if (this.config.freeDuration && this.config.freeDuration > 0) {
                 const lim = Number(this.config.freeDuration);
-                const cur = this.video.currentTime || 0;
+                const cur = (this.video?.currentTime || 0);
                 if (!this.previewGateHit && cur >= lim) {
                     try {
-                        this.video.pause();
+                        this.video?.pause();
                     }
                     catch (_) { }
                     this.showNotification('Free preview ended. Please rent to continue.');
@@ -110,6 +119,15 @@ export class WebPlayer extends BasePlayer {
             this.state.isPlaying = true;
             this.state.isPaused = false;
             this.emit('onPlay');
+        });
+        this.video.addEventListener('playing', () => {
+            if (this._deferredPause) {
+                this._deferredPause = false;
+                try {
+                    this.video?.pause();
+                }
+                catch (_) { }
+            }
         });
         this.video.addEventListener('pause', () => {
             this.state.isPlaying = false;
@@ -122,7 +140,9 @@ export class WebPlayer extends BasePlayer {
             this.emit('onEnded');
         });
         this.video.addEventListener('timeupdate', () => {
-            const t = this.video.currentTime;
+            if (!this.video)
+                return;
+            const t = this.video.currentTime || 0;
             this.updateTime(t);
             this.enforceFreePreviewGate(t);
         });
@@ -135,21 +155,34 @@ export class WebPlayer extends BasePlayer {
         this.video.addEventListener('canplay', () => {
             this.setBuffering(false);
             this.emit('onReady');
+            if (this._deferredPause) {
+                this._deferredPause = false;
+                try {
+                    this.video?.pause();
+                }
+                catch (_) { }
+            }
         });
         this.video.addEventListener('loadedmetadata', () => {
-            this.state.duration = this.video.duration;
+            if (!this.video)
+                return;
+            this.state.duration = this.video.duration || 0;
             this.emit('onLoadedMetadata', {
-                duration: this.video.duration,
-                width: this.video.videoWidth,
-                height: this.video.videoHeight
+                duration: this.video.duration || 0,
+                width: this.video.videoWidth || 0,
+                height: this.video.videoHeight || 0
             });
         });
         this.video.addEventListener('volumechange', () => {
+            if (!this.video)
+                return;
             this.state.volume = this.video.volume;
             this.state.isMuted = this.video.muted;
             this.emit('onVolumeChanged', this.video.volume);
         });
         this.video.addEventListener('error', (e) => {
+            if (!this.video)
+                return;
             const error = this.video.error;
             if (error) {
                 this.handleError({
@@ -165,6 +198,8 @@ export class WebPlayer extends BasePlayer {
             this.emit('onSeeking');
         });
         this.video.addEventListener('seeked', () => {
+            if (!this.video)
+                return;
             const t = this.video.currentTime || 0;
             this.enforceFreePreviewGate(t, true);
             this.emit('onSeeked');
@@ -401,29 +436,67 @@ export class WebPlayer extends BasePlayer {
             this.video.appendChild(track);
         });
     }
+    isAbortPlayError(err) {
+        return !!err && ((err.name === 'AbortError') ||
+            (typeof err.message === 'string' && /interrupted by a call to pause\(\)/i.test(err.message)));
+    }
     async play() {
         if (!this.video)
             throw new Error('Video element not initialized');
+        const now = Date.now();
+        if (now - this._lastToggleAt < this._TOGGLE_DEBOUNCE_MS)
+            return;
+        this._lastToggleAt = now;
+        if (!this.video.paused || this._playPromise)
+            return;
         try {
-            await this.video.play();
+            this._deferredPause = false;
+            this._playPromise = this.video.play();
+            await this._playPromise;
+            this._playPromise = null;
+            if (this._deferredPause) {
+                this._deferredPause = false;
+                this.video.pause();
+            }
             await super.play();
         }
-        catch (error) {
+        catch (err) {
+            this._playPromise = null;
+            if (this.isAbortPlayError(err)) {
+                return;
+            }
             this.handleError({
                 code: 'PLAY_ERROR',
-                message: `Failed to start playback: ${error}`,
+                message: `Failed to start playbook: ${err}`,
                 type: 'media',
                 fatal: false,
-                details: error
+                details: err
             });
-            throw error;
+            throw err;
         }
     }
     pause() {
         if (!this.video)
             return;
+        const now = Date.now();
+        if (now - this._lastToggleAt < this._TOGGLE_DEBOUNCE_MS)
+            return;
+        this._lastToggleAt = now;
+        if (this._playPromise || this.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+            this._deferredPause = true;
+            return;
+        }
         this.video.pause();
         super.pause();
+    }
+    requestPause() {
+        this._deferredPause = true;
+        if (!this._playPromise && this.video && this.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            try {
+                this.video.pause();
+            }
+            catch (_) { }
+        }
     }
     seek(time) {
         if (!this.video)
@@ -2593,7 +2666,7 @@ export class WebPlayer extends BasePlayer {
                             },
                             onShow: () => {
                                 try {
-                                    this.pause();
+                                    this.requestPause();
                                 }
                                 catch (_) { }
                             },
@@ -2645,11 +2718,8 @@ export class WebPlayer extends BasePlayer {
                 }
                 else if (this.video) {
                     try {
-                        this.video.pause();
-                    }
-                    catch (_) { }
-                    try {
-                        if (fromSeek || (this.video.currentTime > lim)) {
+                        this.requestPause();
+                        if (fromSeek || ((this.video.currentTime || 0) > lim)) {
                             this.video.currentTime = Math.max(0, lim - 0.1);
                         }
                     }
@@ -2663,7 +2733,7 @@ export class WebPlayer extends BasePlayer {
         try {
             const s = Math.max(0, Number(seconds) || 0);
             this.config.freeDuration = s;
-            if (s === 0 || (this.video && this.video.currentTime < s)) {
+            if (s === 0 || (this.video && (this.video.currentTime || 0) < s)) {
                 this.previewGateHit = false;
             }
             const cur = this.video ? (this.video.currentTime || 0) : 0;
