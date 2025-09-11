@@ -545,7 +545,7 @@ export class PaywallController {
     try { pre = window.open('', 'uvfCheckout', features); } catch (_) { pre = null; }
 
     const paymentData = {
-      userId: this.config?.userId,
+      userId: this.authenticatedUserId || this.config?.userId,
       videoId: this.config?.videoId,
       amount: this.config?.pricing?.amount,
       currency: this.config?.pricing?.currency || 'INR',
@@ -557,13 +557,17 @@ export class PaywallController {
       throw new Error('paymentLink.mapRequest is required - please provide a function to map payment data to your API format');
     }
     
+    console.log('[PaywallController] PaymentData passed to mapRequest:', paymentData);
     const body = cfg.mapRequest(paymentData);
+    console.log('[PaywallController] Mapped request body:', body);
 
     const res = await fetch(cfg.endpoint, {
       method: cfg.method || 'POST',
       headers: { 'Content-Type': 'application/json', ...(cfg.headers || {}) },
       body: (cfg.method || 'POST') === 'POST' ? JSON.stringify(body) : undefined
     });
+    
+    console.log('[PaywallController] API response status:', res.status, res.statusText);
 
     const raw = await res.json();
     const mapped = cfg.mapResponse ? cfg.mapResponse(raw) : {
