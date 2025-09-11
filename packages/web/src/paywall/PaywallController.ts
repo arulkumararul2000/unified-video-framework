@@ -494,18 +494,19 @@ export class PaywallController {
         return;
       }
       
-      // Handle built-in gateways (Stripe, Cashfree)
-      if (gateway.id === 'stripe' || gateway.id === 'cashfree') {
-        console.log(`[PaywallController] Using built-in handler for: ${gateway.id}`);
-        await this.openGateway(gateway.id);
+      // PRIORITY: Check for payment link configuration first
+      // This allows users to override built-in gateways with their own APIs
+      const paymentLinkConfig = (this.config as any)?.paymentLink;
+      if (paymentLinkConfig?.endpoint) {
+        console.log(`[PaywallController] Using payment link configuration for: ${gateway.id}`);
+        await this.handlePaymentLink(gateway);
         return;
       }
       
-      // Handle generic payment link for custom gateways
-      const paymentLinkConfig = (this.config as any)?.paymentLink;
-      if (paymentLinkConfig?.endpoint) {
-        console.log(`[PaywallController] Using payment link for gateway: ${gateway.id}`);
-        await this.handlePaymentLink(gateway);
+      // Fallback: Handle built-in gateways (Stripe, Cashfree) only if no payment link config
+      if (gateway.id === 'stripe' || gateway.id === 'cashfree') {
+        console.log(`[PaywallController] Using built-in handler for: ${gateway.id}`);
+        await this.openGateway(gateway.id);
         return;
       }
       
