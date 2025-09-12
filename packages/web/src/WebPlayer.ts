@@ -187,8 +187,8 @@ export class WebPlayer extends BasePlayer {
     if (!this.video) return;
 
     this.video.addEventListener('play', () => {
-      // Enforce free preview before letting play proceed
-      if (this.config.freeDuration && this.config.freeDuration > 0) {
+      // Don't enforce preview if payment was successful
+      if (!this.paymentSuccessful && this.config.freeDuration && this.config.freeDuration > 0) {
         const lim = Number(this.config.freeDuration);
         const cur = (this.video?.currentTime || 0);
         if (!this.previewGateHit && cur >= lim) {

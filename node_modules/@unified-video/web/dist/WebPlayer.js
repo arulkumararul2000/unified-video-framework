@@ -127,7 +127,7 @@ export class WebPlayer extends BasePlayer {
         if (!this.video)
             return;
         this.video.addEventListener('play', () => {
-            if (this.config.freeDuration && this.config.freeDuration > 0) {
+            if (!this.paymentSuccessful && this.config.freeDuration && this.config.freeDuration > 0) {
                 const lim = Number(this.config.freeDuration);
                 const cur = (this.video?.currentTime || 0);
                 if (!this.previewGateHit && cur >= lim) {
