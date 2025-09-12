@@ -36,6 +36,9 @@ export declare class WebPlayer extends BasePlayer {
     private _deferredPause;
     private _lastToggleAt;
     private _TOGGLE_DEBOUNCE_MS;
+    private debugLog;
+    private debugError;
+    private debugWarn;
     protected setupPlayer(): Promise<void>;
     private setupVideoEventListeners;
     private getMediaErrorMessage;
@@ -84,6 +87,7 @@ export declare class WebPlayer extends BasePlayer {
     private handleVolumeChange;
     private handleProgressChange;
     private formatTime;
+    private updateTimeDisplay;
     private showControls;
     private hideControls;
     private scheduleHideControls;

@@ -30,6 +30,21 @@ export class WebPlayer extends BasePlayer {
         this._lastToggleAt = 0;
         this._TOGGLE_DEBOUNCE_MS = 120;
     }
+    debugLog(message, ...args) {
+        if (this.config.debug) {
+            console.log(`[WebPlayer] ${message}`, ...args);
+        }
+    }
+    debugError(message, ...args) {
+        if (this.config.debug) {
+            console.error(`[WebPlayer] ${message}`, ...args);
+        }
+    }
+    debugWarn(message, ...args) {
+        if (this.config.debug) {
+            console.warn(`[WebPlayer] ${message}`, ...args);
+        }
+    }
     async setupPlayer() {
         if (!this.container) {
             throw new Error('Container element is required');
@@ -86,12 +101,12 @@ export class WebPlayer extends BasePlayer {
                     onClose: () => { }
                 });
                 this.on('onFreePreviewEnded', () => {
-                    console.log('[WebPlayer] onFreePreviewEnded event triggered, calling paywallController.openOverlay()');
+                    this.debugLog('onFreePreviewEnded event triggered, calling paywallController.openOverlay()');
                     try {
                         this.paywallController?.openOverlay();
                     }
                     catch (error) {
-                        console.error('[WebPlayer] Error calling paywallController.openOverlay():', error);
+                        this.debugError('Error calling paywallController.openOverlay():', error);
                     }
                 });
             }
@@ -155,6 +170,7 @@ export class WebPlayer extends BasePlayer {
         this.video.addEventListener('canplay', () => {
             this.setBuffering(false);
             this.emit('onReady');
+            this.updateTimeDisplay();
             if (this._deferredPause) {
                 this._deferredPause = false;
                 try {
@@ -167,6 +183,8 @@ export class WebPlayer extends BasePlayer {
             if (!this.video)
                 return;
             this.state.duration = this.video.duration || 0;
+            this.debugLog('Metadata loaded - duration:', this.video.duration);
+            this.updateTimeDisplay();
             this.emit('onLoadedMetadata', {
                 duration: this.video.duration || 0,
                 width: this.video.videoWidth || 0,
@@ -2403,11 +2421,7 @@ export class WebPlayer extends BasePlayer {
                 progressFilled.style.width = percent + '%';
                 progressHandle.style.left = percent + '%';
             }
-            if (timeDisplay && this.video) {
-                const current = this.formatTime(this.video.currentTime);
-                const duration = this.formatTime(this.video.duration);
-                timeDisplay.textContent = `${current} / ${duration}`;
-            }
+            this.updateTimeDisplay();
         });
         this.video.addEventListener('progress', () => {
             const progressBuffered = document.getElementById('uvf-progress-buffered');
@@ -2514,7 +2528,7 @@ export class WebPlayer extends BasePlayer {
             if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
                 return;
             }
-            console.log('[WebPlayer] Keyboard event:', e.key, 'target:', target.tagName);
+            this.debugLog('Keyboard event:', e.key, 'target:', target.tagName);
             let shortcutText = '';
             switch (e.key) {
                 case ' ':
@@ -2522,16 +2536,16 @@ export class WebPlayer extends BasePlayer {
                 case 'k':
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('[WebPlayer] Space/K pressed, current state:', {
+                    this.debugLog('Space/K pressed, current state:', {
                         isPlaying: this.state.isPlaying,
                         videoPaused: this.video?.paused,
                         videoExists: !!this.video
                     });
                     const willPlay = this.video?.paused || false;
-                    console.log('[WebPlayer] Will perform action:', willPlay ? 'PLAY' : 'PAUSE');
+                    this.debugLog('Will perform action:', willPlay ? 'PLAY' : 'PAUSE');
                     this.togglePlayPause();
                     shortcutText = willPlay ? 'Play' : 'Pause';
-                    console.log('[WebPlayer] Showing icon:', shortcutText);
+                    this.debugLog('Showing icon:', shortcutText);
                     break;
                 case 'ArrowLeft':
                     e.preventDefault();
@@ -2608,7 +2622,7 @@ export class WebPlayer extends BasePlayer {
                     break;
             }
             if (shortcutText) {
-                console.log('[WebPlayer] Showing shortcut indicator:', shortcutText);
+                this.debugLog('Showing shortcut indicator:', shortcutText);
                 this.showShortcutIndicator(shortcutText);
             }
         };
@@ -2701,21 +2715,21 @@ export class WebPlayer extends BasePlayer {
         catch (_) { }
     }
     togglePlayPause() {
-        console.log('[WebPlayer] togglePlayPause called, video state:', {
+        this.debugLog('togglePlayPause called, video state:', {
             videoExists: !!this.video,
             videoPaused: this.video?.paused,
             playerState: this.state
         });
         if (!this.video) {
-            console.error('[WebPlayer] No video element available for toggle');
+            this.debugError('No video element available for toggle');
             return;
         }
         if (this.video.paused) {
-            console.log('[WebPlayer] Video is paused, calling play()');
+            this.debugLog('Video is paused, calling play()');
             this.play();
         }
         else {
-            console.log('[WebPlayer] Video is playing, calling pause()');
+            this.debugLog('Video is playing, calling pause()');
             this.pause();
         }
     }
@@ -2730,13 +2744,13 @@ export class WebPlayer extends BasePlayer {
                 this.previewGateHit = true;
                 this.showNotification('Free preview ended.');
                 this.emit('onFreePreviewEnded');
-                console.log('[WebPlayer] Free preview gate hit, paywallController exists:', !!this.paywallController);
+                this.debugLog('Free preview gate hit, paywallController exists:', !!this.paywallController);
                 if (this.paywallController) {
-                    console.log('[WebPlayer] Calling paywallController.openOverlay() directly');
+                    this.debugLog('Calling paywallController.openOverlay() directly');
                     this.paywallController.openOverlay();
                 }
                 else {
-                    console.log('[WebPlayer] No paywallController available');
+                    this.debugLog('No paywallController available');
                 }
             }
             if (current >= lim - 0.01) {
@@ -2839,6 +2853,15 @@ export class WebPlayer extends BasePlayer {
         }
         else {
             return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+    }
+    updateTimeDisplay() {
+        const timeDisplay = document.getElementById('uvf-time-display');
+        if (timeDisplay && this.video) {
+            const current = this.formatTime(this.video.currentTime || 0);
+            const duration = this.formatTime(this.video.duration || 0);
+            timeDisplay.textContent = `${current} / ${duration}`;
+            this.debugLog('Time display updated:', `${current} / ${duration}`);
         }
     }
     showControls() {
@@ -2946,9 +2969,9 @@ export class WebPlayer extends BasePlayer {
     }
     showShortcutIndicator(text) {
         const el = document.getElementById('uvf-shortcut-indicator');
-        console.log('[WebPlayer] showShortcutIndicator called with:', text, 'element found:', !!el);
+        this.debugLog('showShortcutIndicator called with:', text, 'element found:', !!el);
         if (!el) {
-            console.error('[WebPlayer] uvf-shortcut-indicator element not found!');
+            this.debugError('uvf-shortcut-indicator element not found!');
             return;
         }
         try {

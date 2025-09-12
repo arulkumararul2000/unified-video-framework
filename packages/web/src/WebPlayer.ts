@@ -58,6 +58,25 @@ export class WebPlayer extends BasePlayer {
   private _lastToggleAt = 0;
   private _TOGGLE_DEBOUNCE_MS = 120;
 
+  // Debug logging helper
+  private debugLog(message: string, ...args: any[]): void {
+    if (this.config.debug) {
+      console.log(`[WebPlayer] ${message}`, ...args);
+    }
+  }
+
+  private debugError(message: string, ...args: any[]): void {
+    if (this.config.debug) {
+      console.error(`[WebPlayer] ${message}`, ...args);
+    }
+  }
+
+  private debugWarn(message: string, ...args: any[]): void {
+    if (this.config.debug) {
+      console.warn(`[WebPlayer] ${message}`, ...args);
+    }
+  }
+
 
   protected async setupPlayer(): Promise<void> {
     if (!this.container) {
@@ -136,11 +155,11 @@ export class WebPlayer extends BasePlayer {
         });
         // When free preview ends, open overlay
         this.on('onFreePreviewEnded' as any, () => {
-          console.log('[WebPlayer] onFreePreviewEnded event triggered, calling paywallController.openOverlay()');
+          this.debugLog('onFreePreviewEnded event triggered, calling paywallController.openOverlay()');
           try { 
             this.paywallController?.openOverlay(); 
           } catch(error) {
-            console.error('[WebPlayer] Error calling paywallController.openOverlay():', error);
+            this.debugError('Error calling paywallController.openOverlay():', error);
           }
         });
       }
@@ -212,6 +231,9 @@ export class WebPlayer extends BasePlayer {
       this.setBuffering(false);
       this.emit('onReady');
       
+      // Update time display when video is ready to play
+      this.updateTimeDisplay();
+      
       // Handle deferred pause requests
       if (this._deferredPause) {
         this._deferredPause = false;
@@ -222,6 +244,11 @@ export class WebPlayer extends BasePlayer {
     this.video.addEventListener('loadedmetadata', () => {
       if (!this.video) return;
       this.state.duration = this.video.duration || 0;
+      this.debugLog('Metadata loaded - duration:', this.video.duration);
+      
+      // Update time display immediately when metadata loads
+      this.updateTimeDisplay();
+      
       this.emit('onLoadedMetadata', {
         duration: this.video.duration || 0,
         width: this.video.videoWidth || 0,
@@ -2589,11 +2616,8 @@ export class WebPlayer extends BasePlayer {
         progressHandle.style.left = percent + '%';
       }
       
-      if (timeDisplay && this.video) {
-        const current = this.formatTime(this.video.currentTime);
-        const duration = this.formatTime(this.video.duration);
-        timeDisplay.textContent = `${current} / ${duration}`;
-      }
+      // Update time display using the dedicated method
+      this.updateTimeDisplay();
     });
     
     // Update buffered progress
@@ -2735,7 +2759,7 @@ export class WebPlayer extends BasePlayer {
       }
       
       // Debug logging
-      console.log('[WebPlayer] Keyboard event:', e.key, 'target:', target.tagName);
+      this.debugLog('Keyboard event:', e.key, 'target:', target.tagName);
       
       let shortcutText = '';
       
@@ -2745,7 +2769,7 @@ export class WebPlayer extends BasePlayer {
         case 'k':
           e.preventDefault();
           e.stopPropagation();
-          console.log('[WebPlayer] Space/K pressed, current state:', {
+          this.debugLog('Space/K pressed, current state:', {
             isPlaying: this.state.isPlaying,
             videoPaused: this.video?.paused,
             videoExists: !!this.video
@@ -2753,13 +2777,13 @@ export class WebPlayer extends BasePlayer {
           
           // Determine what action we're about to take based on current video state
           const willPlay = this.video?.paused || false;
-          console.log('[WebPlayer] Will perform action:', willPlay ? 'PLAY' : 'PAUSE');
+          this.debugLog('Will perform action:', willPlay ? 'PLAY' : 'PAUSE');
           
           this.togglePlayPause();
           
           // Show the action we're taking, not the current state
           shortcutText = willPlay ? 'Play' : 'Pause';
-          console.log('[WebPlayer] Showing icon:', shortcutText);
+          this.debugLog('Showing icon:', shortcutText);
           break;
         case 'ArrowLeft':
           e.preventDefault();
@@ -2833,7 +2857,7 @@ export class WebPlayer extends BasePlayer {
       }
       
       if (shortcutText) {
-        console.log('[WebPlayer] Showing shortcut indicator:', shortcutText);
+        this.debugLog('Showing shortcut indicator:', shortcutText);
         this.showShortcutIndicator(shortcutText);
       }
     };
@@ -2935,22 +2959,22 @@ export class WebPlayer extends BasePlayer {
   }
 
   private togglePlayPause(): void {
-    console.log('[WebPlayer] togglePlayPause called, video state:', {
+    this.debugLog('togglePlayPause called, video state:', {
       videoExists: !!this.video,
       videoPaused: this.video?.paused,
       playerState: this.state
     });
     
     if (!this.video) {
-      console.error('[WebPlayer] No video element available for toggle');
+      this.debugError('No video element available for toggle');
       return;
     }
     
     if (this.video.paused) {
-      console.log('[WebPlayer] Video is paused, calling play()');
+      this.debugLog('Video is paused, calling play()');
       this.play();
     } else {
-      console.log('[WebPlayer] Video is playing, calling pause()');
+      this.debugLog('Video is playing, calling pause()');
       this.pause();
     }
   }
@@ -2967,12 +2991,12 @@ export class WebPlayer extends BasePlayer {
         this.emit('onFreePreviewEnded');
         
         // Trigger paywall controller which will handle auth/payment flow
-        console.log('[WebPlayer] Free preview gate hit, paywallController exists:', !!this.paywallController);
+        this.debugLog('Free preview gate hit, paywallController exists:', !!this.paywallController);
         if (this.paywallController) {
-          console.log('[WebPlayer] Calling paywallController.openOverlay() directly');
+          this.debugLog('Calling paywallController.openOverlay() directly');
           this.paywallController.openOverlay();
         } else {
-          console.log('[WebPlayer] No paywallController available');
+          this.debugLog('No paywallController available');
         }
       }
       if (current >= lim - 0.01) {
@@ -3072,6 +3096,16 @@ export class WebPlayer extends BasePlayer {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     } else {
       return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+  }
+
+  private updateTimeDisplay(): void {
+    const timeDisplay = document.getElementById('uvf-time-display');
+    if (timeDisplay && this.video) {
+      const current = this.formatTime(this.video.currentTime || 0);
+      const duration = this.formatTime(this.video.duration || 0);
+      timeDisplay.textContent = `${current} / ${duration}`;
+      this.debugLog('Time display updated:', `${current} / ${duration}`);
     }
   }
 
@@ -3209,9 +3243,9 @@ export class WebPlayer extends BasePlayer {
   
   private showShortcutIndicator(text: string): void {
     const el = document.getElementById('uvf-shortcut-indicator');
-    console.log('[WebPlayer] showShortcutIndicator called with:', text, 'element found:', !!el);
+    this.debugLog('showShortcutIndicator called with:', text, 'element found:', !!el);
     if (!el) {
-      console.error('[WebPlayer] uvf-shortcut-indicator element not found!');
+      this.debugError('uvf-shortcut-indicator element not found!');
       return;
     }
     try {
