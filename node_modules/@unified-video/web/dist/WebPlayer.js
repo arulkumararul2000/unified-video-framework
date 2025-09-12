@@ -17,6 +17,8 @@ export class WebPlayer extends BasePlayer {
         this.watermarkCanvas = null;
         this.playerWrapper = null;
         this.previewGateHit = false;
+        this.paymentSuccessTime = 0;
+        this.paymentSuccessful = false;
         this.castContext = null;
         this.remotePlayer = null;
         this.remoteController = null;
@@ -88,10 +90,16 @@ export class WebPlayer extends BasePlayer {
                 const { PaywallController } = await import('./paywall/PaywallController');
                 this.paywallController = new PaywallController(pw, {
                     getOverlayContainer: () => this.playerWrapper,
-                    onResume: () => { try {
-                        this.play();
-                    }
-                    catch (_) { } },
+                    onResume: () => {
+                        try {
+                            this.previewGateHit = false;
+                            this.paymentSuccessTime = Date.now();
+                            this.paymentSuccessful = true;
+                            this.debugLog('Payment successful - preview gate permanently disabled, resuming playback');
+                            this.play();
+                        }
+                        catch (_) { }
+                    },
                     onShow: () => {
                         try {
                             this.requestPause();
@@ -2694,8 +2702,11 @@ export class WebPlayer extends BasePlayer {
                             getOverlayContainer: () => this.playerWrapper,
                             onResume: () => {
                                 try {
-                                    this.play();
                                     this.previewGateHit = false;
+                                    this.paymentSuccessTime = Date.now();
+                                    this.paymentSuccessful = true;
+                                    this.debugLog('Payment successful (via setPaywallConfig) - preview gate permanently disabled, resuming playback');
+                                    this.play();
                                 }
                                 catch (_) { }
                             },
@@ -2740,6 +2751,15 @@ export class WebPlayer extends BasePlayer {
                 return;
             if (this.previewGateHit && !fromSeek)
                 return;
+            if (this.paymentSuccessful) {
+                this.debugLog('Skipping preview gate - payment was successful, access granted permanently for this session');
+                return;
+            }
+            const timeSincePayment = Date.now() - this.paymentSuccessTime;
+            if (this.paymentSuccessTime > 0 && timeSincePayment < 5000) {
+                this.debugLog('Skipping preview gate - recent payment success:', timeSincePayment + 'ms ago');
+                return;
+            }
             if (current >= lim - 0.01 && !this.previewGateHit) {
                 this.previewGateHit = true;
                 this.showNotification('Free preview ended.');
@@ -2779,16 +2799,26 @@ export class WebPlayer extends BasePlayer {
         try {
             const s = Math.max(0, Number(seconds) || 0);
             this.config.freeDuration = s;
-            if (s === 0 || (this.video && (this.video.currentTime || 0) < s)) {
+            if (!this.paymentSuccessful && (s === 0 || (this.video && (this.video.currentTime || 0) < s))) {
                 this.previewGateHit = false;
             }
-            const cur = this.video ? (this.video.currentTime || 0) : 0;
-            this.enforceFreePreviewGate(cur, true);
+            if (!this.paymentSuccessful) {
+                const cur = this.video ? (this.video.currentTime || 0) : 0;
+                this.enforceFreePreviewGate(cur, true);
+            }
         }
         catch (_) { }
     }
     resetFreePreviewGate() {
+        if (!this.paymentSuccessful) {
+            this.previewGateHit = false;
+        }
+    }
+    resetPaymentStatus() {
+        this.paymentSuccessful = false;
+        this.paymentSuccessTime = 0;
         this.previewGateHit = false;
+        this.debugLog('Payment status reset - preview gate re-enabled');
     }
     toggleMuteAction() {
         if (this.isCasting && this.remoteController) {

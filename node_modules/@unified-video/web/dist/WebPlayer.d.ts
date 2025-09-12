@@ -24,6 +24,8 @@ export declare class WebPlayer extends BasePlayer {
     private watermarkCanvas;
     private playerWrapper;
     private previewGateHit;
+    private paymentSuccessTime;
+    private paymentSuccessful;
     private castContext;
     private remotePlayer;
     private remoteController;
@@ -83,6 +85,7 @@ export declare class WebPlayer extends BasePlayer {
     private enforceFreePreviewGate;
     setFreeDuration(seconds: number): void;
     resetFreePreviewGate(): void;
+    resetPaymentStatus(): void;
     private toggleMuteAction;
     private handleVolumeChange;
     private handleProgressChange;

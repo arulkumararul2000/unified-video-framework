@@ -39,6 +39,8 @@ export class WebPlayer extends BasePlayer {
   private playerWrapper: HTMLElement | null = null;
   // Free preview gate state
   private previewGateHit: boolean = false;
+  private paymentSuccessTime: number = 0;
+  private paymentSuccessful: boolean = false;
   
   // Cast state
   private castContext: any = null;
@@ -146,7 +148,16 @@ export class WebPlayer extends BasePlayer {
         const { PaywallController } = await import('./paywall/PaywallController');
         this.paywallController = new (PaywallController as any)(pw, {
           getOverlayContainer: () => this.playerWrapper,
-          onResume: () => { try { this.play(); } catch(_) {} },
+          onResume: () => { 
+            try { 
+              // Reset preview gate after successful payment/auth
+              this.previewGateHit = false;
+              this.paymentSuccessTime = Date.now();
+              this.paymentSuccessful = true;
+              this.debugLog('Payment successful - preview gate permanently disabled, resuming playback');
+              this.play(); 
+            } catch(_) {} 
+          },
           onShow: () => { 
             // Use safe pause method to avoid race conditions
             try { this.requestPause(); } catch(_) {} 
@@ -2939,9 +2950,12 @@ export class WebPlayer extends BasePlayer {
               getOverlayContainer: () => this.playerWrapper,
               onResume: () => { 
                 try { 
-                  this.play(); 
                   // Reset preview gate after successful auth/payment
                   this.previewGateHit = false;
+                  this.paymentSuccessTime = Date.now();
+                  this.paymentSuccessful = true;
+                  this.debugLog('Payment successful (via setPaywallConfig) - preview gate permanently disabled, resuming playback');
+                  this.play(); 
                 } catch(_) {} 
               },
               onShow: () => {
@@ -2985,6 +2999,20 @@ export class WebPlayer extends BasePlayer {
       const lim = Number(this.config.freeDuration || 0);
       if (!(lim > 0)) return;
       if (this.previewGateHit && !fromSeek) return;
+      
+      // Don't trigger gate if payment was successful for this session
+      if (this.paymentSuccessful) {
+        this.debugLog('Skipping preview gate - payment was successful, access granted permanently for this session');
+        return;
+      }
+      
+      // Don't trigger gate if payment was successful recently (within 5 seconds)
+      const timeSincePayment = Date.now() - this.paymentSuccessTime;
+      if (this.paymentSuccessTime > 0 && timeSincePayment < 5000) {
+        this.debugLog('Skipping preview gate - recent payment success:', timeSincePayment + 'ms ago');
+        return;
+      }
+      
       if (current >= lim - 0.01 && !this.previewGateHit) {
         this.previewGateHit = true;
         this.showNotification('Free preview ended.');
@@ -3024,17 +3052,29 @@ export class WebPlayer extends BasePlayer {
     try {
       const s = Math.max(0, Number(seconds) || 0);
       (this.config as any).freeDuration = s;
-      // Reset gate if we extended duration below current gate
-      if (s === 0 || (this.video && (this.video.currentTime || 0) < s)) {
+      // Reset gate if we extended duration below current gate (but don't reset if payment was successful)
+      if (!this.paymentSuccessful && (s === 0 || (this.video && (this.video.currentTime || 0) < s))) {
         this.previewGateHit = false;
       }
-      // If already past new limit, enforce immediately
-      const cur = this.video ? (this.video.currentTime || 0) : 0;
-      this.enforceFreePreviewGate(cur, true);
+      // If already past new limit, enforce immediately (but not if payment was successful)
+      if (!this.paymentSuccessful) {
+        const cur = this.video ? (this.video.currentTime || 0) : 0;
+        this.enforceFreePreviewGate(cur, true);
+      }
     } catch (_) {}
   }
   public resetFreePreviewGate(): void {
+    // Only reset if payment hasn't been successful
+    if (!this.paymentSuccessful) {
+      this.previewGateHit = false;
+    }
+  }
+  
+  public resetPaymentStatus(): void {
+    this.paymentSuccessful = false;
+    this.paymentSuccessTime = 0;
     this.previewGateHit = false;
+    this.debugLog('Payment status reset - preview gate re-enabled');
   }
 
   private toggleMuteAction(): void {
