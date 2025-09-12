@@ -1,4 +1,4 @@
-import { BasePlayer } from '@unified-video/core';
+import { BasePlayer } from "../../core/dist/index.js";
 export class WebPlayer extends BasePlayer {
     constructor() {
         super(...arguments);
@@ -2527,8 +2527,11 @@ export class WebPlayer extends BasePlayer {
                         videoPaused: this.video?.paused,
                         videoExists: !!this.video
                     });
+                    const willPlay = this.video?.paused || false;
+                    console.log('[WebPlayer] Will perform action:', willPlay ? 'PLAY' : 'PAUSE');
                     this.togglePlayPause();
-                    shortcutText = this.state.isPlaying ? 'Pause' : 'Play';
+                    shortcutText = willPlay ? 'Play' : 'Pause';
+                    console.log('[WebPlayer] Showing icon:', shortcutText);
                     break;
                 case 'ArrowLeft':
                     e.preventDefault();

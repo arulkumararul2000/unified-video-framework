@@ -2750,8 +2750,16 @@ export class WebPlayer extends BasePlayer {
             videoPaused: this.video?.paused,
             videoExists: !!this.video
           });
+          
+          // Determine what action we're about to take based on current video state
+          const willPlay = this.video?.paused || false;
+          console.log('[WebPlayer] Will perform action:', willPlay ? 'PLAY' : 'PAUSE');
+          
           this.togglePlayPause();
-          shortcutText = this.state.isPlaying ? 'Pause' : 'Play';
+          
+          // Show the action we're taking, not the current state
+          shortcutText = willPlay ? 'Play' : 'Pause';
+          console.log('[WebPlayer] Showing icon:', shortcutText);
           break;
         case 'ArrowLeft':
           e.preventDefault();
