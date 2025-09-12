@@ -140,10 +140,14 @@ export class EmailAuthController {
       backdrop-filter: blur(4px);
     `;
 
-    // Close on overlay click (outside modal)
+    // Close on overlay click (outside modal) - only if allowed by configuration
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
-        this.handleCancel();
+        const allowBackdropClose = this.config?.emailAuth?.ui?.allowBackdropClose;
+        // Default to true (current behavior) if not explicitly set to false
+        if (allowBackdropClose !== false) {
+          this.handleCancel();
+        }
       }
     });
 
@@ -194,6 +198,18 @@ export class EmailAuthController {
           cursor: not-allowed;
           transform: none;
           box-shadow: none;
+        }
+        .uvf-auth-input::placeholder {
+          color: var(--placeholder-color, rgba(255, 255, 255, 0.5));
+        }
+        .uvf-auth-input::-webkit-input-placeholder {
+          color: var(--placeholder-color, rgba(255, 255, 255, 0.5));
+        }
+        .uvf-auth-input::-moz-placeholder {
+          color: var(--placeholder-color, rgba(255, 255, 255, 0.5));
+        }
+        .uvf-auth-input:-ms-input-placeholder {
+          color: var(--placeholder-color, rgba(255, 255, 255, 0.5));
         }
       `;
       document.head.appendChild(style);
@@ -334,6 +350,7 @@ export class EmailAuthController {
     emailInput.type = 'email';
     emailInput.placeholder = this.config?.emailAuth?.ui?.emailPlaceholder || 'Enter your email';
     emailInput.className = 'uvf-auth-input';
+    const placeholderColor = this.config?.emailAuth?.ui?.placeholderColor || 'rgba(255, 255, 255, 0.5)';
     emailInput.style.cssText = `
       width: 100%;
       padding: 14px 16px;
@@ -345,6 +362,9 @@ export class EmailAuthController {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       box-sizing: border-box;
     `;
+    
+    // Set placeholder color using CSS custom properties
+    emailInput.style.setProperty('--placeholder-color', placeholderColor);
     emailInput.value = this.currentEmail;
 
     const submitButton = document.createElement('button');
@@ -410,7 +430,12 @@ export class EmailAuthController {
 
     container.appendChild(emailInput);
     container.appendChild(submitButton);
-    container.appendChild(cancelButton);
+    
+    // Only show cancel button if showCancelButton is explicitly set to true
+    const showCancelButton = this.config?.emailAuth?.ui?.showCancelButton;
+    if (showCancelButton === true) {
+      container.appendChild(cancelButton);
+    }
 
     // Auto-focus email input
     setTimeout(() => emailInput.focus(), 100);
@@ -434,6 +459,7 @@ export class EmailAuthController {
     otpInput.placeholder = this.config?.emailAuth?.ui?.otpPlaceholder || 'Enter 6-digit code';
     otpInput.className = 'uvf-auth-input';
     otpInput.maxLength = this.config?.emailAuth?.validation?.otpLength || 6;
+    const placeholderColor = this.config?.emailAuth?.ui?.placeholderColor || 'rgba(255, 255, 255, 0.5)';
     otpInput.style.cssText = `
       width: 100%;
       padding: 14px 16px;
@@ -447,6 +473,9 @@ export class EmailAuthController {
       font-family: 'Courier New', monospace;
       box-sizing: border-box;
     `;
+    
+    // Set placeholder color using CSS custom properties
+    otpInput.style.setProperty('--placeholder-color', placeholderColor);
 
     // Only allow digits
     otpInput.addEventListener('input', (e) => {

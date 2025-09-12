@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmailAuth Configuration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .config-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>EmailAuth Configuration Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Configuration Options</h2>
+        <p>This page demonstrates the new EmailAuth configuration options:</p>
+        <ul>
+            <li><strong>allowBackdropClose</strong>: Controls whether clicking outside the modal closes it</li>
+            <li><strong>showCancelButton</strong>: Controls whether the cancel button is displayed</li>
+            <li><strong>placeholderColor</strong>: Controls the color of input placeholders</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Scenarios</h2>
+        
+        <h3>1. Default Configuration</h3>
+        <div class="config-display">
+emailAuth: {
+  enabled: true,
+  ui: {
+    // Default behavior: backdrop close enabled, cancel button hidden
+    // placeholderColor uses default value
+  }
+}
+        </div>
+        <button onclick="testDefault()">Test Default Config</button>
+
+        <h3>2. Show Cancel Button</h3>
+        <div class="config-display">
+emailAuth: {
+  enabled: true,
+  ui: {
+    showCancelButton: true,
+    placeholderColor: '#00aaff'
+  }
+}
+        </div>
+        <button onclick="testShowCancelButton()">Test Show Cancel Button</button>
+
+        <h3>3. Backdrop Close Disabled</h3>
+        <div class="config-display">
+emailAuth: {
+  enabled: true,
+  ui: {
+    allowBackdropClose: false,
+    placeholderColor: '#ffaa00'
+  }
+}
+        </div>
+        <button onclick="testNoBackdropClose()">Test No Backdrop Close</button>
+
+        <h3>4. Cancel Button with Backdrop Close</h3>
+        <div class="config-display">
+emailAuth: {
+  enabled: true,
+  ui: {
+    showCancelButton: true,
+    allowBackdropClose: true,
+    placeholderColor: '#00ff00'
+  }
+}
+        </div>
+        <button onclick="testCancelButtonWithBackdrop()">Test Cancel Button + Backdrop</button>
+
+        <h3>5. Backdrop Close Disabled (Most Secure)</h3>
+        <div class="config-display">
+emailAuth: {
+  enabled: true,
+  ui: {
+    allowBackdropClose: false,
+    // showCancelButton: false (default)
+    placeholderColor: '#ff0000'
+  }
+}
+        </div>
+        <button onclick="testMostSecure()">Test Most Secure</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Instructions</h2>
+        <ol>
+            <li>Click each test button to simulate different configurations</li>
+            <li>For <strong>backdrop close</strong> tests: Try clicking outside the modal</li>
+            <li>For <strong>cancel button</strong> tests: Check if the cancel button appears</li>
+            <li>For <strong>placeholder color</strong> tests: Observe the input placeholder colors</li>
+        </ol>
+    </div>
+
+    <script>
+        // Simulate the EmailAuth configuration tests
+        function testDefault() {
+            alert('Testing Default Configuration:\n\n• Backdrop close: ENABLED (click outside modal to close)\n• Cancel button: HIDDEN (default)\n• Placeholder color: Default (light gray)');
+        }
+
+        function testShowCancelButton() {
+            alert('Testing Show Cancel Button:\n\n• Backdrop close: ENABLED\n• Cancel button: SHOWN (explicitly enabled)\n• Placeholder color: Blue (#00aaff)');
+        }
+
+        function testNoBackdropClose() {
+            alert('Testing No Backdrop Close:\n\n• Backdrop close: DISABLED (clicking outside won\'t close modal)\n• Cancel button: HIDDEN (default)\n• Placeholder color: Orange (#ffaa00)');
+        }
+
+        function testCancelButtonWithBackdrop() {
+            alert('Testing Cancel Button + Backdrop Close:\n\n• Backdrop close: ENABLED\n• Cancel button: SHOWN\n• Placeholder color: Green (#00ff00)\n\nNote: User has multiple ways to cancel');
+        }
+
+        function testMostSecure() {
+            alert('Testing Most Secure Configuration:\n\n• Backdrop close: DISABLED\n• Cancel button: HIDDEN\n• Placeholder color: Red (#ff0000)\n\nNote: User can only close by completing authentication or using browser back/escape');
+        }
+    </script>
+</body>
+</html>

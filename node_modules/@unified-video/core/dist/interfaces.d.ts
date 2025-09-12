@@ -258,6 +258,9 @@ export interface PaywallConfig {
             resendCooldown?: number;
             verifyButtonText?: string;
             brandColor?: string;
+            allowBackdropClose?: boolean;
+            showCancelButton?: boolean;
+            placeholderColor?: string;
         };
         validation?: {
             otpLength?: number;

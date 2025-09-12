@@ -2726,18 +2726,30 @@ export class WebPlayer extends BasePlayer {
   }
   
   protected setupKeyboardShortcuts(): void {
-    document.addEventListener('keydown', (e) => {
-      // Don't handle if typing in an input
-      if ((e.target as HTMLElement).tagName === 'INPUT' || 
-          (e.target as HTMLElement).tagName === 'TEXTAREA') return;
-
+    // Add keyboard event listener to both document and player wrapper for better coverage
+    const handleKeydown = (e: KeyboardEvent) => {
+      // Don't handle if typing in an input or textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      
+      // Debug logging
+      console.log('[WebPlayer] Keyboard event:', e.key, 'target:', target.tagName);
       
       let shortcutText = '';
       
       switch(e.key) {
         case ' ':
+        case 'Spacebar': // For older browsers
         case 'k':
           e.preventDefault();
+          e.stopPropagation();
+          console.log('[WebPlayer] Space/K pressed, current state:', {
+            isPlaying: this.state.isPlaying,
+            videoPaused: this.video?.paused,
+            videoExists: !!this.video
+          });
           this.togglePlayPause();
           shortcutText = this.state.isPlaying ? 'Pause' : 'Play';
           break;
@@ -2813,9 +2825,24 @@ export class WebPlayer extends BasePlayer {
       }
       
       if (shortcutText) {
+        console.log('[WebPlayer] Showing shortcut indicator:', shortcutText);
         this.showShortcutIndicator(shortcutText);
       }
-    });
+    };
+    
+    // Add event listeners to multiple targets for better coverage
+    document.addEventListener('keydown', handleKeydown, { capture: true });
+    
+    // Also add to the player wrapper if it exists
+    if (this.playerWrapper) {
+      this.playerWrapper.addEventListener('keydown', handleKeydown);
+      this.playerWrapper.setAttribute('tabindex', '0'); // Make it focusable
+    }
+    
+    // Add to the video element
+    if (this.video) {
+      this.video.addEventListener('keydown', handleKeydown);
+    }
   }
 
   protected setupWatermark(): void {
@@ -2900,9 +2927,22 @@ export class WebPlayer extends BasePlayer {
   }
 
   private togglePlayPause(): void {
-    if (this.video?.paused) {
+    console.log('[WebPlayer] togglePlayPause called, video state:', {
+      videoExists: !!this.video,
+      videoPaused: this.video?.paused,
+      playerState: this.state
+    });
+    
+    if (!this.video) {
+      console.error('[WebPlayer] No video element available for toggle');
+      return;
+    }
+    
+    if (this.video.paused) {
+      console.log('[WebPlayer] Video is paused, calling play()');
       this.play();
     } else {
+      console.log('[WebPlayer] Video is playing, calling pause()');
       this.pause();
     }
   }
@@ -3161,7 +3201,11 @@ export class WebPlayer extends BasePlayer {
   
   private showShortcutIndicator(text: string): void {
     const el = document.getElementById('uvf-shortcut-indicator');
-    if (!el) return;
+    console.log('[WebPlayer] showShortcutIndicator called with:', text, 'element found:', !!el);
+    if (!el) {
+      console.error('[WebPlayer] uvf-shortcut-indicator element not found!');
+      return;
+    }
     try {
       const resetAnim = () => {
         el.classList.remove('active');

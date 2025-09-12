@@ -1,4 +1,4 @@
-import { BasePlayer } from "../../core/dist/index.js";
+import { BasePlayer } from '@unified-video/core';
 export class WebPlayer extends BasePlayer {
     constructor() {
         super(...arguments);
@@ -2509,15 +2509,24 @@ export class WebPlayer extends BasePlayer {
         });
     }
     setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT' ||
-                e.target.tagName === 'TEXTAREA')
+        const handleKeydown = (e) => {
+            const target = e.target;
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
                 return;
+            }
+            console.log('[WebPlayer] Keyboard event:', e.key, 'target:', target.tagName);
             let shortcutText = '';
             switch (e.key) {
                 case ' ':
+                case 'Spacebar':
                 case 'k':
                     e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[WebPlayer] Space/K pressed, current state:', {
+                        isPlaying: this.state.isPlaying,
+                        videoPaused: this.video?.paused,
+                        videoExists: !!this.video
+                    });
                     this.togglePlayPause();
                     shortcutText = this.state.isPlaying ? 'Pause' : 'Play';
                     break;
@@ -2596,9 +2605,18 @@ export class WebPlayer extends BasePlayer {
                     break;
             }
             if (shortcutText) {
+                console.log('[WebPlayer] Showing shortcut indicator:', shortcutText);
                 this.showShortcutIndicator(shortcutText);
             }
-        });
+        };
+        document.addEventListener('keydown', handleKeydown, { capture: true });
+        if (this.playerWrapper) {
+            this.playerWrapper.addEventListener('keydown', handleKeydown);
+            this.playerWrapper.setAttribute('tabindex', '0');
+        }
+        if (this.video) {
+            this.video.addEventListener('keydown', handleKeydown);
+        }
     }
     setupWatermark() {
         if (!this.watermarkCanvas)
@@ -2680,10 +2698,21 @@ export class WebPlayer extends BasePlayer {
         catch (_) { }
     }
     togglePlayPause() {
-        if (this.video?.paused) {
+        console.log('[WebPlayer] togglePlayPause called, video state:', {
+            videoExists: !!this.video,
+            videoPaused: this.video?.paused,
+            playerState: this.state
+        });
+        if (!this.video) {
+            console.error('[WebPlayer] No video element available for toggle');
+            return;
+        }
+        if (this.video.paused) {
+            console.log('[WebPlayer] Video is paused, calling play()');
             this.play();
         }
         else {
+            console.log('[WebPlayer] Video is playing, calling pause()');
             this.pause();
         }
     }
@@ -2914,8 +2943,11 @@ export class WebPlayer extends BasePlayer {
     }
     showShortcutIndicator(text) {
         const el = document.getElementById('uvf-shortcut-indicator');
-        if (!el)
+        console.log('[WebPlayer] showShortcutIndicator called with:', text, 'element found:', !!el);
+        if (!el) {
+            console.error('[WebPlayer] uvf-shortcut-indicator element not found!');
             return;
+        }
         try {
             const resetAnim = () => {
                 el.classList.remove('active');

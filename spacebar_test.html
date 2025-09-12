@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spacebar Test - Video Player</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .video-container {
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .debug-panel {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.working { background: #28a745; }
+        .status.not-working { background: #dc3545; }
+        .status.unknown { background: #6c757d; }
+        
+        .test-instructions {
+            background: rgba(0,123,255,0.1);
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Spacebar Functionality Test</h1>
+        
+        <div class="test-instructions">
+            <h3>🧪 Test Instructions:</h3>
+            <ol>
+                <li><strong>Focus Test:</strong> Click on the video area to ensure it has focus</li>
+                <li><strong>Spacebar Test:</strong> Press the spacebar to toggle play/pause</li>
+                <li><strong>Icon Test:</strong> Look for a play/pause icon overlay in the center of the video</li>
+                <li><strong>Debug Logs:</strong> Open browser console (F12) to see debug messages</li>
+            </ol>
+        </div>
+
+        <div class="video-container">
+            <div id="video-player" style="width: 100%; height: 400px; background: #333; position: relative; display: flex; align-items: center; justify-content: center;">
+                <!-- Video player will be initialized here -->
+                <div style="color: #666;">Video Player Container</div>
+            </div>
+        </div>
+
+        <div class="debug-panel">
+            <h3>🔧 Debug Information:</h3>
+            <div>
+                <strong>Keyboard Events:</strong> <span class="status unknown" id="keyboard-status">Not tested</span>
+            </div>
+            <div>
+                <strong>Play/Pause Function:</strong> <span class="status unknown" id="toggle-status">Not tested</span>
+            </div>
+            <div>
+                <strong>Icon Overlay:</strong> <span class="status unknown" id="icon-status">Not tested</span>
+            </div>
+            <div>
+                <strong>Event Target:</strong> <span id="event-target">-</span>
+            </div>
+            <div>
+                <strong>Player State:</strong> <span id="player-state">-</span>
+            </div>
+        </div>
+
+        <div>
+            <h3>Manual Tests:</h3>
+            <button class="test-button" onclick="testKeyboardEvent()">Test Keyboard Event</button>
+            <button class="test-button" onclick="testToggleFunction()">Test Toggle Function</button>
+            <button class="test-button" onclick="testIconOverlay()">Test Icon Overlay</button>
+            <button class="test-button" onclick="clearLogs()">Clear Console</button>
+        </div>
+
+        <div class="debug-panel">
+            <h3>📋 Event Log:</h3>
+            <div id="event-log" style="max-height: 200px; overflow-y: auto;">
+                <div style="color: #666; font-style: italic;">Events will appear here...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock video player for testing
+        let mockPlayer = {
+            video: null,
+            state: { isPlaying: false, isPaused: true },
+            playerWrapper: null,
+            
+            init() {
+                // Create mock video element
+                this.video = document.createElement('video');
+                this.video.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAA'; // Empty video
+                this.video.style.width = '100%';
+                this.video.style.height = '100%';
+                
+                // Create mock wrapper
+                this.playerWrapper = document.getElementById('video-player');
+                this.playerWrapper.innerHTML = '';
+                this.playerWrapper.appendChild(this.video);
+                
+                // Add shortcut indicator
+                const indicator = document.createElement('div');
+                indicator.id = 'uvf-shortcut-indicator';
+                indicator.className = 'uvf-shortcut-indicator';
+                indicator.style.cssText = `
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0,0,0,0.8);
+                    color: #fff;
+                    padding: 20px;
+                    border-radius: 8px;
+                    font-size: 24px;
+                    opacity: 0;
+                    pointer-events: none;
+                    z-index: 1000;
+                    transition: opacity 0.3s ease;
+                `;
+                this.playerWrapper.appendChild(indicator);
+                
+                this.setupKeyboardShortcuts();
+                this.setupEventListeners();
+            },
+            
+            setupKeyboardShortcuts() {
+                const handleKeydown = (e) => {
+                    logEvent(`Keyboard: ${e.key} (target: ${e.target.tagName})`);
+                    updateStatus('keyboard-status', 'working');
+                    document.getElementById('event-target').textContent = e.target.tagName;
+                    
+                    const target = e.target;
+                    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+                        return;
+                    }
+                    
+                    let shortcutText = '';
+                    
+                    switch(e.key) {
+                        case ' ':
+                        case 'Spacebar':
+                        case 'k':
+                            e.preventDefault();
+                            e.stopPropagation();
+                            logEvent(`Space/K pressed - toggling play/pause`);
+                            this.togglePlayPause();
+                            shortcutText = this.state.isPlaying ? 'Pause' : 'Play';
+                            break;
+                    }
+                    
+                    if (shortcutText) {
+                        this.showShortcutIndicator(shortcutText);
+                    }
+                };
+                
+                document.addEventListener('keydown', handleKeydown, { capture: true });
+                if (this.playerWrapper) {
+                    this.playerWrapper.addEventListener('keydown', handleKeydown);
+                    this.playerWrapper.setAttribute('tabindex', '0');
+                }
+                if (this.video) {
+                    this.video.addEventListener('keydown', handleKeydown);
+                }
+            },
+            
+            setupEventListeners() {
+                this.video.addEventListener('play', () => {
+                    this.state.isPlaying = true;
+                    this.state.isPaused = false;
+                    logEvent('Video started playing');
+                    updatePlayerState();
+                });
+                
+                this.video.addEventListener('pause', () => {
+                    this.state.isPlaying = false;
+                    this.state.isPaused = true;
+                    logEvent('Video paused');
+                    updatePlayerState();
+                });
+            },
+            
+            togglePlayPause() {
+                logEvent(`togglePlayPause called (current: paused=${this.video?.paused})`);
+                updateStatus('toggle-status', 'working');
+                
+                if (!this.video) {
+                    logEvent('ERROR: No video element!');
+                    return;
+                }
+                
+                if (this.video.paused) {
+                    logEvent('Calling play()');
+                    this.video.play().catch(e => logEvent(`Play error: ${e.message}`));
+                } else {
+                    logEvent('Calling pause()');
+                    this.video.pause();
+                }
+            },
+            
+            showShortcutIndicator(text) {
+                const el = document.getElementById('uvf-shortcut-indicator');
+                logEvent(`showShortcutIndicator: "${text}" (element found: ${!!el})`);
+                updateStatus('icon-status', el ? 'working' : 'not-working');
+                
+                if (!el) {
+                    logEvent('ERROR: Shortcut indicator element not found!');
+                    return;
+                }
+                
+                // Show play/pause icon
+                if (text === 'Play') {
+                    el.innerHTML = '<svg viewBox="0 0 24 24" style="width:48px;height:48px;fill:white;"><path d="M8 5v14l11-7z"/></svg>';
+                } else if (text === 'Pause') {
+                    el.innerHTML = '<svg viewBox="0 0 24 24" style="width:48px;height:48px;fill:white;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+                } else {
+                    el.textContent = text;
+                }
+                
+                // Animate
+                el.style.opacity = '1';
+                setTimeout(() => {
+                    el.style.opacity = '0';
+                }, 1000);
+                
+                logEvent(`Icon overlay shown: ${text}`);
+            }
+        };
+        
+        // Helper functions
+        function logEvent(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('event-log');
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span style="color:#666;">[${timestamp}]</span> ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[MockPlayer] ${message}`);
+        }
+        
+        function updateStatus(elementId, status) {
+            const el = document.getElementById(elementId);
+            el.className = `status ${status}`;
+            el.textContent = status === 'working' ? '✓ Working' : 
+                           status === 'not-working' ? '✗ Not Working' : 
+                           'Unknown';
+        }
+        
+        function updatePlayerState() {
+            document.getElementById('player-state').textContent = 
+                `Playing: ${mockPlayer.state.isPlaying}, Paused: ${mockPlayer.state.isPaused}`;
+        }
+        
+        // Test functions
+        function testKeyboardEvent() {
+            logEvent('Manual keyboard test - simulating spacebar');
+            const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true });
+            document.dispatchEvent(event);
+        }
+        
+        function testToggleFunction() {
+            logEvent('Manual toggle test');
+            mockPlayer.togglePlayPause();
+        }
+        
+        function testIconOverlay() {
+            logEvent('Manual icon test');
+            mockPlayer.showShortcutIndicator('Play');
+        }
+        
+        function clearLogs() {
+            document.getElementById('event-log').innerHTML = '<div style="color: #666; font-style: italic;">Logs cleared...</div>';
+            console.clear();
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            mockPlayer.init();
+            logEvent('Mock player initialized');
+            updatePlayerState();
+            
+            // Focus the player for keyboard events
+            setTimeout(() => {
+                mockPlayer.playerWrapper.focus();
+                logEvent('Player focused for keyboard input');
+            }, 100);
+        });
+        
+        // Add click to focus
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('#video-player')) {
+                mockPlayer.playerWrapper.focus();
+                logEvent('Player focused by click');
+            }
+        });
+    </script>
+</body>
+</html>
