@@ -1,4 +1,4 @@
-import { BasePlayer } from "../../core/dist/index.js";
+import { BasePlayer } from '@unified-video/core';
 export class WebPlayer extends BasePlayer {
     constructor() {
         super(...arguments);
@@ -19,6 +19,11 @@ export class WebPlayer extends BasePlayer {
         this.previewGateHit = false;
         this.paymentSuccessTime = 0;
         this.paymentSuccessful = false;
+        this.isPaywallActive = false;
+        this.authValidationInterval = null;
+        this.overlayRemovalAttempts = 0;
+        this.maxOverlayRemovalAttempts = 3;
+        this.lastSecurityCheck = 0;
         this.castContext = null;
         this.remotePlayer = null;
         this.remoteController = null;
@@ -92,21 +97,44 @@ export class WebPlayer extends BasePlayer {
                     getOverlayContainer: () => this.playerWrapper,
                     onResume: () => {
                         try {
+                            this.debugLog('onResume callback triggered - payment/auth successful');
                             this.previewGateHit = false;
                             this.paymentSuccessTime = Date.now();
                             this.paymentSuccessful = true;
-                            this.debugLog('Payment successful - preview gate permanently disabled, resuming playback');
-                            this.play();
+                            this.isPaywallActive = false;
+                            this.overlayRemovalAttempts = 0;
+                            if (this.authValidationInterval) {
+                                this.debugLog('Clearing security monitoring interval');
+                                clearInterval(this.authValidationInterval);
+                                this.authValidationInterval = null;
+                            }
+                            this.debugLog('Payment successful - all security restrictions lifted, resuming playback');
+                            setTimeout(() => {
+                                this.play();
+                            }, 100);
                         }
-                        catch (_) { }
+                        catch (error) {
+                            this.debugError('Error in onResume callback:', error);
+                        }
                     },
                     onShow: () => {
+                        this.isPaywallActive = true;
+                        this.startOverlayMonitoring();
                         try {
                             this.requestPause();
                         }
                         catch (_) { }
                     },
-                    onClose: () => { }
+                    onClose: () => {
+                        this.debugLog('onClose callback triggered - paywall closing');
+                        this.isPaywallActive = false;
+                        if (this.authValidationInterval) {
+                            this.debugLog('Clearing security monitoring interval on close');
+                            clearInterval(this.authValidationInterval);
+                            this.authValidationInterval = null;
+                        }
+                        this.overlayRemovalAttempts = 0;
+                    }
                 });
                 this.on('onFreePreviewEnded', () => {
                     this.debugLog('onFreePreviewEnded event triggered, calling paywallController.openOverlay()');
@@ -469,6 +497,11 @@ export class WebPlayer extends BasePlayer {
     async play() {
         if (!this.video)
             throw new Error('Video element not initialized');
+        if (!this.canPlayVideo()) {
+            this.debugWarn('Playbook blocked by security check');
+            this.enforcePaywallSecurity();
+            return;
+        }
         const now = Date.now();
         if (now - this._lastToggleAt < this._TOGGLE_DEBOUNCE_MS)
             return;
@@ -527,6 +560,16 @@ export class WebPlayer extends BasePlayer {
     seek(time) {
         if (!this.video)
             return;
+        const freeDuration = Number(this.config.freeDuration || 0);
+        if (freeDuration > 0 && !this.paymentSuccessful) {
+            const requestedTime = Math.max(0, Math.min(time, this.video.duration || time));
+            if (requestedTime >= freeDuration) {
+                this.debugWarn('Seek blocked - beyond free preview limit');
+                this.enforcePaywallSecurity();
+                this.video.currentTime = Math.max(0, freeDuration - 1);
+                return;
+            }
+        }
         const d = this.video.duration;
         if (typeof d === 'number' && isFinite(d) && d > 0) {
             this.video.currentTime = Math.max(0, Math.min(time, d));
@@ -3782,6 +3825,163 @@ export class WebPlayer extends BasePlayer {
     showNotification(message) {
         this.showShortcutIndicator(message);
     }
+    canPlayVideo() {
+        const freeDuration = Number(this.config.freeDuration || 0);
+        const currentTime = this.video?.currentTime || 0;
+        if (freeDuration <= 0)
+            return true;
+        if (this.paymentSuccessful)
+            return true;
+        if (currentTime < freeDuration)
+            return true;
+        if (this.paywallController &&
+            typeof this.paywallController.isAuthenticated === 'function') {
+            const isAuth = this.paywallController.isAuthenticated();
+            if (isAuth) {
+                this.paymentSuccessful = true;
+                return true;
+            }
+        }
+        return false;
+    }
+    enforcePaywallSecurity() {
+        this.debugLog('Enforcing paywall security');
+        try {
+            if (this.video && !this.video.paused) {
+                this.video.pause();
+            }
+        }
+        catch (_) { }
+        this.isPaywallActive = true;
+        if (this.paywallController) {
+            try {
+                this.paywallController.openOverlay();
+            }
+            catch (error) {
+                this.debugError('Error showing paywall overlay:', error);
+            }
+        }
+        this.startOverlayMonitoring();
+    }
+    startOverlayMonitoring() {
+        if (!this.playerWrapper || this.paymentSuccessful)
+            return;
+        if (this.authValidationInterval) {
+            clearInterval(this.authValidationInterval);
+            this.authValidationInterval = null;
+        }
+        this.debugLog('Starting overlay monitoring - payment successful:', this.paymentSuccessful, 'paywall active:', this.isPaywallActive);
+        this.authValidationInterval = setInterval(() => {
+            if (!this.isPaywallActive || this.paymentSuccessful) {
+                this.debugLog('Stopping overlay monitoring - payment successful:', this.paymentSuccessful, 'paywall active:', this.isPaywallActive);
+                if (this.authValidationInterval) {
+                    clearInterval(this.authValidationInterval);
+                    this.authValidationInterval = null;
+                }
+                return;
+            }
+            if (this.paymentSuccessful) {
+                this.debugLog('Payment successful detected during monitoring, stopping');
+                if (this.authValidationInterval) {
+                    clearInterval(this.authValidationInterval);
+                    this.authValidationInterval = null;
+                }
+                return;
+            }
+            const paywallOverlays = this.playerWrapper.querySelectorAll('.uvf-paywall-overlay, .uvf-auth-overlay');
+            const visibleOverlays = Array.from(paywallOverlays).filter(overlay => {
+                const element = overlay;
+                return element.style.display !== 'none' &&
+                    element.offsetParent !== null &&
+                    window.getComputedStyle(element).visibility !== 'hidden';
+            });
+            if (visibleOverlays.length === 0) {
+                this.overlayRemovalAttempts++;
+                this.debugWarn(`Overlay removal attempt detected (${this.overlayRemovalAttempts}/${this.maxOverlayRemovalAttempts})`);
+                if (this.paymentSuccessful) {
+                    this.debugLog('Payment successful detected, ignoring overlay removal');
+                    if (this.authValidationInterval) {
+                        clearInterval(this.authValidationInterval);
+                        this.authValidationInterval = null;
+                    }
+                    return;
+                }
+                if (this.overlayRemovalAttempts >= this.maxOverlayRemovalAttempts) {
+                    this.handleSecurityViolation();
+                }
+                else {
+                    this.enforcePaywallSecurity();
+                }
+            }
+            if (this.video && !this.video.paused && !this.paymentSuccessful) {
+                this.debugWarn('Unauthorized playbook detected, pausing video');
+                try {
+                    this.video.pause();
+                    const freeDuration = Number(this.config.freeDuration || 0);
+                    if (freeDuration > 0) {
+                        this.video.currentTime = Math.max(0, freeDuration - 1);
+                    }
+                }
+                catch (_) { }
+            }
+        }, 1000);
+    }
+    handleSecurityViolation() {
+        this.debugError('Security violation detected - disabling video');
+        if (this.video) {
+            this.video.pause();
+            this.video.currentTime = 0;
+            this.video.src = '';
+            this.video.style.display = 'none';
+        }
+        this.showSecurityViolationMessage();
+        if (this.authValidationInterval) {
+            clearInterval(this.authValidationInterval);
+        }
+    }
+    showSecurityViolationMessage() {
+        if (!this.playerWrapper)
+            return;
+        this.playerWrapper.innerHTML = '';
+        const securityOverlay = document.createElement('div');
+        securityOverlay.style.cssText = `
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2147483647;
+      color: #ff6b6b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      text-align: center;
+      padding: 40px;
+    `;
+        const messageContainer = document.createElement('div');
+        messageContainer.innerHTML = `
+      <div style="font-size: 24px; font-weight: bold; margin-bottom: 16px; color: #ff6b6b;">
+        🔒 Security Violation Detected
+      </div>
+      <div style="font-size: 16px; line-height: 1.5; color: rgba(255, 255, 255, 0.9);">
+        Unauthorized access attempt detected.<br>
+        Please refresh the page and complete authentication to continue.
+      </div>
+      <div style="margin-top: 24px;">
+        <button onclick="window.location.reload()" style="
+          background: #ff4d4f;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 600;
+        ">Reload Page</button>
+      </div>
+    `;
+        securityOverlay.appendChild(messageContainer);
+        this.playerWrapper.appendChild(securityOverlay);
+    }
     async cleanup() {
         if (this.hls) {
             this.hls.destroy();
@@ -3802,6 +4002,16 @@ export class WebPlayer extends BasePlayer {
         }
         if (this.volumeHideTimeout) {
             clearTimeout(this.volumeHideTimeout);
+        }
+        if (this.authValidationInterval) {
+            clearInterval(this.authValidationInterval);
+            this.authValidationInterval = null;
+        }
+        this.isPaywallActive = false;
+        this.overlayRemovalAttempts = 0;
+        if (this.paywallController && typeof this.paywallController.destroy === 'function') {
+            this.paywallController.destroy();
+            this.paywallController = null;
         }
         if (this.video) {
             this.video.pause();

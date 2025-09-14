@@ -161,7 +161,14 @@ export class PaywallController {
   }
 
   closeOverlay() {
+    console.log('[PaywallController] closeOverlay called');
+    
+    // Call onClose immediately before animation to ensure security state is reset
+    this.opts.onClose?.();
+    
     if (this.overlayEl) {
+      console.log('[PaywallController] Animating overlay out');
+      
       // Animate out
       this.overlayEl.style.opacity = '0';
       const modal = this.overlayEl.querySelector('.uvf-paywall-modal') as HTMLElement;
@@ -175,10 +182,10 @@ export class PaywallController {
         if (this.overlayEl) {
           this.overlayEl.classList.remove('active');
           this.overlayEl.style.display = 'none';
+          console.log('[PaywallController] Overlay hidden after animation');
         }
       }, 300); // Match the CSS transition duration
     }
-    this.opts.onClose?.();
   }
 
   private ensureOverlay(): HTMLElement | null {
@@ -264,7 +271,14 @@ export class PaywallController {
   }
 
   private showGateways() {
-    if (!this.config) return;
+    if (!this.config) {
+      console.error('[PaywallController] No config found in showGateways');
+      return;
+    }
+    
+    console.log('[PaywallController] showGateways called');
+    console.log('[PaywallController] Config gateways:', this.config.gateways);
+    
     this.gatewayStepEl!.innerHTML = '';
     this.gatewayStepEl!.style.display = 'flex';
 
@@ -277,15 +291,36 @@ export class PaywallController {
 
     // Support both legacy string array and new gateway objects
     const gateways = this.getGateways();
+    console.log('[PaywallController] Processed gateways:', gateways);
     
-    for (const gateway of gateways) {
-      const btn = this.createGatewayButton(gateway);
-      btn.addEventListener('click', () => this.handleGatewayClick(gateway));
-      wrap.appendChild(btn);
+    if (gateways.length === 0) {
+      console.warn('[PaywallController] No gateways available');
+      const errorMsg = document.createElement('div');
+      errorMsg.textContent = 'No payment methods available. Please contact support.';
+      errorMsg.style.cssText = 'color:#ff6b6b;font-size:14px;text-align:center;padding:20px;';
+      wrap.appendChild(errorMsg);
+    } else {
+      let buttonsAdded = 0;
+      for (const gateway of gateways) {
+        console.log(`[PaywallController] Creating button for gateway:`, gateway);
+        const btn = this.createGatewayButton(gateway);
+        btn.addEventListener('click', () => this.handleGatewayClick(gateway));
+        wrap.appendChild(btn);
+        buttonsAdded++;
+      }
+      console.log(`[PaywallController] Added ${buttonsAdded} gateway buttons`);
+    }
+    
+    // Hide intro step and show gateway step
+    const intro = this.overlayEl?.querySelector('div[style*="display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:center;"]') as HTMLElement;
+    if (intro) {
+      intro.style.display = 'none';
     }
     
     this.gatewayStepEl!.appendChild(title);
     this.gatewayStepEl!.appendChild(wrap);
+    
+    console.log('[PaywallController] Gateway step UI updated');
   }
 
   private getGateways(): PaywallGateway[] {
@@ -315,6 +350,12 @@ export class PaywallController {
         description: 'Pay with Cashfree',
         color: '#00d4aa'
       },
+      payu: {
+        id: 'payu',
+        name: 'PayU',
+        description: 'Pay with PayU',
+        color: '#17bf43'
+      },
       custom: {
         id: 'custom',
         name: 'Pay Now',
@@ -323,12 +364,16 @@ export class PaywallController {
       }
     };
     
-    return legacyGateways[id] || {
+    console.log(`[PaywallController] Converting legacy gateway: ${id}`);
+    const gateway = legacyGateways[id] || {
       id,
       name: id.charAt(0).toUpperCase() + id.slice(1),
       description: `Pay with ${id}`,
       color: '#666666'
     };
+    console.log(`[PaywallController] Converted to:`, gateway);
+    
+    return gateway;
   }
   
   private createGatewayButton(gateway: PaywallGateway): HTMLButtonElement {
@@ -660,8 +705,11 @@ export class PaywallController {
         }
       }
       
+      console.log('[PaywallController] Payment verification completed, proceeding with success flow');
+      
       // Notify success callback
       if (this.opts.onPaymentSuccess) {
+        console.log('[PaywallController] Calling onPaymentSuccess callback');
         this.opts.onPaymentSuccess(gateway, {
           sessionId: d.sessionId,
           orderId: d.orderId,
@@ -670,7 +718,8 @@ export class PaywallController {
         });
       }
       
-      // Close overlay and resume playback
+      // Close overlay and resume playbook
+      console.log('[PaywallController] Closing overlay and resuming playbook');
       this.closeOverlay();
       this.opts.onResume();
       return;

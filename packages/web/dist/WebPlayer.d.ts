@@ -26,6 +26,11 @@ export declare class WebPlayer extends BasePlayer {
     private previewGateHit;
     private paymentSuccessTime;
     private paymentSuccessful;
+    private isPaywallActive;
+    private authValidationInterval;
+    private overlayRemovalAttempts;
+    private maxOverlayRemovalAttempts;
+    private lastSecurityCheck;
     private castContext;
     private remotePlayer;
     private remoteController;
@@ -129,6 +134,11 @@ export declare class WebPlayer extends BasePlayer {
     private shareVideo;
     private updateMetadataUI;
     private showNotification;
+    private canPlayVideo;
+    private enforcePaywallSecurity;
+    private startOverlayMonitoring;
+    private handleSecurityViolation;
+    private showSecurityViolationMessage;
     private cleanup;
     destroy(): Promise<void>;
 }
