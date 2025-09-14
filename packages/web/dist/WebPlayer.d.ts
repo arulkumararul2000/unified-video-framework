@@ -139,6 +139,7 @@ export declare class WebPlayer extends BasePlayer {
     private startOverlayMonitoring;
     private handleSecurityViolation;
     private showSecurityViolationMessage;
+    private forceCleanupOverlays;
     private cleanup;
     destroy(): Promise<void>;
 }

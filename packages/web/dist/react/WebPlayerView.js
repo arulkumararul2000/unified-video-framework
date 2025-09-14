@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { WebPlayer } from "../WebPlayer.js";
+import { WebPlayer } from '../WebPlayer';
 export const WebPlayerView = (props) => {
     const containerRef = useRef(null);
     const playerRef = useRef(null);

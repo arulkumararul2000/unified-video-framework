@@ -173,12 +173,15 @@ export class WebPlayer extends BasePlayer {
                 this.authValidationInterval = null;
               }
               
+              // Force cleanup of any remaining overlays
+              this.forceCleanupOverlays();
+              
               this.debugLog('Payment successful - all security restrictions lifted, resuming playback');
               
               // Give a small delay to ensure overlay is properly closed before resuming
               setTimeout(() => {
                 this.play(); 
-              }, 100);
+              }, 150); // Slightly longer delay for complete cleanup
             } catch(error) {
               this.debugError('Error in onResume callback:', error);
             } 
@@ -4313,6 +4316,37 @@ export class WebPlayer extends BasePlayer {
     
     securityOverlay.appendChild(messageContainer);
     this.playerWrapper.appendChild(securityOverlay);
+  }
+
+  /**
+   * Force cleanup of all paywall/auth overlays
+   */
+  private forceCleanupOverlays(): void {
+    this.debugLog('Force cleanup of overlays called');
+    
+    if (!this.playerWrapper) return;
+    
+    // Find and remove all overlay elements
+    const overlays = this.playerWrapper.querySelectorAll('.uvf-paywall-overlay, .uvf-auth-overlay');
+    overlays.forEach((overlay: Element) => {
+      const htmlOverlay = overlay as HTMLElement;
+      this.debugLog('Removing overlay:', htmlOverlay.className);
+      
+      // Hide immediately
+      htmlOverlay.style.display = 'none';
+      htmlOverlay.classList.remove('active');
+      
+      // Remove from DOM
+      if (htmlOverlay.parentNode) {
+        htmlOverlay.parentNode.removeChild(htmlOverlay);
+      }
+    });
+    
+    // Also tell paywall controller to clean up
+    if (this.paywallController && typeof this.paywallController.destroyOverlays === 'function') {
+      this.debugLog('Calling paywallController.destroyOverlays()');
+      this.paywallController.destroyOverlays();
+    }
   }
 
   private async cleanup(): Promise<void> {

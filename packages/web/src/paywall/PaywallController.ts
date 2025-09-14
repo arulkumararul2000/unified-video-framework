@@ -163,11 +163,20 @@ export class PaywallController {
   closeOverlay() {
     console.log('[PaywallController] closeOverlay called');
     
+    // First, close any auth modals that might be open
+    if (this.emailAuth) {
+      console.log('[PaywallController] Closing auth modal if open');
+      this.emailAuth.closeAuthModal();
+    }
+    
     // Call onClose immediately before animation to ensure security state is reset
     this.opts.onClose?.();
     
     if (this.overlayEl) {
-      console.log('[PaywallController] Animating overlay out');
+      console.log('[PaywallController] Animating paywall overlay out');
+      
+      // Immediately hide to prevent user interaction during animation
+      this.overlayEl.style.pointerEvents = 'none';
       
       // Animate out
       this.overlayEl.style.opacity = '0';
@@ -182,10 +191,23 @@ export class PaywallController {
         if (this.overlayEl) {
           this.overlayEl.classList.remove('active');
           this.overlayEl.style.display = 'none';
-          console.log('[PaywallController] Overlay hidden after animation');
+          this.overlayEl.style.pointerEvents = '';
+          console.log('[PaywallController] Paywall overlay hidden after animation');
         }
       }, 300); // Match the CSS transition duration
     }
+    
+    // Also ensure any leftover overlays are cleaned up
+    const container = this.opts.getOverlayContainer() || document.body;
+    const allOverlays = container.querySelectorAll('.uvf-paywall-overlay, .uvf-auth-overlay');
+    allOverlays.forEach((overlay: Element) => {
+      const htmlOverlay = overlay as HTMLElement;
+      if (htmlOverlay && htmlOverlay.style.display !== 'none') {
+        console.log('[PaywallController] Force hiding leftover overlay:', htmlOverlay.className);
+        htmlOverlay.style.display = 'none';
+        htmlOverlay.classList.remove('active');
+      }
+    });
   }
 
   private ensureOverlay(): HTMLElement | null {
@@ -268,6 +290,34 @@ export class PaywallController {
     container.appendChild(ov);
     this.overlayEl = ov;
     return ov;
+  }
+
+  /**
+   * Completely destroy and remove all overlays
+   */
+  destroyOverlays() {
+    console.log('[PaywallController] destroyOverlays called');
+    
+    // Close and destroy auth modal
+    if (this.emailAuth) {
+      this.emailAuth.closeAuthModal();
+    }
+    
+    // Remove paywall overlay
+    if (this.overlayEl && this.overlayEl.parentNode) {
+      this.overlayEl.parentNode.removeChild(this.overlayEl);
+      this.overlayEl = null;
+    }
+    
+    // Find and remove any leftover overlays
+    const container = this.opts.getOverlayContainer() || document.body;
+    const allOverlays = container.querySelectorAll('.uvf-paywall-overlay, .uvf-auth-overlay');
+    allOverlays.forEach((overlay: Element) => {
+      if (overlay.parentNode) {
+        console.log('[PaywallController] Destroying leftover overlay:', overlay.className);
+        overlay.parentNode.removeChild(overlay);
+      }
+    });
   }
 
   private showGateways() {
@@ -720,8 +770,15 @@ export class PaywallController {
       
       // Close overlay and resume playbook
       console.log('[PaywallController] Closing overlay and resuming playbook');
-      this.closeOverlay();
-      this.opts.onResume();
+      
+      // Use more aggressive cleanup to ensure all overlays are removed
+      this.destroyOverlays();
+      
+      // Small delay to ensure DOM cleanup is complete before resuming
+      setTimeout(() => {
+        this.opts.onResume();
+      }, 50);
+      
       return;
     }
     
@@ -813,8 +870,15 @@ export class PaywallController {
             
             if (access_granted) {
               // Full access - play immediately
-              console.log('[PaywallController] Access granted, playing video');
-              this.opts.onResume();
+              console.log('[PaywallController] Access granted, cleaning up overlays and playing video');
+              
+              // Use more aggressive cleanup to ensure all overlays are removed
+              this.destroyOverlays();
+              
+              // Small delay to ensure DOM cleanup is complete before resuming
+              setTimeout(() => {
+                this.opts.onResume();
+              }, 50);
             }
             else if (!access_granted && requires_payment) {
               if (free_duration > 0) {

@@ -108,10 +108,11 @@ export class WebPlayer extends BasePlayer {
                                 clearInterval(this.authValidationInterval);
                                 this.authValidationInterval = null;
                             }
+                            this.forceCleanupOverlays();
                             this.debugLog('Payment successful - all security restrictions lifted, resuming playback');
                             setTimeout(() => {
                                 this.play();
-                            }, 100);
+                            }, 150);
                         }
                         catch (error) {
                             this.debugError('Error in onResume callback:', error);
@@ -3981,6 +3982,25 @@ export class WebPlayer extends BasePlayer {
     `;
         securityOverlay.appendChild(messageContainer);
         this.playerWrapper.appendChild(securityOverlay);
+    }
+    forceCleanupOverlays() {
+        this.debugLog('Force cleanup of overlays called');
+        if (!this.playerWrapper)
+            return;
+        const overlays = this.playerWrapper.querySelectorAll('.uvf-paywall-overlay, .uvf-auth-overlay');
+        overlays.forEach((overlay) => {
+            const htmlOverlay = overlay;
+            this.debugLog('Removing overlay:', htmlOverlay.className);
+            htmlOverlay.style.display = 'none';
+            htmlOverlay.classList.remove('active');
+            if (htmlOverlay.parentNode) {
+                htmlOverlay.parentNode.removeChild(htmlOverlay);
+            }
+        });
+        if (this.paywallController && typeof this.paywallController.destroyOverlays === 'function') {
+            this.debugLog('Calling paywallController.destroyOverlays()');
+            this.paywallController.destroyOverlays();
+        }
     }
     async cleanup() {
         if (this.hls) {

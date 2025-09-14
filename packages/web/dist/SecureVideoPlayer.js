@@ -1,4 +1,4 @@
-import { WebPlayer } from "./WebPlayer.js";
+import { WebPlayer } from './WebPlayer';
 export class SecureVideoPlayer extends WebPlayer {
     constructor() {
         super();
