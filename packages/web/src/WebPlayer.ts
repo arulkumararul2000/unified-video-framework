@@ -1646,6 +1646,22 @@ export class WebPlayer extends BasePlayer {
         pointer-events: none;
         z-index: 20;
         transition: opacity 0.3s ease;
+        white-space: nowrap;
+        text-align: center;
+        min-width: auto;
+        max-width: 200px;
+      }
+      
+      /* Time-specific indicator styling */
+      .uvf-shortcut-indicator.uvf-time-indicator {
+        padding: 12px 18px;
+        font-size: 18px;
+        font-weight: 500;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 0.5px;
+        border-radius: 6px;
+        background: rgba(0,0,0,0.85);
+        backdrop-filter: blur(4px);
       }
       
       .uvf-shortcut-indicator.active {
