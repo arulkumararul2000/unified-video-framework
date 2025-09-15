@@ -1495,6 +1495,22 @@ export class WebPlayer extends BasePlayer {
         pointer-events: none;
         z-index: 20;
         transition: opacity 0.3s ease;
+        white-space: nowrap;
+        text-align: center;
+        min-width: auto;
+        max-width: 200px;
+      }
+      
+      /* Time-specific indicator styling */
+      .uvf-shortcut-indicator.uvf-time-indicator {
+        padding: 12px 18px;
+        font-size: 18px;
+        font-weight: 500;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 0.5px;
+        border-radius: 6px;
+        background: rgba(0,0,0,0.85);
+        backdrop-filter: blur(4px);
       }
       
       .uvf-shortcut-indicator.active {
@@ -2744,12 +2760,18 @@ export class WebPlayer extends BasePlayer {
                     import('./paywall/PaywallController').then((m) => {
                         this.paywallController = new m.PaywallController(config, {
                             getOverlayContainer: () => this.playerWrapper,
-                            onResume: () => {
+                            onResume: (accessInfo) => {
                                 try {
                                     this.previewGateHit = false;
                                     this.paymentSuccessTime = Date.now();
-                                    this.paymentSuccessful = true;
-                                    this.debugLog('Payment successful (via setPaywallConfig) - preview gate permanently disabled, resuming playback');
+                                    if (accessInfo && (accessInfo.accessGranted || accessInfo.paymentSuccessful)) {
+                                        this.paymentSuccessful = true;
+                                        this.debugLog('Access granted via email auth - preview gate permanently disabled, resuming playback');
+                                    }
+                                    else {
+                                        this.paymentSuccessful = true;
+                                        this.debugLog('Payment successful (via setPaywallConfig) - preview gate permanently disabled, resuming playback');
+                                    }
                                     this.play();
                                 }
                                 catch (_) { }

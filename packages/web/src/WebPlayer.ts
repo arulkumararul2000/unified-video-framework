@@ -3032,13 +3032,21 @@ export class WebPlayer extends BasePlayer {
           import('./paywall/PaywallController').then((m: any) => {
             this.paywallController = new m.PaywallController(config, {
               getOverlayContainer: () => this.playerWrapper,
-              onResume: () => { 
+              onResume: (accessInfo?: any) => { 
                 try { 
                   // Reset preview gate after successful auth/payment
                   this.previewGateHit = false;
                   this.paymentSuccessTime = Date.now();
-                  this.paymentSuccessful = true;
-                  this.debugLog('Payment successful (via setPaywallConfig) - preview gate permanently disabled, resuming playback');
+                  
+                  // Check if access was granted via email auth
+                  if (accessInfo && (accessInfo.accessGranted || accessInfo.paymentSuccessful)) {
+                    this.paymentSuccessful = true;
+                    this.debugLog('Access granted via email auth - preview gate permanently disabled, resuming playback');
+                  } else {
+                    this.paymentSuccessful = true;
+                    this.debugLog('Payment successful (via setPaywallConfig) - preview gate permanently disabled, resuming playback');
+                  }
+                  
                   this.play(); 
                 } catch(_) {} 
               },

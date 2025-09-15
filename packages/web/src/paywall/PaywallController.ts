@@ -24,7 +24,7 @@ export type PaymentLinkConfig = {
 
 export type PaywallControllerOptions = {
   getOverlayContainer: () => HTMLElement | null;
-  onResume: () => void;
+  onResume: (accessInfo?: { accessGranted?: boolean; paymentSuccessful?: boolean }) => void;
   onShow?: () => void;
   onClose?: () => void;
   // Custom payment handlers
@@ -877,7 +877,10 @@ export class PaywallController {
               
               // Small delay to ensure DOM cleanup is complete before resuming
               setTimeout(() => {
-                this.opts.onResume();
+                // Pass access granted status to WebPlayer via onResume callback
+                if (this.opts.onResume) {
+                  this.opts.onResume({ accessGranted: true, paymentSuccessful: true });
+                }
               }, 50);
             }
             else if (!access_granted && requires_payment) {
