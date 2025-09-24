@@ -408,26 +408,6 @@ export const WebPlayerView = (props) => {
                 backgroundColor: 'rgba(0,0,0,0.95)'
             } },
             React.createElement(EPGOverlay, { data: props.epg, config: epgConfigWithHandlers, visible: epgVisible, onToggle: handleToggleEPG }))),
-        props.debug && (React.createElement("div", { style: {
-                position: 'fixed',
-                bottom: '80px',
-                right: '20px',
-                backgroundColor: 'rgba(0,0,0,0.8)',
-                color: '#00ff00',
-                padding: '8px',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontFamily: 'monospace',
-                zIndex: 300
-            } },
-            "EPG: ",
-            props.epg ? '✅' : '❌',
-            " | Component: ",
-            EPGOverlay ? '✅' : '❌',
-            " | Loaded: ",
-            epgComponentLoaded ? '✅' : '❌',
-            " | Visible: ",
-            epgVisible ? '✅' : '❌')),
         props.epg && playerReady && !epgVisible && (React.createElement("div", { style: {
                 position: 'fixed',
                 bottom: '20px',
