@@ -431,43 +431,6 @@ export const WebPlayerViewWithEPG: React.FC<WebPlayerViewWithEPGProps> = (props)
         style={playerStyle}
       />
 
-      {/* EPG Toggle Button */}
-      {epg && playerReady && (
-        <button
-          onClick={() => handleToggleEPG(!epgVisible)}
-          style={{
-            position: 'fixed',
-            top: epgVisible ? '32vh' : '20px',
-            right: '20px',
-            width: '50px',
-            height: '50px',
-            borderRadius: '50%',
-            border: 'none',
-            backgroundColor: epgVisible ? '#ff6b35' : 'rgba(0, 0, 0, 0.7)',
-            color: '#fff',
-            fontSize: '18px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 200,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            transition: 'all 0.3s ease',
-            transform: epgVisible ? 'rotate(180deg)' : 'rotate(0deg)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = `scale(1.1) ${epgVisible ? 'rotate(180deg)' : 'rotate(0deg)'}`;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = `scale(1) ${epgVisible ? 'rotate(180deg)' : 'rotate(0deg)'}`;
-          }}
-          title={epgVisible ? 'Hide EPG (Ctrl+G)' : 'Show EPG (Ctrl+G)'}
-        >
-          📺
-        </button>
-      )}
-
       {/* EPG Overlay */}
       {epg && (
         <EPGOverlay

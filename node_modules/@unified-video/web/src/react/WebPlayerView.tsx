@@ -168,10 +168,17 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
   // Load EPG components when needed
   useEffect(() => {
     if (props.epg && !epgComponentLoaded) {
+      console.log('🔄 Loading EPG components...');
       loadEPGComponents().then((component) => {
+        console.log('📦 EPG component loaded:', !!component);
         if (component) {
+          console.log('✅ Setting epgComponentLoaded to true');
           setEPGComponentLoaded(true);
+        } else {
+          console.error('❌ EPG component is null');
         }
+      }).catch((error) => {
+        console.error('❌ Failed to load EPG components:', error);
       });
     }
   }, [props.epg, epgComponentLoaded]);
@@ -559,53 +566,28 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         style={responsiveStyle}
       />
 
-      {/* EPG Toggle Button */}
-      {props.epg && playerReady && (
-        <button
-          onClick={() => handleToggleEPG(!epgVisible)}
-          style={{
-            position: 'fixed',
-            top: epgVisible ? '32vh' : '20px',
-            right: '20px',
-            width: '50px',
-            height: '50px',
-            borderRadius: '50%',
-            border: 'none',
-            backgroundColor: epgVisible ? '#ff6b35' : 'rgba(0, 0, 0, 0.7)',
-            color: '#fff',
-            fontSize: '18px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 200,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            transition: 'all 0.3s ease',
-            transform: epgVisible ? 'rotate(180deg)' : 'rotate(0deg)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = `scale(1.1) ${epgVisible ? 'rotate(180deg)' : 'rotate(0deg)'}`;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = `scale(1) ${epgVisible ? 'rotate(180deg)' : 'rotate(0deg)'}`;
-          }}
-          title={epgVisible ? 'Hide EPG (Ctrl+G)' : 'Show EPG (Ctrl+G)'}
-        >
-          📺
-        </button>
-      )}
-
       {/* EPG Overlay */}
       {props.epg && EPGOverlay && epgComponentLoaded && (
-        <EPGOverlay
-          data={props.epg}
-          config={epgConfigWithHandlers}
-          visible={epgVisible}
-          onToggle={handleToggleEPG}
-        />
+        <div style={{ 
+          position: 'fixed', 
+          bottom: 0, 
+          left: 0, 
+          right: 0, 
+          height: epgVisible ? '65vh' : '0', 
+          zIndex: 150,
+          transition: 'height 0.3s ease',
+          overflow: 'hidden',
+          backgroundColor: 'rgba(0,0,0,0.95)'
+        }}>
+          <EPGOverlay
+            data={props.epg}
+            config={epgConfigWithHandlers}
+            visible={epgVisible}
+            onToggle={handleToggleEPG}
+          />
+        </div>
       )}
-
+      
       {/* Instructions Toast */}
       {props.epg && playerReady && !epgVisible && (
         <div

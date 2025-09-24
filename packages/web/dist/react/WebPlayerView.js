@@ -47,10 +47,18 @@ export const WebPlayerView = (props) => {
     }, [props.onToggleEPG]);
     useEffect(() => {
         if (props.epg && !epgComponentLoaded) {
+            console.log('🔄 Loading EPG components...');
             loadEPGComponents().then((component) => {
+                console.log('📦 EPG component loaded:', !!component);
                 if (component) {
+                    console.log('✅ Setting epgComponentLoaded to true');
                     setEPGComponentLoaded(true);
                 }
+                else {
+                    console.error('❌ EPG component is null');
+                }
+            }).catch((error) => {
+                console.error('❌ Failed to load EPG components:', error);
             });
         }
     }, [props.epg, epgComponentLoaded]);
@@ -388,32 +396,38 @@ export const WebPlayerView = (props) => {
             zIndex: 40,
         } },
         React.createElement("div", { ref: containerRef, className: `uvf-responsive-container ${props.className || ''}`, style: responsiveStyle }),
-        props.epg && playerReady && (React.createElement("button", { onClick: () => handleToggleEPG(!epgVisible), style: {
+        props.epg && EPGOverlay && epgComponentLoaded && (React.createElement("div", { style: {
                 position: 'fixed',
-                top: epgVisible ? '32vh' : '20px',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: epgVisible ? '65vh' : '0',
+                zIndex: 150,
+                transition: 'height 0.3s ease',
+                overflow: 'hidden',
+                backgroundColor: 'rgba(0,0,0,0.95)'
+            } },
+            React.createElement(EPGOverlay, { data: props.epg, config: epgConfigWithHandlers, visible: epgVisible, onToggle: handleToggleEPG }))),
+        props.debug && (React.createElement("div", { style: {
+                position: 'fixed',
+                bottom: '80px',
                 right: '20px',
-                width: '50px',
-                height: '50px',
-                borderRadius: '50%',
-                border: 'none',
-                backgroundColor: epgVisible ? '#ff6b35' : 'rgba(0, 0, 0, 0.7)',
-                color: '#fff',
-                fontSize: '18px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 200,
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                transition: 'all 0.3s ease',
-                transform: epgVisible ? 'rotate(180deg)' : 'rotate(0deg)',
-            }, onMouseEnter: (e) => {
-                e.currentTarget.style.transform = `scale(1.1) ${epgVisible ? 'rotate(180deg)' : 'rotate(0deg)'}`;
-            }, onMouseLeave: (e) => {
-                e.currentTarget.style.transform = `scale(1) ${epgVisible ? 'rotate(180deg)' : 'rotate(0deg)'}`;
-            }, title: epgVisible ? 'Hide EPG (Ctrl+G)' : 'Show EPG (Ctrl+G)' }, "\uD83D\uDCFA")),
-        props.epg && EPGOverlay && epgComponentLoaded && (React.createElement(EPGOverlay, { data: props.epg, config: epgConfigWithHandlers, visible: epgVisible, onToggle: handleToggleEPG })),
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                color: '#00ff00',
+                padding: '8px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontFamily: 'monospace',
+                zIndex: 300
+            } },
+            "EPG: ",
+            props.epg ? '✅' : '❌',
+            " | Component: ",
+            EPGOverlay ? '✅' : '❌',
+            " | Loaded: ",
+            epgComponentLoaded ? '✅' : '❌',
+            " | Visible: ",
+            epgVisible ? '✅' : '❌')),
         props.epg && playerReady && !epgVisible && (React.createElement("div", { style: {
                 position: 'fixed',
                 bottom: '20px',
