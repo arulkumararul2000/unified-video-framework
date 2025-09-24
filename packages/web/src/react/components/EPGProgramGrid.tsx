@@ -18,6 +18,8 @@ interface EPGProgramGridProps extends EPGComponentProps {
   selectedProgram?: EPGProgram | null;
   onProgramSelect?: (program: EPGProgram, channel: EPGProgramRow) => void;
   onChannelSelect?: (channel: EPGProgramRow) => void;
+  onTimelineScroll?: (scrollLeft: number) => void;
+  timelineScrollLeft?: number;
   channelHeight?: number;
   visibleChannels?: number;
 }
@@ -178,13 +180,17 @@ export const EPGProgramGrid: React.FC<EPGProgramGridProps> = ({
   selectedProgram,
   onProgramSelect,
   onChannelSelect,
+  onTimelineScroll,
+  timelineScrollLeft = 0,
   channelHeight = 80,
   visibleChannels = 6,
   className = '',
   style = {},
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
+  const channelNamesRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
 
   // Calculate visible program blocks
   const programBlocks = useMemo(() => {
@@ -228,13 +234,37 @@ export const EPGProgramGrid: React.FC<EPGProgramGridProps> = ({
     }
   }, [onChannelSelect]);
 
-  // Throttled scroll handler
+  // Enhanced scroll handler for both vertical and horizontal scrolling
   const handleScroll = useMemo(
     () => throttle((e: React.UIEvent<HTMLDivElement>) => {
-      setScrollTop(e.currentTarget.scrollTop);
+      const target = e.currentTarget;
+      setScrollTop(target.scrollTop);
+      setScrollLeft(target.scrollLeft);
+      
+      // Notify parent about horizontal scroll for timeline sync
+      if (onTimelineScroll) {
+        onTimelineScroll(target.scrollLeft);
+      }
     }, 16),
-    []
+    [onTimelineScroll]
   );
+  
+  // Sync channel names scroll with grid scroll
+  useEffect(() => {
+    if (channelNamesRef.current) {
+      const channelNamesContainer = channelNamesRef.current.querySelector('.epg-channel-names-content');
+      if (channelNamesContainer) {
+        (channelNamesContainer as HTMLElement).style.transform = `translateY(-${scrollTop}px)`;
+      }
+    }
+  }, [scrollTop]);
+  
+  // Sync program grid horizontal scroll with timeline
+  useEffect(() => {
+    if (gridRef.current && timelineScrollLeft !== undefined) {
+      gridRef.current.scrollLeft = timelineScrollLeft;
+    }
+  }, [timelineScrollLeft]);
 
   // Calculate which channels are visible
   const visibleChannelRange = useMemo(() => {
@@ -260,6 +290,7 @@ export const EPGProgramGrid: React.FC<EPGProgramGridProps> = ({
     >
       {/* Channel Names Column */}
       <div
+        ref={channelNamesRef}
         className="epg-channel-names"
         style={{
           position: 'absolute',
@@ -274,9 +305,10 @@ export const EPGProgramGrid: React.FC<EPGProgramGridProps> = ({
         }}
       >
         <div
+          className="epg-channel-names-content"
           style={{
             height: `${data.length * channelHeight}px`,
-            transform: `translateY(-${scrollTop}px)`,
+            position: 'relative',
           }}
         >
           {data.slice(visibleChannelRange.startIndex, visibleChannelRange.endIndex).map((channel, index) => {
@@ -368,10 +400,10 @@ export const EPGProgramGrid: React.FC<EPGProgramGridProps> = ({
             height: `${data.length * channelHeight}px`,
           }}
         >
-          {/* Grid Lines */}
+          {/* Horizontal Grid Lines (Channel separators) */}
           {data.map((_, index) => (
             <div
-              key={`grid-line-${index}`}
+              key={`h-grid-line-${index}`}
               style={{
                 position: 'absolute',
                 top: `${(index + 1) * channelHeight}px`,
@@ -383,6 +415,35 @@ export const EPGProgramGrid: React.FC<EPGProgramGridProps> = ({
               }}
             />
           ))}
+          
+          {/* Vertical Grid Lines (Time slots) */}
+          {(() => {
+            const lines = [];
+            const timeRange = timelineEnd - timelineStart;
+            const slotDuration = 60 * 60 * 1000; // 1 hour in milliseconds
+            const numSlots = Math.ceil(timeRange / slotDuration);
+            
+            for (let i = 0; i <= numSlots; i++) {
+              const lineTime = timelineStart + (i * slotDuration);
+              const linePosition = ((lineTime - timelineStart) / timeRange) * containerWidth;
+              
+              lines.push(
+                <div
+                  key={`v-grid-line-${i}`}
+                  style={{
+                    position: 'absolute',
+                    left: `${linePosition}px`,
+                    top: '0',
+                    bottom: '0',
+                    width: '1px',
+                    backgroundColor: '#333',
+                    opacity: 0.3,
+                  }}
+                />
+              );
+            }
+            return lines;
+          })()}
 
           {/* Program Blocks */}
           {data.slice(visibleChannelRange.startIndex, visibleChannelRange.endIndex).map((channel, index) => {

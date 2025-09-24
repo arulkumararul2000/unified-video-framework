@@ -10,6 +10,8 @@ interface EPGTimelineHeaderProps extends EPGComponentProps {
   visibleHours?: number;
   slotDuration?: number;
   onTimeClick?: (timestamp: number) => void;
+  scrollLeft?: number;
+  onScroll?: (scrollLeft: number) => void;
 }
 
 export const EPGTimelineHeader: React.FC<EPGTimelineHeaderProps> = ({
@@ -20,10 +22,13 @@ export const EPGTimelineHeader: React.FC<EPGTimelineHeaderProps> = ({
   visibleHours = 4,
   slotDuration = 60,
   onTimeClick,
+  scrollLeft = 0,
+  onScroll,
   className = '',
   style = {},
 }) => {
   const headerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Generate time slots for the timeline
   const timeSlots = useMemo(() => {
@@ -42,16 +47,19 @@ export const EPGTimelineHeader: React.FC<EPGTimelineHeaderProps> = ({
     }
   };
 
-  // Auto-scroll to current time when component mounts
+  // Sync scroll position from parent
   useEffect(() => {
-    if (headerRef.current && currentTimePosition > 0) {
-      const scrollLeft = Math.max(0, currentTimePosition - (headerRef.current.offsetWidth / 2));
-      headerRef.current.scrollTo({
-        left: scrollLeft,
-        behavior: 'smooth',
-      });
+    if (scrollContainerRef.current && scrollLeft !== undefined) {
+      scrollContainerRef.current.scrollLeft = scrollLeft;
     }
-  }, [currentTimePosition]);
+  }, [scrollLeft]);
+  
+  // Handle scroll events from timeline header
+  const handleTimelineScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (onScroll) {
+      onScroll(e.currentTarget.scrollLeft);
+    }
+  };
 
   return (
     <div
@@ -60,23 +68,54 @@ export const EPGTimelineHeader: React.FC<EPGTimelineHeaderProps> = ({
       style={{
         position: 'relative',
         height: '60px',
-        overflow: 'hidden',
         borderBottom: '1px solid #333',
         backgroundColor: '#1a1a1a',
+        display: 'flex',
         ...style,
       }}
     >
-      {/* Time Slots Container */}
+      {/* Channel Names Spacer - matches the channel names column width */}
       <div
-        className="epg-timeline-slots"
         style={{
-          position: 'relative',
-          width: `${containerWidth}px`,
+          width: '200px',
           height: '100%',
+          backgroundColor: '#1a1a1a',
+          borderRight: '1px solid #333',
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '12px',
+          fontWeight: '600',
+          color: '#666',
         }}
       >
+        Channels
+      </div>
+      
+      {/* Scrollable Timeline Container */}
+      <div
+        ref={scrollContainerRef}
+        className="epg-timeline-scroll-container"
+        style={{
+          flex: 1,
+          height: '100%',
+          overflow: 'auto',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+        onScroll={handleTimelineScroll}
+      >
+        {/* Time Slots Container */}
+        <div
+          className="epg-timeline-slots"
+          style={{
+            position: 'relative',
+            width: `${containerWidth}px`,
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
         {timeSlots.map((slot, index) => {
           const slotPosition = ((slot.timestamp - timelineStart) / (timelineEnd - timelineStart)) * containerWidth;
           
@@ -214,35 +253,15 @@ export const EPGTimelineHeader: React.FC<EPGTimelineHeaderProps> = ({
             />
           );
         })}
+        </div>
+        
+        {/* Hide scrollbar with CSS */}
+        <style>{`
+          .epg-timeline-scroll-container::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
       </div>
-
-      {/* Gradient Fade for Overflow */}
-      <div
-        className="epg-timeline-fade-left"
-        style={{
-          position: 'absolute',
-          left: '0',
-          top: '0',
-          bottom: '0',
-          width: '20px',
-          background: 'linear-gradient(to right, #1a1a1a, transparent)',
-          pointerEvents: 'none',
-          zIndex: 5,
-        }}
-      />
-      <div
-        className="epg-timeline-fade-right"
-        style={{
-          position: 'absolute',
-          right: '0',
-          top: '0',
-          bottom: '0',
-          width: '20px',
-          background: 'linear-gradient(to left, #1a1a1a, transparent)',
-          pointerEvents: 'none',
-          zIndex: 5,
-        }}
-      />
     </div>
   );
 };

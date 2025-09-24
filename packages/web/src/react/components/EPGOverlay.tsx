@@ -43,6 +43,7 @@ export const EPGOverlay: React.FC<EPGProps> = ({
 }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [updateTrigger, setUpdateTrigger] = useState(0);
+  const [timelineScrollLeft, setTimelineScrollLeft] = useState(0);
   
   // Merge user config with defaults
   const config = useMemo(() => ({
@@ -242,6 +243,16 @@ export const EPGOverlay: React.FC<EPGProps> = ({
     }
   }, [config, filteredData, state.selectedProgram]);
 
+  // Handle timeline scroll synchronization
+  const handleTimelineScroll = useCallback((scrollLeft: number) => {
+    setTimelineScrollLeft(scrollLeft);
+  }, []);
+  
+  // Handle program grid scroll synchronization
+  const handleProgramGridScroll = useCallback((scrollLeft: number) => {
+    setTimelineScrollLeft(scrollLeft);
+  }, []);
+
   // Handle time slot click
   const handleTimeClick = useCallback((timestamp: number) => {
     const newStart = timestamp - (state.visibleHours * 30 * 60 * 1000); // Center the clicked time
@@ -347,6 +358,8 @@ export const EPGOverlay: React.FC<EPGProps> = ({
         visibleHours={state.visibleHours}
         slotDuration={config.timeSlotDuration}
         onTimeClick={handleTimeClick}
+        scrollLeft={timelineScrollLeft}
+        onScroll={handleTimelineScroll}
       />
 
       {/* Main Content Area */}
@@ -369,6 +382,8 @@ export const EPGOverlay: React.FC<EPGProps> = ({
           selectedProgram={state.selectedProgram}
           onProgramSelect={handleProgramSelect}
           onChannelSelect={handleChannelSelect}
+          onTimelineScroll={handleProgramGridScroll}
+          timelineScrollLeft={timelineScrollLeft}
           channelHeight={80}
           visibleChannels={6}
           style={{ flex: 1 }}

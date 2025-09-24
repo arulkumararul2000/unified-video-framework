@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.47] - 2024-01-24
+
+### Fixed
+- **EPG Alignment Issues**: Fixed critical alignment problems in Electronic Program Guide
+  - Fixed misaligned grid lines between timeline header and program grid
+  - Resolved channel row height inconsistencies (standardized to 80px)
+  - Fixed timeline header and program grid vertical line alignment
+- **EPG Scrolling Synchronization**: Implemented bidirectional scroll synchronization
+  - Timeline header and program grid now scroll in perfect sync horizontally
+  - Added scroll state management and event coordination
+  - Hidden scrollbars for clean professional appearance
+- **EPG Layout Structure**: Enhanced component architecture
+  - Added 200px channel spacer in timeline header matching program grid
+  - Improved grid line rendering with separate horizontal and vertical lines
+  - Enhanced scroll event handling and throttling
+
+### Changed
+- **EPGProgramGrid**: Enhanced with scroll synchronization props (`onTimelineScroll`, `timelineScrollLeft`)
+- **EPGTimelineHeader**: Restructured layout with scrollable container and channel spacer
+- **EPGOverlay**: Added scroll state management and coordination between components
+
+### Improved
+- Professional TV guide appearance with perfect alignment
+- Smooth synchronized scrolling experience
+- Consistent visual measurements across all EPG components
+- Better user experience for Electronic Program Guide interface
+
 ## [1.4.19] - 2024-09-09
 
 ### Fixed
