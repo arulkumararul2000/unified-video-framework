@@ -140,6 +140,10 @@ export declare class WebPlayer extends BasePlayer {
     private handleSecurityViolation;
     private showSecurityViolationMessage;
     private forceCleanupOverlays;
+    showEPGButton(): void;
+    hideEPGButton(): void;
+    setEPGData(epgData: any): void;
+    isEPGButtonVisible(): boolean;
     private cleanup;
     destroy(): Promise<void>;
 }

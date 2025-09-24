@@ -20,9 +20,17 @@
   },
   "peerDependencies": {
     "dashjs": "^4.0.0",
-    "hls.js": "^1.0.0"
+    "hls.js": "^1.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "peerDependenciesMeta": {
+    "react": {
+      "optional": false
+    },
+    "react-dom": {
+      "optional": false
+    },
     "dashjs": {
       "optional": true
     },
@@ -36,6 +44,8 @@
     "@babel/preset-typescript": "^7.27.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^18.0.0",
+    "@types/react": "^18.3.24",
+    "@types/react-dom": "^18.3.7",
     "babel-jest": "^30.1.2",
     "jest": "^30.1.2",
     "jest-environment-jsdom": "^30.1.2",

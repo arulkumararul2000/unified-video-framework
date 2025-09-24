@@ -2351,6 +2351,18 @@ export class WebPlayer extends BasePlayer {
     `;
         settingsContainer.appendChild(settingsMenu);
         rightControls.appendChild(settingsContainer);
+        const epgBtn = document.createElement('button');
+        epgBtn.className = 'uvf-control-btn';
+        epgBtn.id = 'uvf-epg-btn';
+        epgBtn.title = 'Electronic Program Guide (Ctrl+G)';
+        epgBtn.innerHTML = `<svg viewBox="0 0 24 24">
+      <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+      <rect x="17" y="3" width="2" height="2"/>
+      <rect x="19" y="3" width="2" height="2"/>
+      <path d="M17 1v2h2V1h2v2h1c.55 0 1 .45 1 1v16c0 .55-.45 1-1 1H2c-.55 0-1-.45-1-1V4c0-.55.45-1 1-1h1V1h2v2h12z" fill="none" stroke="currentColor" stroke-width="0.5"/>
+    </svg>`;
+        epgBtn.style.display = 'none';
+        rightControls.appendChild(epgBtn);
         const pipBtn = document.createElement('button');
         pipBtn.className = 'uvf-control-btn';
         pipBtn.id = 'uvf-pip-btn';
@@ -2575,6 +2587,12 @@ export class WebPlayer extends BasePlayer {
                 settingsMenu?.classList.remove('active');
             });
         });
+        const epgBtn = document.getElementById('uvf-epg-btn');
+        epgBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.debugLog('EPG button clicked');
+            this.emit('epgToggle', {});
+        });
         const pipBtn = document.getElementById('uvf-pip-btn');
         pipBtn?.addEventListener('click', () => this.togglePiP());
         const castBtn = document.getElementById('uvf-cast-btn');
@@ -2670,6 +2688,12 @@ export class WebPlayer extends BasePlayer {
                     e.preventDefault();
                     this.togglePiP();
                     shortcutText = 'Picture-in-Picture';
+                    break;
+                case 'g':
+                    e.preventDefault();
+                    this.debugLog('G key pressed - toggling EPG');
+                    this.emit('epgToggle', {});
+                    shortcutText = 'Toggle EPG';
                     break;
                 case '0':
                 case '1':
@@ -4023,6 +4047,38 @@ export class WebPlayer extends BasePlayer {
             this.debugLog('Calling paywallController.destroyOverlays()');
             this.paywallController.destroyOverlays();
         }
+    }
+    showEPGButton() {
+        const epgBtn = document.getElementById('uvf-epg-btn');
+        if (epgBtn) {
+            epgBtn.style.display = 'block';
+            this.debugLog('EPG button shown');
+        }
+        else {
+            this.debugLog('EPG button not found in DOM');
+        }
+    }
+    hideEPGButton() {
+        const epgBtn = document.getElementById('uvf-epg-btn');
+        if (epgBtn) {
+            epgBtn.style.display = 'none';
+            this.debugLog('EPG button hidden');
+        }
+    }
+    setEPGData(epgData) {
+        if (epgData && Object.keys(epgData).length > 0) {
+            this.showEPGButton();
+            this.debugLog('EPG data set, button shown');
+            this.emit('epgDataSet', { data: epgData });
+        }
+        else {
+            this.hideEPGButton();
+            this.debugLog('No EPG data provided, button hidden');
+        }
+    }
+    isEPGButtonVisible() {
+        const epgBtn = document.getElementById('uvf-epg-btn');
+        return epgBtn ? epgBtn.style.display !== 'none' : false;
     }
     async cleanup() {
         if (this.hls) {

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPG Integration Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .player-container {
+            background: #000;
+            border-radius: 8px;
+            margin: 20px 0;
+            position: relative;
+            height: 500px;
+        }
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            width: 120px;
+            font-weight: bold;
+        }
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 2px;
+        }
+        button:hover {
+            background: #005a85;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            background: #e8f4f8;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .instructions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>EPG (Electronic Program Guide) Integration Example</h1>
+        
+        <div class="instructions">
+            <h3>📺 How to Use EPG Features:</h3>
+            <ul>
+                <li><strong>EPG Button:</strong> The EPG button appears in the player controls when EPG data is available</li>
+                <li><strong>Keyboard Shortcut:</strong> Press <kbd>G</kbd> to toggle the EPG overlay</li>
+                <li><strong>Ctrl+G Shortcut:</strong> Alternative keyboard shortcut (handled by React component)</li>
+                <li><strong>EPG Data:</strong> Use the buttons below to set or clear EPG data</li>
+                <li><strong>Player Ready:</strong> The EPG button only shows when the player is ready</li>
+            </ul>
+        </div>
+
+        <div class="player-container" id="player-container">
+            <!-- WebPlayer will be initialized here -->
+        </div>
+
+        <div class="controls">
+            <h3>EPG Controls</h3>
+            
+            <div class="control-group">
+                <label>Player:</label>
+                <button onclick="initializePlayer()" id="init-btn">Initialize Player</button>
+                <button onclick="destroyPlayer()" id="destroy-btn" disabled>Destroy Player</button>
+            </div>
+
+            <div class="control-group">
+                <label>EPG Data:</label>
+                <button onclick="setEPGData()" id="set-epg-btn" disabled>Set EPG Data</button>
+                <button onclick="clearEPGData()" id="clear-epg-btn" disabled>Clear EPG Data</button>
+            </div>
+
+            <div class="control-group">
+                <label>EPG Button:</label>
+                <button onclick="showEPGButton()" id="show-btn" disabled>Show EPG Button</button>
+                <button onclick="hideEPGButton()" id="hide-btn" disabled>Hide EPG Button</button>
+                <button onclick="checkEPGButtonVisibility()" id="check-btn" disabled>Check Visibility</button>
+            </div>
+
+            <div class="control-group">
+                <label>Events:</label>
+                <button onclick="clearEventLog()" id="clear-log-btn">Clear Event Log</button>
+            </div>
+
+            <div class="status" id="status">
+                Player Status: Not initialized
+            </div>
+
+            <div class="status" id="events">
+                <strong>Event Log:</strong><br>
+                <div id="event-log">No events yet...</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import WebPlayer (adjust path as needed)
+        // In a real implementation, you would import from your actual build
+        // import { WebPlayer } from '../dist/WebPlayer.js';
+        
+        let player = null;
+        let eventLog = [];
+
+        // Sample EPG data
+        const sampleEPGData = {
+            channels: [
+                {
+                    id: 'channel1',
+                    name: 'HBO Max',
+                    logo: 'https://via.placeholder.com/60x40/ff6b35/white?text=HBO',
+                    programs: [
+                        {
+                            id: 'prog1',
+                            title: 'Game of Thrones',
+                            description: 'Epic fantasy series about power struggles in Westeros',
+                            startTime: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+                            endTime: new Date(Date.now() + 30 * 60 * 1000),   // 30 minutes from now
+                            genre: 'Drama',
+                            rating: 'TV-MA'
+                        },
+                        {
+                            id: 'prog2',
+                            title: 'The Last of Us',
+                            description: 'Post-apocalyptic survival drama',
+                            startTime: new Date(Date.now() + 30 * 60 * 1000),
+                            endTime: new Date(Date.now() + 90 * 60 * 1000),
+                            genre: 'Drama',
+                            rating: 'TV-MA'
+                        }
+                    ]
+                },
+                {
+                    id: 'channel2',
+                    name: 'Netflix',
+                    logo: 'https://via.placeholder.com/60x40/e50914/white?text=NET',
+                    programs: [
+                        {
+                            id: 'prog3',
+                            title: 'Stranger Things',
+                            description: 'Supernatural drama set in the 1980s',
+                            startTime: new Date(Date.now() - 15 * 60 * 1000),
+                            endTime: new Date(Date.now() + 45 * 60 * 1000),
+                            genre: 'Sci-Fi',
+                            rating: 'TV-14'
+                        }
+                    ]
+                }
+            ],
+            timeSlots: [] // Will be generated automatically
+        };
+
+        function logEvent(eventType, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${eventType}${data ? ': ' + JSON.stringify(data) : ''}`;
+            eventLog.push(logEntry);
+            updateEventLog();
+            console.log('EPG Event:', logEntry);
+        }
+
+        function updateEventLog() {
+            const eventLogEl = document.getElementById('event-log');
+            eventLogEl.innerHTML = eventLog.slice(-10).join('<br>'); // Show last 10 events
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        function updateButtons() {
+            const hasPlayer = !!player;
+            document.getElementById('init-btn').disabled = hasPlayer;
+            document.getElementById('destroy-btn').disabled = !hasPlayer;
+            document.getElementById('set-epg-btn').disabled = !hasPlayer;
+            document.getElementById('clear-epg-btn').disabled = !hasPlayer;
+            document.getElementById('show-btn').disabled = !hasPlayer;
+            document.getElementById('hide-btn').disabled = !hasPlayer;
+            document.getElementById('check-btn').disabled = !hasPlayer;
+        }
+
+        // Mock WebPlayer for demonstration purposes
+        class MockWebPlayer {
+            constructor() {
+                this.epgData = null;
+                this.epgButtonVisible = false;
+                this.eventListeners = {};
+            }
+
+            async initialize(container) {
+                updateStatus('Player Status: Initializing...');
+                logEvent('Player Initialize');
+                
+                // Simulate initialization delay
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                this.container = container;
+                container.innerHTML = `
+                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; margin-bottom: 10px;">🎬</div>
+                            <div>Mock Video Player</div>
+                            <div style="font-size: 14px; margin-top: 10px; opacity: 0.8;">
+                                EPG Button: <span id="epg-button-status">Hidden</span>
+                            </div>
+                            <div style="font-size: 12px; margin-top: 5px; opacity: 0.6;">
+                                Press G to toggle EPG
+                            </div>
+                        </div>
+                    `;
+                
+                // Add keyboard event listener for 'g' key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'g' || e.key === 'G') {
+                        this.emit('epgToggle');
+                        logEvent('EPG Toggle (Keyboard)', { key: e.key });
+                    }
+                });
+                
+                updateStatus('Player Status: Ready');
+                logEvent('Player Ready');
+                return Promise.resolve();
+            }
+
+            setEPGData(data) {
+                this.epgData = data;
+                if (data && Object.keys(data).length > 0) {
+                    this.showEPGButton();
+                    this.emit('epgDataSet', { data });
+                    logEvent('EPG Data Set', { channels: data.channels?.length || 0 });
+                } else {
+                    this.hideEPGButton();
+                    logEvent('EPG Data Cleared');
+                }
+            }
+
+            showEPGButton() {
+                this.epgButtonVisible = true;
+                this.updateEPGButtonStatus();
+                logEvent('EPG Button Shown');
+            }
+
+            hideEPGButton() {
+                this.epgButtonVisible = false;
+                this.updateEPGButtonStatus();
+                logEvent('EPG Button Hidden');
+            }
+
+            isEPGButtonVisible() {
+                return this.epgButtonVisible;
+            }
+
+            updateEPGButtonStatus() {
+                const statusEl = document.getElementById('epg-button-status');
+                if (statusEl) {
+                    statusEl.textContent = this.epgButtonVisible ? 'Visible' : 'Hidden';
+                    statusEl.style.color = this.epgButtonVisible ? '#4CAF50' : '#f44336';
+                }
+            }
+
+            on(event, callback) {
+                if (!this.eventListeners[event]) {
+                    this.eventListeners[event] = [];
+                }
+                this.eventListeners[event].push(callback);
+            }
+
+            emit(event, data = {}) {
+                if (this.eventListeners[event]) {
+                    this.eventListeners[event].forEach(callback => callback(data));
+                }
+            }
+
+            async destroy() {
+                updateStatus('Player Status: Destroying...');
+                logEvent('Player Destroy');
+                
+                if (this.container) {
+                    this.container.innerHTML = '';
+                }
+                
+                this.epgData = null;
+                this.epgButtonVisible = false;
+                this.eventListeners = {};
+                
+                updateStatus('Player Status: Destroyed');
+                return Promise.resolve();
+            }
+        }
+
+        // Global functions for button handlers
+        window.initializePlayer = async function() {
+            try {
+                player = new MockWebPlayer(); // In real code: new WebPlayer();
+                const container = document.getElementById('player-container');
+                await player.initialize(container);
+                
+                // Set up EPG event listeners
+                player.on('epgToggle', () => {
+                    logEvent('EPG Toggle Event Received');
+                    // In a real implementation, this would show/hide the EPG overlay
+                });
+                
+                player.on('epgDataSet', (eventData) => {
+                    logEvent('EPG Data Set Event', eventData);
+                });
+                
+                updateButtons();
+            } catch (error) {
+                updateStatus(`Error: ${error.message}`);
+                logEvent('Player Initialize Error', { error: error.message });
+            }
+        };
+
+        window.destroyPlayer = async function() {
+            if (player) {
+                await player.destroy();
+                player = null;
+                updateButtons();
+            }
+        };
+
+        window.setEPGData = function() {
+            if (player) {
+                player.setEPGData(sampleEPGData);
+            }
+        };
+
+        window.clearEPGData = function() {
+            if (player) {
+                player.setEPGData(null);
+            }
+        };
+
+        window.showEPGButton = function() {
+            if (player) {
+                player.showEPGButton();
+            }
+        };
+
+        window.hideEPGButton = function() {
+            if (player) {
+                player.hideEPGButton();
+            }
+        };
+
+        window.checkEPGButtonVisibility = function() {
+            if (player) {
+                const isVisible = player.isEPGButtonVisible();
+                logEvent('EPG Button Visibility Check', { visible: isVisible });
+                updateStatus(`Player Status: Ready (EPG Button: ${isVisible ? 'Visible' : 'Hidden'})`);
+            }
+        };
+
+        window.clearEventLog = function() {
+            eventLog = [];
+            updateEventLog();
+        };
+
+        // Initialize UI
+        updateButtons();
+        updateEventLog();
+    </script>
+</body>
+</html>

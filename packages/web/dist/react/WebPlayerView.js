@@ -1,5 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { WebPlayer } from "../WebPlayer.js";
+let EPGOverlay = null;
+const loadEPGComponents = async () => {
+    if (!EPGOverlay) {
+        try {
+            const epgModule = await import('./components/EPGOverlay');
+            EPGOverlay = epgModule.default;
+        }
+        catch (error) {
+            console.warn('Failed to load EPG components:', error);
+        }
+    }
+    return EPGOverlay;
+};
 export const WebPlayerView = (props) => {
     const containerRef = useRef(null);
     const playerRef = useRef(null);
@@ -7,6 +20,9 @@ export const WebPlayerView = (props) => {
         width: typeof window !== 'undefined' ? window.innerWidth : 1920,
         height: typeof window !== 'undefined' ? window.innerHeight : 1080,
     });
+    const [epgVisible, setEPGVisible] = useState(props.showEPG || false);
+    const [playerReady, setPlayerReady] = useState(false);
+    const [epgComponentLoaded, setEPGComponentLoaded] = useState(false);
     useEffect(() => {
         if (typeof window === 'undefined')
             return;
@@ -23,6 +39,38 @@ export const WebPlayerView = (props) => {
         handleResize();
         return () => window.removeEventListener('resize', handleResize);
     }, [props.responsive?.enabled]);
+    const handleToggleEPG = useCallback((visible) => {
+        setEPGVisible(visible);
+        if (props.onToggleEPG) {
+            props.onToggleEPG(visible);
+        }
+    }, [props.onToggleEPG]);
+    useEffect(() => {
+        if (props.epg && !epgComponentLoaded) {
+            loadEPGComponents().then((component) => {
+                if (component) {
+                    setEPGComponentLoaded(true);
+                }
+            });
+        }
+    }, [props.epg, epgComponentLoaded]);
+    useEffect(() => {
+        if (props.showEPG !== undefined) {
+            setEPGVisible(props.showEPG);
+        }
+    }, [props.showEPG]);
+    useEffect(() => {
+        if (!props.epg)
+            return;
+        const handleKeyPress = (e) => {
+            if (e.key === 'g' && e.ctrlKey) {
+                e.preventDefault();
+                handleToggleEPG(!epgVisible);
+            }
+        };
+        document.addEventListener('keydown', handleKeyPress);
+        return () => document.removeEventListener('keydown', handleKeyPress);
+    }, [props.epg, epgVisible, handleToggleEPG]);
     const getResponsiveDimensions = () => {
         const responsiveEnabled = props.responsive?.enabled !== false;
         if (!responsiveEnabled)
@@ -54,31 +102,35 @@ export const WebPlayerView = (props) => {
         const isTablet = width >= defaults.breakpoints.mobile && width < defaults.breakpoints.tablet;
         const isPortrait = height > width;
         const isLandscape = width > height;
+        const playerHeight = props.epg && epgVisible ? '35vh' : '100vh';
+        const playerMaxHeight = props.epg && epgVisible ? '35vh' : '100vh';
+        const playerZIndex = props.epg && epgVisible ? 50 : 1000;
         let calculatedStyle = {
             width: '100vw',
-            height: '100vh',
+            height: playerHeight,
             maxWidth: '100vw',
-            maxHeight: '100vh',
+            maxHeight: playerMaxHeight,
             boxSizing: 'border-box',
             position: 'fixed',
             top: 0,
             left: 0,
-            zIndex: 1000,
+            zIndex: playerZIndex,
             backgroundColor: '#000000',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: 0,
             padding: 0,
+            transition: 'height 0.3s ease, max-height 0.3s ease',
             ...props.style,
         };
         if (isMobile && isPortrait) {
             calculatedStyle = {
                 ...calculatedStyle,
                 width: '100vw',
-                height: '100vh',
+                height: playerHeight,
                 maxWidth: '100vw',
-                maxHeight: '100vh',
+                maxHeight: playerMaxHeight,
                 position: 'fixed',
                 top: 0,
                 left: 0,
@@ -88,9 +140,9 @@ export const WebPlayerView = (props) => {
             calculatedStyle = {
                 ...calculatedStyle,
                 width: '100vw',
-                height: '100vh',
+                height: playerHeight,
                 maxWidth: '100vw',
-                maxHeight: '100vh',
+                maxHeight: playerMaxHeight,
                 position: 'fixed',
                 top: 0,
                 left: 0,
@@ -100,9 +152,9 @@ export const WebPlayerView = (props) => {
             calculatedStyle = {
                 ...calculatedStyle,
                 width: '100vw',
-                height: '100vh',
+                height: playerHeight,
                 maxWidth: '100vw',
-                maxHeight: '100vh',
+                maxHeight: playerMaxHeight,
                 position: 'fixed',
                 top: 0,
                 left: 0,
@@ -112,9 +164,9 @@ export const WebPlayerView = (props) => {
             calculatedStyle = {
                 ...calculatedStyle,
                 width: '100vw',
-                height: '100vh',
+                height: playerHeight,
                 maxWidth: '100vw',
-                maxHeight: '100vh',
+                maxHeight: playerMaxHeight,
                 position: 'fixed',
                 top: 0,
                 left: 0,
@@ -241,8 +293,18 @@ export const WebPlayerView = (props) => {
                     metadata: props.metadata,
                 };
                 await player.load(source);
-                if (!cancelled)
+                if (!cancelled) {
+                    setPlayerReady(true);
+                    if (props.epg && typeof player.setEPGData === 'function') {
+                        player.setEPGData(props.epg);
+                    }
+                    if (typeof player.on === 'function') {
+                        player.on('epgToggle', () => {
+                            handleToggleEPG(!epgVisible);
+                        });
+                    }
                     props.onReady?.(player);
+                }
             }
             catch (err) {
                 if (!cancelled)
@@ -307,7 +369,74 @@ export const WebPlayerView = (props) => {
         catch (_) { }
     }, [JSON.stringify(props.playerTheme)]);
     const responsiveStyle = getResponsiveDimensions();
-    return (React.createElement("div", { ref: containerRef, className: `uvf-responsive-container ${props.className || ''}`, style: responsiveStyle }));
+    const epgConfigWithHandlers = {
+        ...props.epgConfig,
+        onFavorite: props.onEPGFavorite,
+        onRecord: props.onEPGRecord,
+        onSetReminder: props.onEPGSetReminder,
+        onCatchup: props.onEPGCatchup,
+        onProgramSelect: props.onEPGProgramSelect,
+        onChannelSelect: props.onEPGChannelSelect,
+    };
+    return (React.createElement("div", { className: `uvf-player-container ${props.epg ? 'with-epg' : ''} ${props.className || ''}`, style: {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: '#000',
+            zIndex: 40,
+        } },
+        React.createElement("div", { ref: containerRef, className: `uvf-responsive-container ${props.className || ''}`, style: responsiveStyle }),
+        props.epg && playerReady && (React.createElement("button", { onClick: () => handleToggleEPG(!epgVisible), style: {
+                position: 'fixed',
+                top: epgVisible ? '32vh' : '20px',
+                right: '20px',
+                width: '50px',
+                height: '50px',
+                borderRadius: '50%',
+                border: 'none',
+                backgroundColor: epgVisible ? '#ff6b35' : 'rgba(0, 0, 0, 0.7)',
+                color: '#fff',
+                fontSize: '18px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 200,
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                transition: 'all 0.3s ease',
+                transform: epgVisible ? 'rotate(180deg)' : 'rotate(0deg)',
+            }, onMouseEnter: (e) => {
+                e.currentTarget.style.transform = `scale(1.1) ${epgVisible ? 'rotate(180deg)' : 'rotate(0deg)'}`;
+            }, onMouseLeave: (e) => {
+                e.currentTarget.style.transform = `scale(1) ${epgVisible ? 'rotate(180deg)' : 'rotate(0deg)'}`;
+            }, title: epgVisible ? 'Hide EPG (Ctrl+G)' : 'Show EPG (Ctrl+G)' }, "\uD83D\uDCFA")),
+        props.epg && EPGOverlay && epgComponentLoaded && (React.createElement(EPGOverlay, { data: props.epg, config: epgConfigWithHandlers, visible: epgVisible, onToggle: handleToggleEPG })),
+        props.epg && playerReady && !epgVisible && (React.createElement("div", { style: {
+                position: 'fixed',
+                bottom: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                color: '#fff',
+                padding: '12px 20px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                zIndex: 100,
+                animation: 'fadeInOut 4s ease-in-out',
+                pointerEvents: 'none',
+            } },
+            "Press ",
+            React.createElement("strong", null, "Ctrl+G"),
+            " or click the \uD83D\uDCFA button to show the Electronic Program Guide")),
+        React.createElement("style", null, `
+        @keyframes fadeInOut {
+          0%, 100% { opacity: 0; }
+          10%, 90% { opacity: 1; }
+        }
+      `)));
 };
 export default WebPlayerView;
 //# sourceMappingURL=WebPlayerView.js.map

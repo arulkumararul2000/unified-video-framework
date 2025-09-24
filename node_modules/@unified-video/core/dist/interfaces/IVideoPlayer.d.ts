@@ -64,6 +64,8 @@ export interface PlayerEvents {
     onSeeked?: () => void;
     onLoadedMetadata?: (metadata: VideoMetadata) => void;
     onFreePreviewEnded?: () => void;
+    epgToggle?: (data?: any) => void;
+    epgDataSet?: (data?: any) => void;
 }
 export interface PlayerError {
     code: string;

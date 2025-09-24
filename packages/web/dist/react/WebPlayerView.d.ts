@@ -2,6 +2,7 @@ import React from 'react';
 import type { CSSProperties } from 'react';
 import type { SubtitleTrack, VideoMetadata } from '@unified-video/core';
 import { WebPlayer } from '../WebPlayer';
+import type { EPGData, EPGConfig, EPGProgram, EPGProgramRow } from './types/EPGTypes';
 export type WebPlayerViewProps = {
     autoPlay?: boolean;
     muted?: boolean;
@@ -80,6 +81,16 @@ export type WebPlayerViewProps = {
     };
     onReady?: (player: WebPlayer) => void;
     onError?: (error: unknown) => void;
+    epg?: EPGData;
+    epgConfig?: Partial<EPGConfig>;
+    showEPG?: boolean;
+    onToggleEPG?: (visible: boolean) => void;
+    onEPGFavorite?: (program: EPGProgram, channel: EPGProgramRow) => void | Promise<void>;
+    onEPGRecord?: (program: EPGProgram, channel: EPGProgramRow) => void | Promise<void>;
+    onEPGSetReminder?: (program: EPGProgram, channel: EPGProgramRow) => void | Promise<void>;
+    onEPGCatchup?: (program: EPGProgram, channel: EPGProgramRow) => void | Promise<void>;
+    onEPGProgramSelect?: (program: EPGProgram, channel: EPGProgramRow) => void;
+    onEPGChannelSelect?: (channel: EPGProgramRow) => void;
 };
 export declare const WebPlayerView: React.FC<WebPlayerViewProps>;
 export default WebPlayerView;

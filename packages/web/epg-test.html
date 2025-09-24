@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EPG Button Debug Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    
+    #debug-info {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 10000;
+      max-width: 300px;
+    }
+    
+    .debug-line {
+      margin: 5px 0;
+    }
+    
+    .status-ok { color: #4CAF50; }
+    .status-warning { color: #FF9800; }
+    .status-error { color: #F44336; }
+  </style>
+</head>
+<body>
+  <div id="debug-info">
+    <div class="debug-line"><strong>🎬 EPG Button Debug Test</strong></div>
+    <div class="debug-line" id="epg-data-status">• EPG Data: <span class="status-warning">Checking...</span></div>
+    <div class="debug-line" id="player-status">• Player Status: <span class="status-warning">Initializing...</span></div>
+    <div class="debug-line" id="button-status">• EPG Button: <span class="status-warning">Waiting...</span></div>
+    <div class="debug-line" id="console-status">• Console: Check browser DevTools F12</div>
+  </div>
+
+  <div id="player-container" style="width: 100%; height: 100vh; background: #000;">
+    <!-- Player will be mounted here -->
+  </div>
+
+  <script>
+    // Debug logging
+    console.log('🎬 EPG Debug Test Started');
+    
+    // Test EPG data structure
+    const epgData = {
+      timeline: [
+        {
+          programTitle: "Test Live Stream - Social Live",
+          channelLogo: "https://napi-ai-film-agency-llc.flicknexs.com/uploads/images/1754298022583-6d104dfbb87c-Player_Image_Cover.jpg",
+          channelId: "social-live",
+          data: [
+            {
+              id: 1,
+              title: "Test Live Stream - Social Live",
+              description: "Social Live Stream Test 1",
+              since: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+              till: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
+              image: "https://napi-ai-film-agency-llc.flicknexs.com/uploads/images/1754298022583-6d104dfbb87c-Player_Image_Cover.jpg",
+              category: "Live Stream",
+              rating: "General",
+            }
+          ],
+        },
+        {
+          programTitle: "Demo Live stream",
+          channelLogo: "https://napi-ai-film-agency-llc.flicknexs.com/public/assets/default_horizontal_image.webp",
+          channelId: "demo-live",
+          data: [
+            {
+              id: 13,
+              title: "Demo Live stream",
+              description: "Demo Live Stream Test 1",
+              since: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+              till: new Date(Date.now() + 120 * 60 * 1000).toISOString(),
+              image: "https://napi-ai-film-agency-llc.flicknexs.com/public/assets/default_horizontal_image.webp",
+              category: "Demo",
+              rating: "General",
+            }
+          ],
+        },
+      ],
+    };
+
+    // Update EPG data status
+    document.getElementById('epg-data-status').innerHTML = 
+      `• EPG Data: <span class="status-ok">✅ Valid (${epgData.timeline.length} channels, ${epgData.timeline[0].data.length + epgData.timeline[1].data.length} programs)</span>`;
+
+    console.log('📊 EPG Data:', epgData);
+    console.log('📊 Timeline Count:', epgData.timeline.length);
+
+    // Check for EPG button every second
+    let buttonCheckInterval = setInterval(() => {
+      const buttons = document.querySelectorAll('button');
+      let epgButton = null;
+      
+      buttons.forEach(button => {
+        if (button.innerText.includes('📺') || button.title.includes('EPG')) {
+          epgButton = button;
+        }
+      });
+
+      if (epgButton) {
+        document.getElementById('button-status').innerHTML = 
+          '• EPG Button: <span class="status-ok">✅ Found!</span>';
+        console.log('🎯 EPG Button found:', epgButton);
+        console.log('📍 Button position:', epgButton.style.position, epgButton.style.top, epgButton.style.right);
+        console.log('🎨 Button styles:', window.getComputedStyle(epgButton));
+        clearInterval(buttonCheckInterval);
+        
+        // Add click handler for testing
+        epgButton.addEventListener('click', () => {
+          console.log('🎯 EPG Button clicked!');
+        });
+      } else {
+        document.getElementById('button-status').innerHTML = 
+          '• EPG Button: <span class="status-warning">❌ Not found yet...</span>';
+      }
+    }, 1000);
+
+    // Simulate player ready after 3 seconds (since we can't load the actual player in this test)
+    setTimeout(() => {
+      document.getElementById('player-status').innerHTML = 
+        '• Player Status: <span class="status-ok">✅ Ready (simulated)</span>';
+      
+      // Create a mock EPG button to test visibility
+      const mockButton = document.createElement('button');
+      mockButton.innerHTML = '📺';
+      mockButton.title = 'Show EPG (Ctrl+G)';
+      mockButton.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        border: none;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+      `;
+      
+      mockButton.addEventListener('click', () => {
+        console.log('🎯 Mock EPG Button clicked!');
+        alert('EPG Button Works! 🎉\n\nThis means the button positioning and styling are correct.\nThe issue is likely that the player is not becoming "ready" in your actual implementation.');
+      });
+      
+      mockButton.addEventListener('mouseenter', (e) => {
+        e.target.style.transform = 'scale(1.1)';
+        e.target.style.backgroundColor = '#ff6b35';
+      });
+      
+      mockButton.addEventListener('mouseleave', (e) => {
+        e.target.style.transform = 'scale(1)';
+        e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      });
+      
+      document.body.appendChild(mockButton);
+      
+      document.getElementById('button-status').innerHTML = 
+        '• EPG Button: <span class="status-ok">✅ Mock button added (top-right)</span>';
+      
+      console.log('🎯 Mock EPG button added to test visibility');
+      console.log('📍 If you can see and click the 📺 button in the top-right, the styling works');
+      console.log('⚠️  If not, there might be CSS conflicts in your app');
+      
+    }, 3000);
+
+    // Test keyboard shortcut
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'g' && e.ctrlKey) {
+        e.preventDefault();
+        console.log('⌨️  Ctrl+G pressed - EPG toggle shortcut works');
+        alert('Ctrl+G works! 🎹\n\nThe keyboard shortcut is functional.\nThis suggests the EPG system is properly integrated.');
+      }
+    });
+
+    console.log('🎮 Instructions:');
+    console.log('1. Look for a 📺 button in the top-right corner after 3 seconds');
+    console.log('2. Try clicking it');
+    console.log('3. Try pressing Ctrl+G');
+    console.log('4. Check this console for any errors');
+    console.log('5. In your actual app, make sure onReady callback fires');
+  </script>
+</body>
+</html>

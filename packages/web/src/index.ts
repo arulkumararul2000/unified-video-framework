@@ -11,5 +11,8 @@ export { WebPlayer } from './WebPlayer';
 export { WebPlayerView } from './react/WebPlayerView';
 export { SecureVideoPlayer } from './SecureVideoPlayer';
 
+// Export EPG (Electronic Program Guide) components
+export * from './react/EPG';
+
 // Version
 export const VERSION = '1.0.0';

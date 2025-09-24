@@ -3,105 +3,87 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { CSSProperties } from 'react';
 import type { VideoSource, SubtitleTrack, VideoMetadata, PlayerConfig } from '@unified-video/core';
 import { WebPlayer } from '../WebPlayer';
-// EPG imports - conditionally loaded
-import type { EPGData, EPGConfig, EPGProgram, EPGProgramRow } from './types/EPGTypes';
-let EPGOverlay: React.ComponentType<any> | null = null;
+import EPGOverlay from './components/EPGOverlay';
+import type { EPGData, EPGConfig, EPGProgram, EPGProgramRow, EPGAction } from './types/EPGTypes';
 
-// Lazy load EPG components to avoid bundle size impact when not used
-const loadEPGComponents = async () => {
-  if (!EPGOverlay) {
-    try {
-      const epgModule = await import('./components/EPGOverlay');
-      EPGOverlay = epgModule.default;
-    } catch (error) {
-      console.warn('Failed to load EPG components:', error);
-    }
-  }
-  return EPGOverlay;
-};
-
-export type WebPlayerViewProps = {
-  // Player config
+export interface WebPlayerViewWithEPGProps {
+  // All existing WebPlayerView props
   autoPlay?: boolean;
   muted?: boolean;
   enableAdaptiveBitrate?: boolean;
   debug?: boolean;
   freeDuration?: number;
-  // Paywall with Email Authentication
   paywall?: import('@unified-video/core').PaywallConfig;
-  paywallConfigUrl?: string; // optional endpoint returning PaywallConfig JSON
+  paywallConfigUrl?: string;
   
-  // Email Authentication (will be merged into paywall config)
   emailAuth?: {
-    enabled?: boolean;                    // Enable email authentication flow
-    skipIfAuthenticated?: boolean;       // Skip email auth if user already has valid session (default: true)
+    enabled?: boolean;
+    skipIfAuthenticated?: boolean;
     apiEndpoints?: {
-      requestOtp?: string;               // POST endpoint for requesting OTP (default: '/auth/request-otp')
-      verifyOtp?: string;                // POST endpoint for verifying OTP (default: '/auth/verify-otp')
-      refreshToken?: string;             // POST endpoint for refreshing token (default: '/auth/refresh-token')
-      logout?: string;                   // POST endpoint for logout (default: '/auth/logout')
+      requestOtp?: string;
+      verifyOtp?: string;
+      refreshToken?: string;
+      logout?: string;
     };
     sessionStorage?: {
-      tokenKey?: string;                 // Key for storing session token (default: 'uvf_session_token')
-      refreshTokenKey?: string;          // Key for storing refresh token (default: 'uvf_refresh_token')
-      userIdKey?: string;                // Key for storing user ID (default: 'uvf_user_id')
+      tokenKey?: string;
+      refreshTokenKey?: string;
+      userIdKey?: string;
     };
     ui?: {
-      title?: string;                    // Modal title (default: "Sign in to continue")
-      description?: string;              // Modal description
-      emailPlaceholder?: string;         // Email input placeholder
-      otpPlaceholder?: string;           // OTP input placeholder
-      submitButtonText?: string;         // Submit button text
-      resendButtonText?: string;         // Resend OTP button text
-      resendCooldown?: number;           // Resend cooldown in seconds (default: 30)
+      title?: string;
+      description?: string;
+      emailPlaceholder?: string;
+      otpPlaceholder?: string;
+      submitButtonText?: string;
+      resendButtonText?: string;
+      resendCooldown?: number;
     };
     validation?: {
-      otpLength?: number;                // Expected OTP length (default: 6)
-      otpTimeout?: number;               // OTP validity timeout in seconds (default: 300)
+      otpLength?: number;
+      otpTimeout?: number;
       rateLimiting?: {
-        maxAttempts?: number;            // Max OTP requests per hour (default: 5)
-        windowMinutes?: number;          // Rate limiting window (default: 60)
+        maxAttempts?: number;
+        windowMinutes?: number;
       };
     };
   };
 
-  // Source config
+  // Video source config
   url: string;
   type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto';
   subtitles?: SubtitleTrack[];
   metadata?: VideoMetadata;
 
-  // Optional Google Cast sender SDK loader
+  // Optional Google Cast
   cast?: boolean;
 
   // Styling
   className?: string;
   style?: CSSProperties;
-  // Dynamic theming: pass a single accent color string or an object with fields
-  // { accent, accent2, iconColor, textPrimary, textSecondary }
   playerTheme?: string | { accent?: string; accent2?: string; iconColor?: string; textPrimary?: string; textSecondary?: string };
 
   // Responsive configuration
   responsive?: {
-    enabled?: boolean;                    // Enable/disable responsive behavior (default: true)
-    aspectRatio?: number;                // Aspect ratio (width/height) - default: 16/9
-    maxWidth?: string;                   // Maximum width for desktop - default: '100%'
-    maxHeight?: string;                  // Maximum height - default: '70vh'
-    breakpoints?: {                      // Custom breakpoints
-      mobile?: number;                   // Mobile breakpoint (default: 768)
-      tablet?: number;                   // Tablet breakpoint (default: 1024)
+    enabled?: boolean;
+    aspectRatio?: number;
+    maxWidth?: string;
+    maxHeight?: string;
+    breakpoints?: {
+      mobile?: number;
+      tablet?: number;
     };
-    mobilePortrait?: {                   // Mobile portrait specific settings
-      maxHeight?: string;                // Max height in mobile portrait (default: '40vh')
-      aspectRatio?: number;              // Custom aspect ratio for mobile portrait
+    mobilePortrait?: {
+      maxHeight?: string;
+      aspectRatio?: number;
     };
-    mobileLandscape?: {                  // Mobile landscape specific settings
-      maxHeight?: string;                // Max height in mobile landscape (default: '80vh')
-      aspectRatio?: number;              // Custom aspect ratio for mobile landscape
+    mobileLandscape?: {
+      maxHeight?: string;
+      aspectRatio?: number;
     };
-    tablet?: {                          // Tablet specific settings
-      maxWidth?: string;                 // Max width for tablets (default: '90%')
-      maxHeight?: string;                // Max height for tablets (default: '60vh')
+    tablet?: {
+      maxWidth?: string;
+      maxHeight?: string;
     };
   };
 
@@ -109,7 +91,7 @@ export type WebPlayerViewProps = {
   onReady?: (player: WebPlayer) => void;
   onError?: (error: unknown) => void;
 
-  // EPG (Electronic Program Guide) support
+  // EPG specific props
   epg?: EPGData;
   epgConfig?: Partial<EPGConfig>;
   showEPG?: boolean;
@@ -122,25 +104,35 @@ export type WebPlayerViewProps = {
   onEPGCatchup?: (program: EPGProgram, channel: EPGProgramRow) => void | Promise<void>;
   onEPGProgramSelect?: (program: EPGProgram, channel: EPGProgramRow) => void;
   onEPGChannelSelect?: (channel: EPGProgramRow) => void;
-};
+}
 
-export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
+export const WebPlayerViewWithEPG: React.FC<WebPlayerViewWithEPGProps> = (props) => {
+  const {
+    epg,
+    epgConfig,
+    showEPG = false,
+    onToggleEPG,
+    onEPGFavorite,
+    onEPGRecord,
+    onEPGSetReminder,
+    onEPGCatchup,
+    onEPGProgramSelect,
+    onEPGChannelSelect,
+    ...webPlayerProps
+  } = props;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<WebPlayer | null>(null);
+  const [epgVisible, setEPGVisible] = useState(showEPG);
+  const [playerReady, setPlayerReady] = useState(false);
   const [dimensions, setDimensions] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1920,
     height: typeof window !== 'undefined' ? window.innerHeight : 1080,
   });
-  
-  // EPG state
-  const [epgVisible, setEPGVisible] = useState(props.showEPG || false);
-  const [playerReady, setPlayerReady] = useState(false);
-  const [epgComponentLoaded, setEPGComponentLoaded] = useState(false);
 
   // Responsive window resize handler
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // Enable responsive by default unless explicitly disabled
     const responsiveEnabled = props.responsive?.enabled !== false;
     if (!responsiveEnabled) return;
 
@@ -152,41 +144,20 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     };
 
     window.addEventListener('resize', handleResize);
-    // Call once immediately to set initial dimensions
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, [props.responsive?.enabled]);
 
-  // EPG toggle handler
+  // Handle EPG toggle
   const handleToggleEPG = useCallback((visible: boolean) => {
     setEPGVisible(visible);
-    if (props.onToggleEPG) {
-      props.onToggleEPG(visible);
+    if (onToggleEPG) {
+      onToggleEPG(visible);
     }
-  }, [props.onToggleEPG]);
-
-  // Load EPG components when needed
-  useEffect(() => {
-    if (props.epg && !epgComponentLoaded) {
-      loadEPGComponents().then((component) => {
-        if (component) {
-          setEPGComponentLoaded(true);
-        }
-      });
-    }
-  }, [props.epg, epgComponentLoaded]);
-
-  // Sync showEPG prop with internal state
-  useEffect(() => {
-    if (props.showEPG !== undefined) {
-      setEPGVisible(props.showEPG);
-    }
-  }, [props.showEPG]);
+  }, [onToggleEPG]);
 
   // Toggle EPG visibility with keyboard
   useEffect(() => {
-    if (!props.epg) return;
-    
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'g' && e.ctrlKey) {
         e.preventDefault();
@@ -196,61 +167,31 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [props.epg, epgVisible, handleToggleEPG]);
+  }, [epgVisible, handleToggleEPG]);
 
-  // Calculate responsive dimensions based on current viewport
-  const getResponsiveDimensions = (): CSSProperties => {
-    // Enable responsive by default unless explicitly disabled
+  // Sync showEPG prop with internal state
+  useEffect(() => {
+    setEPGVisible(showEPG);
+  }, [showEPG]);
+
+  // Calculate player dimensions based on EPG visibility
+  const getPlayerDimensions = (): CSSProperties => {
     const responsiveEnabled = props.responsive?.enabled !== false;
     if (!responsiveEnabled) return props.style || {};
 
     const { width, height } = dimensions;
-    const responsive = props.responsive || {};
     
-    // Default configuration - Fullscreen cinematic experience by default
-    const defaults = {
-      aspectRatio: responsive.aspectRatio || 16/9,
-      maxWidth: responsive.maxWidth || '100vw',
-      maxHeight: responsive.maxHeight || '100vh',
-      breakpoints: {
-        mobile: responsive.breakpoints?.mobile || 768,
-        tablet: responsive.breakpoints?.tablet || 1024,
-      },
-      mobilePortrait: {
-        maxHeight: responsive.mobilePortrait?.maxHeight || '100vh', // Full viewport height
-        aspectRatio: responsive.mobilePortrait?.aspectRatio,
-      },
-      mobileLandscape: {
-        maxHeight: responsive.mobileLandscape?.maxHeight || '100vh', // Full viewport height
-        aspectRatio: responsive.mobileLandscape?.aspectRatio,
-      },
-      tablet: {
-        maxWidth: responsive.tablet?.maxWidth || '100vw',
-        maxHeight: responsive.tablet?.maxHeight || '100vh', // Full viewport height
-      },
-    };
-
-    const isMobile = width < defaults.breakpoints.mobile;
-    const isTablet = width >= defaults.breakpoints.mobile && width < defaults.breakpoints.tablet;
-    const isPortrait = height > width;
-    const isLandscape = width > height;
-
-    // Adjust height based on EPG visibility
-    const playerHeight = props.epg && epgVisible ? '35vh' : '100vh';
-    const playerMaxHeight = props.epg && epgVisible ? '35vh' : '100vh';
-    const playerZIndex = props.epg && epgVisible ? 50 : 1000;
-    
-    // Base responsive style - Fullscreen cinematic experience
+    // Base responsive style
     let calculatedStyle: CSSProperties = {
       width: '100vw',
-      height: playerHeight,
+      height: epgVisible ? '35vh' : '100vh', // 35% when EPG is visible, 100% when hidden
       maxWidth: '100vw',
-      maxHeight: playerMaxHeight,
+      maxHeight: epgVisible ? '35vh' : '100vh',
       boxSizing: 'border-box',
       position: 'fixed',
       top: 0,
       left: 0,
-      zIndex: playerZIndex,
+      zIndex: epgVisible ? 50 : 1000, // Lower z-index when EPG is visible
       backgroundColor: '#000000',
       display: 'flex',
       alignItems: 'center',
@@ -258,66 +199,13 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
       margin: 0,
       padding: 0,
       transition: 'height 0.3s ease, max-height 0.3s ease',
-      ...props.style, // Apply user styles first, then override as needed
+      ...props.style,
     };
-
-    // Mobile Portrait - Full viewport
-    if (isMobile && isPortrait) {
-      calculatedStyle = {
-        ...calculatedStyle,
-        width: '100vw',
-        height: playerHeight,
-        maxWidth: '100vw',
-        maxHeight: playerMaxHeight,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-      };
-    }
-    // Mobile Landscape - Full viewport
-    else if (isMobile && isLandscape) {
-      calculatedStyle = {
-        ...calculatedStyle,
-        width: '100vw',
-        height: playerHeight,
-        maxWidth: '100vw',
-        maxHeight: playerMaxHeight,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-      };
-    }
-    // Tablet - Full viewport
-    else if (isTablet) {
-      calculatedStyle = {
-        ...calculatedStyle,
-        width: '100vw',
-        height: playerHeight,
-        maxWidth: '100vw',
-        maxHeight: playerMaxHeight,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-      };
-    }
-    // Desktop - Full viewport cinematic experience
-    else {
-      calculatedStyle = {
-        ...calculatedStyle,
-        width: '100vw',
-        height: playerHeight,
-        maxWidth: '100vw',
-        maxHeight: playerMaxHeight,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-      };
-    }
 
     return calculatedStyle;
   };
 
-  // Checkout return bridge: forward rental=success/cancel with session_id/order_id back to opener and close
+  // Checkout return bridge handling
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -332,6 +220,7 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     } catch (_) {}
   }, []);
 
+  // Initialize player
   useEffect(() => {
     let cancelled = false;
 
@@ -352,12 +241,10 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
             s.setAttribute('data-cast-sdk', '1');
             document.head.appendChild(s);
           }
-        } catch (_) {
-          // ignore load issues in SSR or restricted environments
-        }
+        } catch (_) {}
       }
 
-      // Resolve paywall config: inline or fetched
+      // Resolve paywall config
       let paywallCfg = props.paywall as any;
       if (!paywallCfg && props.paywallConfigUrl) {
         try {
@@ -366,16 +253,15 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         } catch(_) {}
       }
       
-      // Merge email authentication configuration with paywall config
+      // Merge email authentication configuration
       if (props.emailAuth?.enabled) {
-        // Ensure paywall config exists if email auth is enabled
         if (!paywallCfg) {
           paywallCfg = {
             enabled: true,
-            apiBase: 'http://localhost:3000', // Default API base
-            userId: 'user-' + Math.random().toString(36).substr(2, 9), // Generate temp userId
-            videoId: 'video-' + Math.random().toString(36).substr(2, 9), // Generate temp videoId
-            gateways: ['stripe'], // Default gateway
+            apiBase: 'http://localhost:3000',
+            userId: 'user-' + Math.random().toString(36).substr(2, 9),
+            videoId: 'video-' + Math.random().toString(36).substr(2, 9),
+            gateways: ['stripe'],
           };
         }
         
@@ -428,7 +314,7 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
       try {
         await player.initialize(containerRef.current, config);
 
-        // Apply theme before loading source (so poster and UI show themed styles)
+        // Apply theme
         try {
           if (props.playerTheme && (player as any).setTheme) {
             (player as any).setTheme(props.playerTheme as any);
@@ -445,19 +331,6 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         await player.load(source);
         if (!cancelled) {
           setPlayerReady(true);
-          
-          // Set up EPG integration
-          if (props.epg && typeof (player as any).setEPGData === 'function') {
-            (player as any).setEPGData(props.epg);
-          }
-          
-          // Listen for EPG toggle events from the player controls
-          if (typeof (player as any).on === 'function') {
-            (player as any).on('epgToggle', () => {
-              handleToggleEPG(!epgVisible);
-            });
-          }
-          
           props.onReady?.(player);
         }
       } catch (err) {
@@ -489,9 +362,9 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     JSON.stringify(props.paywall),
     JSON.stringify(props.emailAuth),
     props.paywallConfigUrl,
-  ])
+  ]);
 
-  // Update free preview duration at runtime without full re-init
+  // Update free preview duration at runtime
   useEffect(() => {
     const p = playerRef.current as any;
     if (p && typeof p.setFreeDuration === 'function' && typeof props.freeDuration !== 'undefined') {
@@ -499,24 +372,23 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     }
   }, [props.freeDuration]);
 
-  // Update paywall config at runtime if prop changes
+  // Update paywall config at runtime
   useEffect(() => {
     const p = playerRef.current as any;
     if (p && typeof p.setPaywallConfig === 'function' && props.paywall) {
-      // Only update if paywall is enabled and properly configured
       const paywall = props.paywall as any;
       if (paywall.enabled && (paywall.apiBase || paywall.userId || paywall.videoId)) {
         try { 
-          console.log('[WebPlayerView] Updating paywall config:', paywall);
+          console.log('[WebPlayerViewWithEPG] Updating paywall config:', paywall);
           p.setPaywallConfig(paywall); 
         } catch(err) {
-          console.warn('[WebPlayerView] Failed to update paywall config:', err);
+          console.warn('[WebPlayerViewWithEPG] Failed to update paywall config:', err);
         }
       }
     }
   }, [JSON.stringify(props.paywall)]);
 
-  // Respond to theme updates without reinitializing the player
+  // Respond to theme updates
   useEffect(() => {
     const p = playerRef.current as any;
     try {
@@ -526,22 +398,22 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     } catch (_) {}
   }, [JSON.stringify(props.playerTheme)]);
 
-  const responsiveStyle = getResponsiveDimensions();
+  const playerStyle = getPlayerDimensions();
   
   // Prepare EPG config with action handlers
   const epgConfigWithHandlers = {
-    ...props.epgConfig,
-    onFavorite: props.onEPGFavorite,
-    onRecord: props.onEPGRecord,
-    onSetReminder: props.onEPGSetReminder,
-    onCatchup: props.onEPGCatchup,
-    onProgramSelect: props.onEPGProgramSelect,
-    onChannelSelect: props.onEPGChannelSelect,
+    ...epgConfig,
+    onFavorite: onEPGFavorite,
+    onRecord: onEPGRecord,
+    onSetReminder: onEPGSetReminder,
+    onCatchup: onEPGCatchup,
+    onProgramSelect: onEPGProgramSelect,
+    onChannelSelect: onEPGChannelSelect,
   };
-  
+
   return (
     <div 
-      className={`uvf-player-container ${props.epg ? 'with-epg' : ''} ${props.className || ''}`}
+      className={`uvf-player-with-epg-container ${props.className || ''}`}
       style={{
         position: 'fixed',
         top: 0,
@@ -549,18 +421,18 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         right: 0,
         bottom: 0,
         backgroundColor: '#000',
-        zIndex: 40,
+        zIndex: 50,
       }}
     >
       {/* Video Player */}
       <div 
         ref={containerRef} 
         className={`uvf-responsive-container ${props.className || ''}`}
-        style={responsiveStyle}
+        style={playerStyle}
       />
 
       {/* EPG Toggle Button */}
-      {props.epg && playerReady && (
+      {epg && playerReady && (
         <button
           onClick={() => handleToggleEPG(!epgVisible)}
           style={{
@@ -597,9 +469,9 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
       )}
 
       {/* EPG Overlay */}
-      {props.epg && EPGOverlay && epgComponentLoaded && (
+      {epg && (
         <EPGOverlay
-          data={props.epg}
+          data={epg}
           config={epgConfigWithHandlers}
           visible={epgVisible}
           onToggle={handleToggleEPG}
@@ -607,7 +479,7 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
       )}
 
       {/* Instructions Toast */}
-      {props.epg && playerReady && !epgVisible && (
+      {epg && playerReady && !epgVisible && (
         <div
           style={{
             position: 'fixed',
@@ -638,5 +510,4 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
   );
 };
 
-export default WebPlayerView;
-
+export default WebPlayerViewWithEPG;

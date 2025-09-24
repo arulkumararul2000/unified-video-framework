@@ -75,6 +75,9 @@ export interface PlayerEvents {
   onLoadedMetadata?: (metadata: VideoMetadata) => void;
   // Fired exactly once when free preview duration is reached and playback is blocked
   onFreePreviewEnded?: () => void;
+  // EPG (Electronic Program Guide) events
+  epgToggle?: (data?: any) => void;
+  epgDataSet?: (data?: any) => void;
 }
 
 export interface PlayerError {
