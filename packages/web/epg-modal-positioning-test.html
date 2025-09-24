@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EPG Modal Positioning Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+    }
+
+    /* Simulate the EPG layout */
+    .epg-container {
+      position: fixed;
+      top: 35%;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .epg-navigation {
+      height: 56px;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    .epg-timeline-header {
+      height: 60px;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      display: flex;
+      align-items: center;
+    }
+
+    .epg-timeline-header .channel-spacer {
+      width: 200px;
+      background: #1a1a1a;
+      border-right: 1px solid #333;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .epg-timeline-header .time-slots {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    .epg-content {
+      flex: 1;
+      display: flex;
+      position: relative;
+    }
+
+    .epg-channels {
+      width: 200px;
+      background: #1a1a1a;
+      border-right: 1px solid #333;
+    }
+
+    .epg-channel {
+      height: 80px;
+      border-bottom: 1px solid #333;
+      display: flex;
+      align-items: center;
+      padding: 0 15px;
+      cursor: pointer;
+    }
+
+    .epg-channel:hover {
+      background: #2a2a2a;
+    }
+
+    .epg-programs {
+      flex: 1;
+      background: #1a1a1a;
+      position: relative;
+    }
+
+    .epg-program-row {
+      height: 80px;
+      border-bottom: 1px solid #333;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+
+    .epg-program {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 4px;
+      height: 76px;
+      position: absolute;
+      top: 2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      transition: all 0.2s ease;
+    }
+
+    .epg-program:hover {
+      background: #3a3a3a;
+      transform: scale(1.02);
+    }
+
+    .epg-program.live {
+      background: #ff6b35;
+      border-color: #ff6b35;
+    }
+
+    .epg-program.selected {
+      background: #4a90e2;
+      border-color: #4a90e2;
+      z-index: 10;
+    }
+
+    /* OLD MODAL POSITIONING - PROBLEMATIC */
+    .epg-modal-old {
+      position: absolute;
+      bottom: 20px; /* This was the problem! */
+      right: 20px;
+      width: 400px;
+      max-height: 60%;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      z-index: 200;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    /* NEW MODAL POSITIONING - IMPROVED */
+    .epg-modal-new {
+      position: absolute;
+      top: 60px; /* Much better! */
+      right: 20px;
+      width: 400px;
+      max-height: 70%;
+      background: linear-gradient(135deg, rgba(26, 26, 26, 0.95), rgba(42, 42, 42, 0.95));
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      z-index: 200;
+      overflow: hidden;
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(16px);
+      animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes modalSlideIn {
+      from {
+        transform: translateY(-30px);
+        opacity: 0;
+        scale: 0.9;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+        scale: 1;
+      }
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #333;
+      position: relative;
+    }
+
+    .modal-content {
+      padding: 20px;
+      max-height: 300px;
+      overflow: auto;
+    }
+
+    .modal-actions {
+      padding: 20px;
+      border-top: 1px solid #333;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      flex: 1 1 120px;
+      height: 40px;
+      border-radius: 6px;
+      border: none;
+      background: #333;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: #444;
+    }
+
+    .btn.primary {
+      background: #ff6b35;
+    }
+
+    .btn.primary:hover {
+      background: #ff8555;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: #333;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .comparison-panel {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      z-index: 1000;
+      max-width: 300px;
+    }
+
+    .toggle-btn {
+      background: #ff6b35;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+      font-weight: 600;
+    }
+
+    .toggle-btn:hover {
+      background: #ff8555;
+    }
+
+    .video-area {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 35%;
+      background: linear-gradient(45deg, #2196F3, #9C27B0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .status-indicator {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 1000;
+    }
+
+    .comparison-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 107, 53, 0.9);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      z-index: 210;
+    }
+
+    .old-label {
+      background: rgba(231, 76, 60, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <!-- Video Player Area -->
+  <div class="video-area">
+    📺 Video Player Area (35% height)
+  </div>
+
+  <!-- Comparison Panel -->
+  <div class="comparison-panel">
+    <h3 style="margin-bottom: 10px; color: #ff6b35;">EPG Modal Position Test</h3>
+    <p style="margin-bottom: 10px; font-size: 14px;">Click to compare modal positions:</p>
+    <button class="toggle-btn" onclick="showOldModal()">Show OLD Position</button>
+    <button class="toggle-btn" onclick="showNewModal()">Show NEW Position</button>
+    <button class="toggle-btn" onclick="hideModals()">Hide Modals</button>
+  </div>
+
+  <!-- EPG Container -->
+  <div class="epg-container">
+    <!-- Navigation -->
+    <div class="epg-navigation">
+      <strong>Today, 12:00 PM - 4:00 PM</strong>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 15px;">
+        <span style="color: #888;">4 hours view</span>
+        <div style="display: flex; align-items: center; gap: 4px; color: #ff6b35;">
+          <div style="width: 6px; height: 6px; border-radius: 50%; background: #ff6b35;"></div>
+          <span style="font-weight: 600; font-size: 12px;">2:00 PM</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline Header -->
+    <div class="epg-timeline-header">
+      <div class="channel-spacer">Channels</div>
+      <div class="time-slots">
+        <span style="margin-right: 100px;">12:30 PM</span>
+        <span style="margin-right: 100px;">1:30 PM</span>
+        <span style="margin-right: 100px; color: #ff6b35; font-weight: 600;">2:30 PM</span>
+        <span style="margin-right: 100px;">3:30 PM</span>
+      </div>
+    </div>
+
+    <!-- Content Area -->
+    <div class="epg-content">
+      <!-- Channels Column -->
+      <div class="epg-channels">
+        <div class="epg-channel">
+          <strong>Channel 1</strong>
+        </div>
+        <div class="epg-channel">
+          <strong>Channel 2</strong>
+        </div>
+        <div class="epg-channel">
+          <strong>Channel 3</strong>
+        </div>
+        <div class="epg-channel">
+          <strong>Channel 4</strong>
+        </div>
+        <div class="epg-channel">
+          <strong>Channel 5</strong>
+        </div>
+      </div>
+
+      <!-- Programs Grid -->
+      <div class="epg-programs">
+        <!-- Channel 1 Programs -->
+        <div class="epg-program-row">
+          <div class="epg-program" style="left: 20px; width: 180px;">Morning Show</div>
+          <div class="epg-program live selected" style="left: 220px; width: 120px;" onclick="showNewModal()">Sports News</div>
+          <div class="epg-program" style="left: 360px; width: 160px;">Cooking Show</div>
+        </div>
+        
+        <!-- Channel 2 Programs -->
+        <div class="epg-program-row">
+          <div class="epg-program" style="left: 20px; width: 200px;">Cartoon Hour</div>
+          <div class="epg-program" style="left: 240px; width: 200px;">Adventure Movie</div>
+          <div class="epg-program" style="left: 460px; width: 100px;">News</div>
+        </div>
+        
+        <!-- Channel 3 Programs -->
+        <div class="epg-program-row">
+          <div class="epg-program" style="left: 40px; width: 160px;">Tech Today</div>
+          <div class="epg-program" style="left: 220px; width: 180px;">Documentary</div>
+          <div class="epg-program" style="left: 420px; width: 140px;">Talk Show</div>
+        </div>
+        
+        <!-- Channel 4 Programs -->
+        <div class="epg-program-row">
+          <div class="epg-program" style="left: 20px; width: 220px;">Movie Marathon</div>
+          <div class="epg-program" style="left: 260px; width: 120px;">Comedy</div>
+          <div class="epg-program" style="left: 400px; width: 160px;">Drama Series</div>
+        </div>
+        
+        <!-- Channel 5 Programs -->
+        <div class="epg-program-row">
+          <div class="epg-program" style="left: 60px; width: 140px;">Music Videos</div>
+          <div class="epg-program" style="left: 220px; width: 140px;">Live Concert</div>
+          <div class="epg-program" style="left: 380px; width: 180px;">Late Night Show</div>
+        </div>
+
+        <!-- OLD Modal Position (PROBLEMATIC) -->
+        <div class="epg-modal-old" id="oldModal" style="display: none;">
+          <div class="comparison-label old-label">OLD Position (Bottom)</div>
+          <div class="modal-header">
+            <h2 style="color: #fff; font-size: 18px; font-weight: 700;">Sports News</h2>
+            <div style="color: #888; font-size: 14px; margin-top: 4px;">Channel 1 • Today 1:30 PM</div>
+            <div style="color: #ff6b35; font-size: 12px; margin-top: 8px; font-weight: 600;">🔴 LIVE NOW</div>
+            <button class="close-btn" onclick="hideModals()">×</button>
+          </div>
+          <div class="modal-content">
+            <h3 style="color: #fff; font-size: 16px; margin-bottom: 8px;">Description</h3>
+            <p style="color: #ccc; font-size: 14px; line-height: 1.5;">Latest highlights from the world of sports. This modal is positioned at the BOTTOM of the EPG area, which often interferes with the program grid visibility.</p>
+            <div style="margin-top: 15px; color: #e74c3c; font-weight: 600;">❌ Problems with bottom positioning:</div>
+            <ul style="color: #ccc; font-size: 14px; margin-top: 8px; padding-left: 20px;">
+              <li>Covers important program information</li>
+              <li>Hard to see when scrolling</li>
+              <li>Poor user experience</li>
+            </ul>
+          </div>
+          <div class="modal-actions">
+            <button class="btn primary">★ Favorite</button>
+            <button class="btn">● Record</button>
+            <button class="btn">🔔 Remind Me</button>
+          </div>
+        </div>
+
+        <!-- NEW Modal Position (IMPROVED) -->
+        <div class="epg-modal-new" id="newModal" style="display: none;">
+          <div class="comparison-label">NEW Position (Top)</div>
+          <div class="modal-header">
+            <h2 style="color: #fff; font-size: 18px; font-weight: 700;">Sports News</h2>
+            <div style="color: #888; font-size: 14px; margin-top: 4px;">Channel 1 • Today 1:30 PM • 60 mins</div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+              <div style="color: #ff6b35; font-size: 12px; font-weight: 600;">🔴 LIVE NOW</div>
+              <div style="color: #888; font-size: 12px;">57% complete</div>
+            </div>
+            <button class="close-btn" onclick="hideModals()">×</button>
+          </div>
+          <div class="modal-content">
+            <h3 style="color: #fff; font-size: 16px; margin-bottom: 8px;">Description</h3>
+            <p style="color: #ccc; font-size: 14px; line-height: 1.5;">Latest highlights from the world of sports. This modal is now positioned at the TOP of the EPG area for much better visibility and user experience.</p>
+            <div style="margin-top: 15px; color: #2ecc71; font-weight: 600;">✅ Benefits of top positioning:</div>
+            <ul style="color: #ccc; font-size: 14px; margin-top: 8px; padding-left: 20px;">
+              <li>Doesn't cover program grid</li>
+              <li>Always visible when scrolling</li>
+              <li>Better visual hierarchy</li>
+              <li>Improved user experience</li>
+              <li>More professional appearance</li>
+            </ul>
+          </div>
+          <div class="modal-actions">
+            <button class="btn primary">★ Favorite</button>
+            <button class="btn">● Record</button>
+            <button class="btn">🔔 Remind Me</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Indicator -->
+  <div class="status-indicator" id="statusIndicator">
+    Click the buttons above to compare modal positions
+  </div>
+
+  <script>
+    function showOldModal() {
+      hideModals();
+      document.getElementById('oldModal').style.display = 'block';
+      document.getElementById('statusIndicator').innerHTML = '❌ OLD Position: Modal at bottom - covers program grid, poor UX';
+      document.getElementById('statusIndicator').style.background = 'rgba(231, 76, 60, 0.9)';
+    }
+
+    function showNewModal() {
+      hideModals();
+      document.getElementById('newModal').style.display = 'block';
+      document.getElementById('statusIndicator').innerHTML = '✅ NEW Position: Modal at top - better visibility, improved UX';
+      document.getElementById('statusIndicator').style.background = 'rgba(46, 204, 113, 0.9)';
+    }
+
+    function hideModals() {
+      document.getElementById('oldModal').style.display = 'none';
+      document.getElementById('newModal').style.display = 'none';
+      document.getElementById('statusIndicator').innerHTML = 'Click the buttons above to compare modal positions';
+      document.getElementById('statusIndicator').style.background = 'rgba(0, 0, 0, 0.8)';
+    }
+
+    // Auto-show the improved modal after 2 seconds
+    setTimeout(() => {
+      showNewModal();
+    }, 2000);
+  </script>
+</body>
+</html>

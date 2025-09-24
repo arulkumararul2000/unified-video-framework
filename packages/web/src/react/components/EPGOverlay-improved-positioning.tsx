@@ -98,6 +98,43 @@ export const EPGOverlay: React.FC<EPGProps> = ({
     );
   }, [data?.timeline, state.timelineStart, state.timelineEnd]);
 
+  // Calculate smart modal position - IMPROVED VERSION
+  const getSmartModalPosition = useCallback(() => {
+    const basePosition = {
+      position: 'absolute' as const,
+      width: '400px',
+      maxHeight: '65%',
+      zIndex: 200,
+      borderRadius: '12px',
+      overflow: 'hidden' as const,
+      boxShadow: '0 12px 48px rgba(0, 0, 0, 0.7)',
+      backdropFilter: 'blur(8px)',
+      animation: 'modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    };
+
+    // Position in upper-right area for better visibility
+    return {
+      ...basePosition,
+      top: '60px', // Higher up from the top
+      right: '20px',
+      // Add responsive behavior for smaller screens
+      '@media (max-width: 1200px)': {
+        width: '350px',
+        top: '40px',
+      },
+      '@media (max-width: 900px)': {
+        position: 'fixed' as const,
+        top: '50%',
+        left: '50%',
+        right: 'auto',
+        transform: 'translate(-50%, -50%)',
+        width: '90vw',
+        maxWidth: '400px',
+        maxHeight: '80vh',
+      },
+    };
+  }, []);
+
   // Handle navigation
   const handleNavigate = useCallback(async (direction: 'left' | 'right' | 'today') => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -155,30 +192,6 @@ export const EPGOverlay: React.FC<EPGProps> = ({
 
     setUpdateTrigger(prev => prev + 1);
   }, [state.currentTime]);
-
-  // Calculate optimal modal position based on available space
-  const getModalPosition = useCallback(() => {
-    if (!overlayRef.current) {
-      return { top: '20px', right: '20px' };
-    }
-    
-    const overlayRect = overlayRef.current.getBoundingClientRect();
-    const modalWidth = 400;
-    const modalHeight = 400; // Estimated height
-    
-    // Check available space on right side
-    const rightSpace = overlayRect.width - modalWidth - 40; // 40px total margin
-    const topSpace = overlayRect.height - modalHeight - 40;
-    
-    // Default to top-right, but adjust if not enough space
-    let position = {
-      top: Math.max(20, Math.min(topSpace / 2, 80)), // Center vertically but not too high
-      right: rightSpace > 0 ? '20px' : 'auto',
-      left: rightSpace > 0 ? 'auto' : '20px',
-    };
-    
-    return position;
-  }, []);
 
   // Handle program selection
   const handleProgramSelect = useCallback((program: EPGProgram, channel: EPGProgramRow) => {
@@ -413,24 +426,11 @@ export const EPGOverlay: React.FC<EPGProps> = ({
           style={{ flex: 1 }}
         />
 
-        {/* Program Details Panel */}
+        {/* IMPROVED Program Details Panel - Better Positioning */}
         {state.selectedProgram && (
           <div
             className="epg-details-panel"
-            style={{
-              position: 'absolute',
-              top: '20px', // Higher positioning for better visibility
-              right: '20px',
-              width: '400px',
-              maxHeight: 'calc(100vh - 45vh - 40px)', // Calculate based on EPG position
-              zIndex: 200,
-              animation: 'slideInFromTop 0.3s ease-out',
-              boxShadow: '0 12px 48px rgba(0, 0, 0, 0.7)',
-              borderRadius: '12px',
-              overflow: 'hidden',
-              display: 'flex', // Add flex for proper layout
-              flexDirection: 'column', // Stack header/content/actions
-            }}
+            style={getSmartModalPosition()}
           >
             <EPGProgramDetails
               program={state.selectedProgram}
@@ -512,7 +512,7 @@ export const EPGOverlay: React.FC<EPGProps> = ({
         </div>
       )}
 
-      {/* Animation Styles */}
+      {/* Enhanced Animation Styles */}
       <style>{`
         @keyframes slideInRight {
           from {
@@ -525,11 +525,11 @@ export const EPGOverlay: React.FC<EPGProps> = ({
           }
         }
         
-        @keyframes slideInFromTop {
+        @keyframes modalSlideIn {
           from {
-            transform: translateY(-20px);
+            transform: translateY(-30px);
             opacity: 0;
-            scale: 0.95;
+            scale: 0.9;
           }
           to {
             transform: translateY(0);
@@ -558,6 +558,34 @@ export const EPGOverlay: React.FC<EPGProps> = ({
         
         .epg-overlay::-webkit-scrollbar-thumb:hover {
           background: #666;
+        }
+        
+        /* Enhanced modal styling */
+        .epg-details-panel {
+          backdrop-filter: blur(16px);
+          background: linear-gradient(135deg, rgba(26, 26, 26, 0.95), rgba(42, 42, 42, 0.95));
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Responsive modal positioning */
+        @media (max-width: 1200px) {
+          .epg-details-panel {
+            width: 350px !important;
+            top: 40px !important;
+          }
+        }
+        
+        @media (max-width: 900px) {
+          .epg-details-panel {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            right: auto !important;
+            transform: translate(-50%, -50%) !important;
+            width: 90vw !important;
+            max-width: 400px !important;
+            max-height: 80vh !important;
+          }
         }
       `}</style>
     </div>

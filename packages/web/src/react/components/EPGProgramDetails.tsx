@@ -73,7 +73,9 @@ export const EPGProgramDetails: React.FC<EPGProgramDetailsProps> = ({
         overflow: 'hidden',
         boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
         maxWidth: isModal ? '600px' : '100%',
-        maxHeight: isModal ? '80vh' : '100%',
+        maxHeight: isModal ? '85vh' : '70vh', // Increased for better space usage
+        display: 'flex',
+        flexDirection: 'column',
         ...style,
       }}
     >
@@ -86,6 +88,7 @@ export const EPGProgramDetails: React.FC<EPGProgramDetailsProps> = ({
           padding: '20px',
           borderBottom: '1px solid #333',
           position: 'relative',
+          flexShrink: 0, // Prevent header from shrinking
         }}
       >
         {/* Program Image */}
@@ -294,13 +297,17 @@ export const EPGProgramDetails: React.FC<EPGProgramDetailsProps> = ({
         </button>
       </div>
 
-      {/* Content */}
+      {/* Content - Scrollable Area */}
       <div
         className="epg-details-content"
         style={{
           padding: '20px',
-          maxHeight: isModal ? '300px' : 'none',
-          overflow: 'auto',
+          paddingRight: '16px', // Leave space for scrollbar
+          flex: 1, // Take available space
+          overflow: 'auto', // Always allow scrolling
+          minHeight: 0, // Allow flex item to shrink below content size
+          scrollbarWidth: 'thin', // Firefox
+          scrollbarColor: '#444 #2a2a2a', // Firefox
         }}
       >
         {/* Description */}
@@ -426,7 +433,7 @@ export const EPGProgramDetails: React.FC<EPGProgramDetailsProps> = ({
         )}
       </div>
 
-      {/* Actions */}
+      {/* Actions - Fixed at Bottom */}
       <div
         className="epg-details-actions"
         style={{
@@ -435,6 +442,8 @@ export const EPGProgramDetails: React.FC<EPGProgramDetailsProps> = ({
           display: 'flex',
           gap: '12px',
           flexWrap: 'wrap',
+          flexShrink: 0, // Prevent actions from shrinking
+          backgroundColor: '#1a1a1a', // Ensure background consistency
         }}
       >
         {/* Add to Favorite */}
@@ -585,29 +594,89 @@ export const EPGProgramDetails: React.FC<EPGProgramDetailsProps> = ({
   // Render as modal or inline panel
   if (isModal) {
     return (
-      <div
-        className="epg-modal-overlay"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px',
-        }}
-        onClick={handleOverlayClick}
-      >
-        {detailsContent}
-      </div>
+      <>
+        <div
+          className="epg-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+          }}
+          onClick={handleOverlayClick}
+        >
+          {detailsContent}
+        </div>
+        
+        {/* Custom Scrollbar Styles */}
+        <style>{`
+          .epg-details-content::-webkit-scrollbar {
+            width: 6px;
+          }
+          
+          .epg-details-content::-webkit-scrollbar-track {
+            background: #2a2a2a;
+            border-radius: 3px;
+          }
+          
+          .epg-details-content::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 3px;
+            transition: background 0.2s ease;
+          }
+          
+          .epg-details-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+          }
+          
+          .epg-program-details {
+            scrollbar-width: thin;
+            scrollbar-color: #444 #2a2a2a;
+          }
+        `}</style>
+      </>
     );
   }
 
-  return detailsContent;
+  return (
+    <>
+      {detailsContent}
+      
+      {/* Custom Scrollbar Styles */}
+      <style>{`
+        .epg-details-content::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .epg-details-content::-webkit-scrollbar-track {
+          background: #2a2a2a;
+          border-radius: 3px;
+        }
+        
+        .epg-details-content::-webkit-scrollbar-thumb {
+          background: #444;
+          border-radius: 3px;
+          transition: background 0.2s ease;
+        }
+        
+        .epg-details-content::-webkit-scrollbar-thumb:hover {
+          background: #555;
+        }
+        
+        .epg-program-details {
+          scrollbar-width: thin;
+          scrollbar-color: #444 #2a2a2a;
+        }
+      `}</style>
+    </>
+  );
 };
 
 export default EPGProgramDetails;

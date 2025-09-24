@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EPG Modal Scrolling Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+    }
+
+    .video-area {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 35%;
+      background: linear-gradient(45deg, #2196F3, #9C27B0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .epg-container {
+      position: fixed;
+      top: 35%;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .epg-navigation {
+      height: 56px;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    .epg-content {
+      flex: 1;
+      display: flex;
+      position: relative;
+      padding: 20px;
+    }
+
+    .control-panel {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      z-index: 2000;
+      max-width: 300px;
+    }
+
+    .test-btn {
+      background: #ff6b35;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+      font-weight: 600;
+    }
+
+    .test-btn:hover {
+      background: #ff8555;
+    }
+
+    /* IMPROVED EPG MODAL - WITH PROPER SCROLLING */
+    .epg-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .epg-program-details {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7);
+      max-width: 600px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .epg-details-header {
+      display: flex;
+      align-items: flex-start;
+      padding: 20px;
+      border-bottom: 1px solid #333;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .epg-details-content {
+      padding: 20px;
+      padding-right: 16px;
+      flex: 1;
+      overflow: auto;
+      min-height: 0;
+      scrollbar-width: thin;
+      scrollbar-color: #444 #2a2a2a;
+    }
+
+    .epg-details-content::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .epg-details-content::-webkit-scrollbar-track {
+      background: #2a2a2a;
+      border-radius: 3px;
+    }
+
+    .epg-details-content::-webkit-scrollbar-thumb {
+      background: #444;
+      border-radius: 3px;
+      transition: background 0.2s ease;
+    }
+
+    .epg-details-content::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    .epg-details-actions {
+      padding: 20px;
+      border-top: 1px solid #333;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+      background: #1a1a1a;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: #333;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: background-color 0.2s ease;
+    }
+
+    .close-btn:hover {
+      background: #444;
+    }
+
+    .program-image {
+      width: 120px;
+      height: 68px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-right: 16px;
+      flex-shrink: 0;
+      position: relative;
+      background: linear-gradient(45deg, #ff6b35, #ff8555);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .live-indicator {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: #ff6b35;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .program-info h2 {
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.3;
+      margin: 0 0 8px 0;
+    }
+
+    .channel-name {
+      color: #888;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .time-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .time {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .duration {
+      color: #888;
+      font-size: 13px;
+    }
+
+    .category {
+      background: #333;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    .rating {
+      background: #ff6b35;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .live-progress {
+      margin-top: 8px;
+      margin-bottom: 8px;
+    }
+
+    .live-progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .live-now {
+      color: #ff6b35;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .progress-percent {
+      color: #888;
+      font-size: 12px;
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 57%;
+      background: #ff6b35;
+      transition: width 0.3s ease;
+    }
+
+    .content-section {
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .section-text {
+      color: #ccc;
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .status-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: #fff;
+    }
+
+    .badge.favorite { background: #ff6b35; }
+    .badge.recording { background: #e74c3c; }
+    .badge.reminder { background: #3498db; }
+    .badge.catchup { background: #2ecc71; }
+
+    .action-btn {
+      flex: 1 1 120px;
+      height: 40px;
+      border-radius: 6px;
+      border: none;
+      background: #333;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .action-btn:hover {
+      background: #444;
+    }
+
+    .action-btn.primary {
+      background: #ff6b35;
+    }
+
+    .action-btn.primary:hover {
+      background: #ff8555;
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 80px;
+      right: 30px;
+      background: rgba(255, 107, 53, 0.9);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.05); }
+    }
+
+    .status-indicator {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <!-- Video Player Area -->
+  <div class="video-area">
+    📺 Video Player Area (35% height)
+  </div>
+
+  <!-- Control Panel -->
+  <div class="control-panel">
+    <h3 style="margin-bottom: 10px; color: #ff6b35;">📋 EPG Modal Scrolling Test</h3>
+    <p style="margin-bottom: 10px; font-size: 14px;">Test improved modal scrolling:</p>
+    <button class="test-btn" onclick="showModal()">Show Modal with Scrolling</button>
+    <button class="test-btn" onclick="hideModal()">Hide Modal</button>
+    <button class="test-btn" onclick="toggleLongContent()">Toggle Long Content</button>
+  </div>
+
+  <!-- EPG Container -->
+  <div class="epg-container">
+    <!-- Navigation -->
+    <div class="epg-navigation">
+      <strong>EPG Modal Scrolling Test - Click "Show Modal" to test</strong>
+    </div>
+
+    <!-- Content Area -->
+    <div class="epg-content">
+      <h2>✅ EPG Modal Improvements:</h2>
+      <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.6;">
+        <li><strong>Fixed Height Layout:</strong> Modal now uses flexbox with proper height constraints</li>
+        <li><strong>Scrollable Content:</strong> Only the middle content section scrolls, keeping header/actions visible</li>
+        <li><strong>Custom Scrollbar:</strong> Thin, styled scrollbar that matches the dark theme</li>
+        <li><strong>Better Positioning:</strong> Modal positioned at top for better visibility</li>
+        <li><strong>Responsive Heights:</strong> Adapts to different screen sizes</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- EPG Modal -->
+  <div class="epg-modal" id="epgModal" style="display: none;">
+    <div class="epg-program-details">
+      <!-- Header (Fixed) -->
+      <div class="epg-details-header">
+        <div class="program-image">
+          📺 THUMB
+          <div class="live-indicator">LIVE</div>
+        </div>
+        
+        <div class="program-info" style="flex: 1; min-width: 0;">
+          <h2>Sports Roundup</h2>
+          <div class="channel-name">Channel 1</div>
+          <div class="time-info">
+            <div class="time">Today 1:30 PM</div>
+            <div class="duration">60 mins</div>
+            <div class="category">Sports</div>
+            <div class="rating">General</div>
+          </div>
+          <div class="live-progress">
+            <div class="live-progress-header">
+              <span class="live-now">LIVE NOW</span>
+              <span class="progress-percent">57% complete</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <button class="close-btn" onclick="hideModal()">×</button>
+      </div>
+
+      <!-- Content (Scrollable) -->
+      <div class="epg-details-content" id="modalContent">
+        <div class="content-section">
+          <h3 class="section-title">Description</h3>
+          <p class="section-text">Latest highlights from the world of sports. This modal now has proper scrolling functionality that allows users to see all content including the action buttons at the bottom.</p>
+        </div>
+
+        <div class="content-section">
+          <h3 class="section-title">Status</h3>
+          <div class="status-badges">
+            <span class="badge favorite">★ Favorite</span>
+            <span class="badge recording">● Recording</span>
+            <span class="badge reminder">🔔 Reminder</span>
+          </div>
+        </div>
+
+        <div class="content-section" id="extraContent" style="display: none;">
+          <h3 class="section-title">Extended Information</h3>
+          <p class="section-text">This is additional content to demonstrate scrolling functionality. When you have longer descriptions, additional metadata, cast information, or other program details, the modal will properly scroll to show all content while keeping the header and action buttons accessible.</p>
+          
+          <h3 class="section-title" style="margin-top: 20px;">Cast & Crew</h3>
+          <p class="section-text">Host: John Sports<br>Analyst: Mary Football<br>Producer: Sports Network Inc.</p>
+          
+          <h3 class="section-title" style="margin-top: 20px;">Episode Details</h3>
+          <p class="section-text">Season 5, Episode 42<br>Original Air Date: Today<br>Duration: 60 minutes<br>Rating: TV-G</p>
+          
+          <h3 class="section-title" style="margin-top: 20px;">Program Synopsis</h3>
+          <p class="section-text">Join us for comprehensive sports coverage including football highlights, basketball scores, baseball updates, and breaking news from around the sporting world. Our expert analysts provide in-depth commentary and insights you won't find anywhere else.</p>
+          
+          <h3 class="section-title" style="margin-top: 20px;">Next Episode Preview</h3>
+          <p class="section-text">Coming up next: Special coverage of the championship finals with exclusive behind-the-scenes footage and player interviews. Don't miss this exciting conclusion to the season!</p>
+          
+          <h3 class="section-title" style="margin-top: 20px;">Related Programs</h3>
+          <p class="section-text">• Sports Tonight (10:30 PM)<br>• Weekend Wrap-up (Saturday 6 PM)<br>• Player Profiles (Sunday 8 PM)</p>
+        </div>
+
+        <div class="scroll-hint" id="scrollHint">
+          👆 Scroll to see more content
+        </div>
+      </div>
+
+      <!-- Actions (Fixed at Bottom) -->
+      <div class="epg-details-actions">
+        <button class="action-btn primary">★ Favorite</button>
+        <button class="action-btn">● Record</button>
+        <button class="action-btn">🔔 Remind Me</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Indicator -->
+  <div class="status-indicator" id="statusIndicator">
+    Click "Show Modal" to test the improved scrolling functionality
+  </div>
+
+  <script>
+    let longContentVisible = false;
+
+    function showModal() {
+      document.getElementById('epgModal').style.display = 'flex';
+      document.getElementById('statusIndicator').innerHTML = '✅ Modal shown - Try scrolling in the content area to see action buttons';
+      document.getElementById('statusIndicator').style.background = 'rgba(46, 204, 113, 0.9)';
+      
+      // Show scroll hint after a delay
+      setTimeout(() => {
+        const hint = document.getElementById('scrollHint');
+        if (hint) {
+          hint.style.display = 'block';
+        }
+      }, 1000);
+    }
+
+    function hideModal() {
+      document.getElementById('epgModal').style.display = 'none';
+      document.getElementById('statusIndicator').innerHTML = 'Click "Show Modal" to test the improved scrolling functionality';
+      document.getElementById('statusIndicator').style.background = 'rgba(0, 0, 0, 0.8)';
+      
+      const hint = document.getElementById('scrollHint');
+      if (hint) {
+        hint.style.display = 'none';
+      }
+    }
+
+    function toggleLongContent() {
+      const extraContent = document.getElementById('extraContent');
+      const hint = document.getElementById('scrollHint');
+      
+      longContentVisible = !longContentVisible;
+      
+      if (longContentVisible) {
+        extraContent.style.display = 'block';
+        if (hint) hint.style.display = 'block';
+        document.getElementById('statusIndicator').innerHTML = '📄 Long content enabled - Modal will need scrolling to see all content';
+      } else {
+        extraContent.style.display = 'none';
+        if (hint) hint.style.display = 'none';
+        document.getElementById('statusIndicator').innerHTML = '📋 Short content mode - All content fits without scrolling';
+      }
+    }
+
+    // Handle scroll events to hide hint
+    document.addEventListener('DOMContentLoaded', function() {
+      const content = document.querySelector('.epg-details-content');
+      const hint = document.getElementById('scrollHint');
+      
+      if (content && hint) {
+        content.addEventListener('scroll', function() {
+          if (content.scrollTop > 20) {
+            hint.style.display = 'none';
+          }
+        });
+      }
+    });
+
+    // Close modal when clicking outside
+    document.getElementById('epgModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        hideModal();
+      }
+    });
+
+    // Show modal automatically after 2 seconds
+    setTimeout(() => {
+      showModal();
+    }, 2000);
+  </script>
+</body>
+</html>
