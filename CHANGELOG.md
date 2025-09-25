@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.85] - 2024-12-25
+
+### Added
+- **🦁 Brave Browser Fullscreen Support**: Comprehensive Brave browser detection and enhanced fullscreen handling
+  - Accurate Brave browser detection using multiple detection methods
+  - Private/Incognito mode detection for different handling approaches
+  - Enhanced permissions checking and fullscreen capability analysis
+  - `enterFullscreenWithBraveSupport()` method with targeted error handling for Brave-specific issues
+  - Brave-specific user gesture validation and permission requests
+- **🧪 Comprehensive Debug Testing**: Advanced debugging tools for Brave fullscreen issues
+  - `brave-fullscreen-debug-test.html` - Comprehensive test page for diagnosing fullscreen problems
+  - Browser environment detection with detailed capability analysis
+  - Multiple fullscreen test methods (button click, keyboard shortcuts, double-click, direct API)
+  - Debug logging system with export functionality for issue analysis
+  - Permission state monitoring and site settings validation
+
+### Enhanced
+- **Fullscreen Button Handler**: Enhanced with Brave-specific logic and debugging
+  - Special handling for Brave normal tabs vs private tabs
+  - Enhanced error messages with browser-specific guidance
+  - Multiple event dispatch methods for maximum compatibility
+  - Fresh user gesture validation for reliable fullscreen activation
+- **Cross-browser Compatibility**: Improved fullscreen API support
+  - Multiple fullscreen API fallbacks (standard, webkit, moz, ms)
+  - Enhanced error handling with specific guidance for common browser issues
+  - Improved user gesture context preservation
+
+### Fixed
+- **Brave Browser Issues**: Resolved common fullscreen problems in Brave browser
+  - Fixed "API can only be initiated by a user gesture" errors in normal tabs
+  - Improved permission handling for Brave's stricter security policies
+  - Better handling of Brave Shields and site settings interference
+  - Enhanced fallback mechanisms when fullscreen APIs are restricted
+
+### Improved
+- **Developer Experience**: Better debugging and issue identification tools
+  - Detailed browser capability detection and logging
+  - Comprehensive test suite for diagnosing fullscreen issues across different browser modes
+  - Enhanced error messages with actionable guidance for users
+  - Export functionality for debug logs to assist with issue resolution
+
 ## [1.4.47] - 2024-01-24
 
 ### Fixed

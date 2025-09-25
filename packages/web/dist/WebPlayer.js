@@ -36,6 +36,8 @@ export class WebPlayer extends BasePlayer {
         this._deferredPause = false;
         this._lastToggleAt = 0;
         this._TOGGLE_DEBOUNCE_MS = 120;
+        this.hasTriedButtonFallback = false;
+        this.lastUserInteraction = 0;
     }
     debugLog(message, ...args) {
         if (this.config.debug) {
@@ -646,43 +648,80 @@ export class WebPlayer extends BasePlayer {
         if (!this.playerWrapper)
             return;
         try {
+            if (!document.fullscreenEnabled &&
+                !document.webkitFullscreenEnabled &&
+                !document.mozFullScreenEnabled &&
+                !document.msFullscreenEnabled) {
+                this.debugWarn('Fullscreen not supported by browser');
+                return;
+            }
+            if (document.fullscreenElement ||
+                document.webkitFullscreenElement ||
+                document.mozFullScreenElement ||
+                document.msFullscreenElement) {
+                this.debugLog('Already in fullscreen mode');
+                return;
+            }
             const element = this.playerWrapper;
             if (element.requestFullscreen) {
-                await element.requestFullscreen();
+                await element.requestFullscreen().catch(err => {
+                    this.debugWarn('Fullscreen request failed:', err.message);
+                });
             }
             else if (element.webkitRequestFullscreen) {
-                await element.webkitRequestFullscreen();
+                await element.webkitRequestFullscreen().catch((err) => {
+                    this.debugWarn('WebKit fullscreen request failed:', err.message);
+                });
             }
             else if (element.mozRequestFullScreen) {
-                await element.mozRequestFullScreen();
+                await element.mozRequestFullScreen().catch((err) => {
+                    this.debugWarn('Mozilla fullscreen request failed:', err.message);
+                });
             }
             else if (element.msRequestFullscreen) {
-                await element.msRequestFullscreen();
+                await element.msRequestFullscreen().catch((err) => {
+                    this.debugWarn('MS fullscreen request failed:', err.message);
+                });
             }
             else {
-                throw new Error('Fullscreen API not supported');
+                this.debugWarn('Fullscreen API not supported by this browser');
+                return;
             }
             this.playerWrapper.classList.add('uvf-fullscreen');
             this.emit('onFullscreenChanged', true);
         }
         catch (error) {
-            console.error('Failed to enter fullscreen:', error);
-            throw error;
+            this.debugWarn('Failed to enter fullscreen:', error.message);
         }
     }
     async exitFullscreen() {
         try {
+            if (!document.fullscreenElement &&
+                !document.webkitFullscreenElement &&
+                !document.mozFullScreenElement &&
+                !document.msFullscreenElement) {
+                this.debugLog('Not in fullscreen mode');
+                return;
+            }
             if (document.exitFullscreen) {
-                await document.exitFullscreen();
+                await document.exitFullscreen().catch(err => {
+                    this.debugWarn('Exit fullscreen failed:', err.message);
+                });
             }
             else if (document.webkitExitFullscreen) {
-                await document.webkitExitFullscreen();
+                await document.webkitExitFullscreen().catch((err) => {
+                    this.debugWarn('WebKit exit fullscreen failed:', err.message);
+                });
             }
             else if (document.mozCancelFullScreen) {
-                await document.mozCancelFullScreen();
+                await document.mozCancelFullScreen().catch((err) => {
+                    this.debugWarn('Mozilla exit fullscreen failed:', err.message);
+                });
             }
             else if (document.msExitFullscreen) {
-                await document.msExitFullscreen();
+                await document.msExitFullscreen().catch((err) => {
+                    this.debugWarn('MS exit fullscreen failed:', err.message);
+                });
             }
             if (this.playerWrapper) {
                 this.playerWrapper.classList.remove('uvf-fullscreen');
@@ -690,8 +729,7 @@ export class WebPlayer extends BasePlayer {
             this.emit('onFullscreenChanged', false);
         }
         catch (error) {
-            console.error('Failed to exit fullscreen:', error);
-            throw error;
+            this.debugWarn('Failed to exit fullscreen:', error.message);
         }
     }
     async enterPictureInPicture() {
@@ -717,8 +755,575 @@ export class WebPlayer extends BasePlayer {
             }
         }
         catch (error) {
-            console.error('Failed to exit PiP:', error);
-            throw error;
+            this.debugWarn('Failed to exit PiP:', error.message);
+        }
+    }
+    focusPlayer() {
+        if (this.playerWrapper) {
+            this.playerWrapper.focus();
+            this.debugLog('Player focused programmatically');
+        }
+    }
+    showFullscreenTip() {
+        this.showShortcutIndicator('💡 Double-click or use ⌨️ F key for fullscreen');
+        this.debugLog('Tip: Double-click the video area or press F key for fullscreen, or use the fullscreen button in controls');
+    }
+    isBraveBrowser() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isBrave = (userAgent.includes('brave') ||
+            !!navigator.brave ||
+            window.chrome && window.chrome.app && window.chrome.app.isInstalled === false);
+        this.debugLog('Browser detection - Is Brave:', isBrave, 'User Agent:', userAgent);
+        return isBrave;
+    }
+    async checkFullscreenPermissions() {
+        try {
+            const fullscreenEnabled = document.fullscreenEnabled ||
+                document.webkitFullscreenEnabled ||
+                document.mozFullScreenEnabled ||
+                document.msFullscreenEnabled;
+            this.debugLog('Fullscreen permissions check:', {
+                fullscreenEnabled,
+                documentFullscreenEnabled: document.fullscreenEnabled,
+                webkitEnabled: document.webkitFullscreenEnabled,
+                mozEnabled: document.mozFullScreenEnabled,
+                msEnabled: document.msFullscreenEnabled,
+                currentOrigin: window.location.origin,
+                currentHref: window.location.href,
+                isSecureContext: window.isSecureContext,
+                protocol: window.location.protocol,
+                isBrave: this.isBraveBrowser(),
+                isPrivate: this.isPrivateWindow()
+            });
+            if ('permissions' in navigator) {
+                try {
+                    const permission = await navigator.permissions.query({ name: 'fullscreen' });
+                    this.debugLog('Fullscreen permission state:', permission.state);
+                }
+                catch (err) {
+                    this.debugLog('Permissions API check failed:', err.message);
+                }
+            }
+        }
+        catch (error) {
+            this.debugWarn('Permission check failed:', error.message);
+        }
+    }
+    isPrivateWindow() {
+        try {
+            if ('webkitRequestFileSystem' in window) {
+                return new Promise((resolve) => {
+                    window.webkitRequestFileSystem(window.TEMPORARY, 1, () => resolve(false), () => resolve(true));
+                });
+            }
+            if ('MozAppearance' in document.documentElement.style) {
+                if (window.indexedDB === null)
+                    return true;
+                if (window.indexedDB === undefined)
+                    return true;
+            }
+            try {
+                window.localStorage.setItem('test', '1');
+                window.localStorage.removeItem('test');
+                return false;
+            }
+            catch {
+                return true;
+            }
+        }
+        catch {
+            return false;
+        }
+        return false;
+    }
+    triggerFullscreenButton() {
+        const fullscreenBtn = document.getElementById('uvf-fullscreen-btn');
+        const isBrave = this.isBraveBrowser();
+        const isPrivate = this.isPrivateWindow();
+        this.debugLog('Fullscreen trigger attempt:', {
+            buttonExists: !!fullscreenBtn,
+            isBrave,
+            isPrivate,
+            currentFullscreenElement: document.fullscreenElement,
+            timestamp: Date.now(),
+            lastUserInteraction: this.lastUserInteraction,
+            timeSinceInteraction: Date.now() - this.lastUserInteraction
+        });
+        this.checkFullscreenPermissions();
+        if (fullscreenBtn) {
+            this.debugLog('Triggering fullscreen button click');
+            if (isBrave) {
+                this.debugLog('Applying Brave browser specific fullscreen handling');
+                if (Date.now() - this.lastUserInteraction > 1000) {
+                    this.debugWarn('User gesture may be stale for Brave browser');
+                    this.showTemporaryMessage('Click the fullscreen button directly in Brave browser');
+                    return;
+                }
+                this.requestFullscreenPermissionBrave().then(() => {
+                    this.performFullscreenButtonClick(fullscreenBtn);
+                }).catch(() => {
+                    this.performFullscreenButtonClick(fullscreenBtn);
+                });
+            }
+            else {
+                this.performFullscreenButtonClick(fullscreenBtn);
+            }
+        }
+        else {
+            this.debugWarn('Fullscreen button not found');
+            this.showShortcutIndicator('Fullscreen Button Missing');
+            if (isBrave) {
+                this.showTemporaryMessage('Brave: Please use fullscreen button in controls');
+            }
+            else {
+                this.showTemporaryMessage('Press F key when player controls are visible');
+            }
+        }
+    }
+    performFullscreenButtonClick(fullscreenBtn) {
+        const events = [
+            new MouseEvent('mousedown', {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                detail: 1,
+                button: 0,
+                buttons: 1,
+                isTrusted: true
+            }),
+            new MouseEvent('mouseup', {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                detail: 1,
+                button: 0,
+                buttons: 0,
+                isTrusted: true
+            }),
+            new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                detail: 1,
+                button: 0,
+                buttons: 0,
+                isTrusted: true
+            })
+        ];
+        this.debugLog('Dispatching mouse events:', events.length);
+        events.forEach((event, index) => {
+            try {
+                fullscreenBtn.dispatchEvent(event);
+                this.debugLog(`Event ${index + 1} dispatched:`, event.type);
+            }
+            catch (error) {
+                this.debugWarn(`Event ${index + 1} dispatch failed:`, error.message);
+            }
+        });
+        try {
+            fullscreenBtn.click();
+            this.debugLog('Direct button click executed');
+        }
+        catch (error) {
+            this.debugWarn('Direct button click failed:', error.message);
+        }
+        try {
+            fullscreenBtn.focus();
+            setTimeout(() => fullscreenBtn.blur(), 100);
+        }
+        catch (error) {
+            this.debugLog('Button focus failed:', error.message);
+        }
+        this.showShortcutIndicator('Fullscreen');
+    }
+    async requestFullscreenPermissionBrave() {
+        try {
+            if ('permissions' in navigator && 'request' in navigator.permissions) {
+                await navigator.permissions.request({ name: 'fullscreen' });
+                this.debugLog('Brave fullscreen permission requested');
+            }
+        }
+        catch (error) {
+            this.debugLog('Brave permission request failed:', error.message);
+        }
+    }
+    async enterFullscreenWithBraveSupport() {
+        if (!this.playerWrapper) {
+            throw new Error('Player wrapper not available');
+        }
+        this.debugLog('Attempting Brave-specific fullscreen entry');
+        await this.requestFullscreenPermissionBrave();
+        if (document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement ||
+            document.msFullscreenElement) {
+            this.debugLog('Already in fullscreen mode');
+            return;
+        }
+        const fullscreenEnabled = document.fullscreenEnabled ||
+            document.webkitFullscreenEnabled ||
+            document.mozFullScreenEnabled ||
+            document.msFullscreenEnabled;
+        if (!fullscreenEnabled) {
+            throw new Error('Fullscreen not supported or disabled in Brave settings');
+        }
+        if ('permissions' in navigator) {
+            try {
+                const permission = await navigator.permissions.query({ name: 'fullscreen' });
+                this.debugLog('Brave fullscreen permission state:', permission.state);
+                if (permission.state === 'denied') {
+                    throw new Error('Fullscreen permission denied in Brave site settings');
+                }
+            }
+            catch (permError) {
+                this.debugLog('Permission check failed:', permError.message);
+            }
+        }
+        let fullscreenError = null;
+        try {
+            if (this.playerWrapper.requestFullscreen) {
+                this.debugLog('Attempting standard requestFullscreen()');
+                await this.playerWrapper.requestFullscreen({
+                    navigationUI: 'hide'
+                });
+            }
+            else if (this.playerWrapper.webkitRequestFullscreen) {
+                this.debugLog('Attempting webkitRequestFullscreen()');
+                await this.playerWrapper.webkitRequestFullscreen();
+            }
+            else if (this.playerWrapper.mozRequestFullScreen) {
+                this.debugLog('Attempting mozRequestFullScreen()');
+                await this.playerWrapper.mozRequestFullScreen();
+            }
+            else if (this.playerWrapper.msRequestFullscreen) {
+                this.debugLog('Attempting msRequestFullscreen()');
+                await this.playerWrapper.msRequestFullscreen();
+            }
+            else {
+                throw new Error('No fullscreen API available');
+            }
+            this.playerWrapper.classList.add('uvf-fullscreen');
+            this.emit('onFullscreenChanged', true);
+            this.debugLog('Brave fullscreen entry successful');
+        }
+        catch (error) {
+            fullscreenError = error;
+            this.debugWarn('Brave fullscreen attempt failed:', fullscreenError.message);
+            if (fullscreenError.message.includes('denied') ||
+                fullscreenError.message.includes('not allowed')) {
+                throw new Error('Brave Browser: Fullscreen blocked. Check site permissions in Settings > Site and Shields Settings');
+            }
+            else if (fullscreenError.message.includes('gesture') ||
+                fullscreenError.message.includes('user activation')) {
+                throw new Error('Brave Browser: User interaction required. Click the fullscreen button directly');
+            }
+            else {
+                throw new Error(`Brave Browser: ${fullscreenError.message}`);
+            }
+        }
+    }
+    showTemporaryMessage(message) {
+        const existingMsg = document.getElementById('uvf-temp-message');
+        if (existingMsg) {
+            existingMsg.remove();
+        }
+        const msgDiv = document.createElement('div');
+        msgDiv.id = 'uvf-temp-message';
+        msgDiv.textContent = message;
+        msgDiv.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 14px;
+      z-index: 10001;
+      pointer-events: none;
+    `;
+        document.body.appendChild(msgDiv);
+        setTimeout(() => {
+            if (msgDiv.parentElement) {
+                msgDiv.remove();
+            }
+        }, 3000);
+    }
+    enterFullscreenSynchronously() {
+        if (!this.playerWrapper) {
+            throw new Error('Player wrapper not available');
+        }
+        if (!document.fullscreenEnabled &&
+            !document.webkitFullscreenEnabled &&
+            !document.mozFullScreenEnabled &&
+            !document.msFullscreenEnabled) {
+            throw new Error('Fullscreen not supported by browser');
+        }
+        if (document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement ||
+            document.msFullscreenElement) {
+            this.debugLog('Already in fullscreen mode');
+            return;
+        }
+        this.debugLog('Attempting synchronous fullscreen');
+        const element = this.playerWrapper;
+        if (element.requestFullscreen) {
+            element.requestFullscreen().then(() => {
+                this.debugLog('Successfully entered fullscreen via requestFullscreen');
+                this.playerWrapper?.classList.add('uvf-fullscreen');
+                this.emit('onFullscreenChanged', true);
+            }).catch((error) => {
+                this.debugWarn('requestFullscreen failed:', error.message);
+                throw error;
+            });
+        }
+        else if (element.webkitRequestFullscreen) {
+            element.webkitRequestFullscreen();
+            this.debugLog('Successfully requested fullscreen via webkitRequestFullscreen');
+            this.playerWrapper?.classList.add('uvf-fullscreen');
+            this.emit('onFullscreenChanged', true);
+        }
+        else if (element.mozRequestFullScreen) {
+            element.mozRequestFullScreen();
+            this.debugLog('Successfully requested fullscreen via mozRequestFullScreen');
+            this.playerWrapper?.classList.add('uvf-fullscreen');
+            this.emit('onFullscreenChanged', true);
+        }
+        else if (element.msRequestFullscreen) {
+            element.msRequestFullscreen();
+            this.debugLog('Successfully requested fullscreen via msRequestFullscreen');
+            this.playerWrapper?.classList.add('uvf-fullscreen');
+            this.emit('onFullscreenChanged', true);
+        }
+        else {
+            throw new Error('Fullscreen API not supported by this browser');
+        }
+    }
+    async requestFullscreenWithUserGesture(event) {
+        if (!this.playerWrapper)
+            return false;
+        try {
+            if (!document.fullscreenEnabled &&
+                !document.webkitFullscreenEnabled &&
+                !document.mozFullScreenEnabled &&
+                !document.msFullscreenEnabled) {
+                this.debugWarn('Fullscreen not supported by browser');
+                return false;
+            }
+            if (document.fullscreenElement ||
+                document.webkitFullscreenElement ||
+                document.mozFullScreenElement ||
+                document.msFullscreenElement) {
+                this.debugLog('Already in fullscreen mode');
+                return false;
+            }
+            const timeSinceInteraction = Date.now() - this.lastUserInteraction;
+            this.debugLog('Attempting fullscreen within user gesture context', {
+                eventType: event.type,
+                timeSinceInteraction,
+                isTrusted: event.isTrusted
+            });
+            const element = this.playerWrapper;
+            if (element.requestFullscreen) {
+                await element.requestFullscreen();
+            }
+            else if (element.webkitRequestFullscreen) {
+                await element.webkitRequestFullscreen();
+            }
+            else if (element.mozRequestFullScreen) {
+                await element.mozRequestFullScreen();
+            }
+            else if (element.msRequestFullscreen) {
+                await element.msRequestFullscreen();
+            }
+            else {
+                this.debugWarn('Fullscreen API not supported by this browser');
+                return false;
+            }
+            this.playerWrapper.classList.add('uvf-fullscreen');
+            this.emit('onFullscreenChanged', true);
+            this.debugLog('Successfully entered fullscreen');
+            return true;
+        }
+        catch (error) {
+            this.debugWarn('Failed to enter fullscreen:', error.message);
+            return false;
+        }
+    }
+    showFullscreenInstructions() {
+        const existingOverlay = document.getElementById('uvf-fullscreen-instructions');
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
+        const overlay = document.createElement('div');
+        overlay.id = 'uvf-fullscreen-instructions';
+        overlay.innerHTML = `
+      <div class="uvf-fullscreen-instruction-content">
+        <div class="uvf-fullscreen-icon">⛶</div>
+        <h3>Enter Fullscreen</h3>
+        <p>Click the fullscreen button in the player controls</p>
+        <div class="uvf-fullscreen-pointer">👆 Look for this icon in the bottom right</div>
+        <button class="uvf-instruction-close" onclick="this.parentElement.parentElement.remove()">Got it</button>
+      </div>
+    `;
+        overlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: white;
+      text-align: center;
+    `;
+        const content = overlay.querySelector('.uvf-fullscreen-instruction-content');
+        if (content) {
+            content.style.cssText = `
+        background: rgba(255, 255, 255, 0.1);
+        padding: 40px;
+        border-radius: 12px;
+        border: 2px solid var(--uvf-accent-1, #ff0000);
+        backdrop-filter: blur(10px);
+        max-width: 400px;
+        animation: fadeIn 0.3s ease-out;
+      `;
+        }
+        const icon = overlay.querySelector('.uvf-fullscreen-icon');
+        if (icon) {
+            icon.style.cssText = `
+        font-size: 48px;
+        margin-bottom: 16px;
+      `;
+        }
+        const title = overlay.querySelector('h3');
+        if (title) {
+            title.style.cssText = `
+        margin: 0 0 16px 0;
+        font-size: 24px;
+        font-weight: 600;
+      `;
+        }
+        const text = overlay.querySelector('p');
+        if (text) {
+            text.style.cssText = `
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        opacity: 0.9;
+      `;
+        }
+        const pointer = overlay.querySelector('.uvf-fullscreen-pointer');
+        if (pointer) {
+            pointer.style.cssText = `
+        font-size: 14px;
+        opacity: 0.8;
+        margin-bottom: 24px;
+      `;
+        }
+        const button = overlay.querySelector('.uvf-instruction-close');
+        if (button) {
+            button.style.cssText = `
+        background: var(--uvf-accent-1, #ff0000);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      `;
+            button.addEventListener('mouseenter', () => {
+                button.style.transform = 'scale(1.05)';
+                button.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+            });
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'scale(1)';
+                button.style.boxShadow = 'none';
+            });
+        }
+        if (!document.getElementById('uvf-fullscreen-animation-styles')) {
+            const style = document.createElement('style');
+            style.id = 'uvf-fullscreen-animation-styles';
+            style.textContent = `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `;
+            document.head.appendChild(style);
+        }
+        if (this.playerWrapper) {
+            this.playerWrapper.appendChild(overlay);
+        }
+        setTimeout(() => {
+            if (overlay.parentElement) {
+                overlay.remove();
+            }
+        }, 5000);
+        const fullscreenBtn = document.getElementById('uvf-fullscreen-btn');
+        if (fullscreenBtn) {
+            fullscreenBtn.style.animation = 'pulse 2s infinite';
+            if (!document.getElementById('uvf-pulse-animation-styles')) {
+                const style = document.createElement('style');
+                style.id = 'uvf-pulse-animation-styles';
+                style.textContent = `
+          @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 var(--uvf-accent-1, #ff0000); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+          }
+        `;
+                document.head.appendChild(style);
+            }
+            setTimeout(() => {
+                fullscreenBtn.style.animation = '';
+            }, 3000);
+        }
+        this.debugLog('Showing fullscreen instructions overlay');
+    }
+    async attemptFullscreen() {
+        try {
+            await this.enterFullscreen();
+            return true;
+        }
+        catch (error) {
+            const errorMessage = error.message;
+            if (errorMessage.includes('user gesture') ||
+                errorMessage.includes('user activation') ||
+                errorMessage.includes('Permissions check failed')) {
+                const fullscreenBtn = document.getElementById('uvf-fullscreen-btn');
+                if (fullscreenBtn && !this.hasTriedButtonFallback) {
+                    this.hasTriedButtonFallback = true;
+                    this.debugLog('Attempting fullscreen via button as fallback');
+                    setTimeout(() => {
+                        this.hasTriedButtonFallback = false;
+                    }, 1000);
+                    const clickEvent = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window,
+                        detail: 1
+                    });
+                    fullscreenBtn.dispatchEvent(clickEvent);
+                    return false;
+                }
+                else {
+                    this.showShortcutIndicator('Click Fullscreen Button');
+                    this.debugWarn('Fullscreen requires direct user interaction. Please click the fullscreen button in the player controls.');
+                    return false;
+                }
+            }
+            else {
+                this.debugWarn('Fullscreen failed:', errorMessage);
+                return false;
+            }
         }
     }
     applySubtitleTrack(track) {
@@ -777,6 +1382,21 @@ export class WebPlayer extends BasePlayer {
         --uvf-scrollbar-thumb-hover-start: rgba(255,0,0,0.5);
         --uvf-scrollbar-thumb-hover-end: rgba(255,0,0,0.6);
         --uvf-firefox-scrollbar-color: rgba(255,255,255,0.25);
+      }
+      
+      /* Player focus styles for better UX */
+      .uvf-player-wrapper:focus {
+        outline: 2px solid var(--uvf-accent-1);
+        outline-offset: -2px;
+      }
+      
+      .uvf-player-wrapper:focus-visible {
+        outline: 2px solid var(--uvf-accent-1);
+        outline-offset: -2px;
+      }
+      
+      .uvf-player-wrapper:focus:not(:focus-visible) {
+        outline: none;
       }
       
       /* Responsive Container Styles */
@@ -2531,12 +3151,41 @@ export class WebPlayer extends BasePlayer {
                 }
             }
         });
-        fullscreenBtn?.addEventListener('click', () => {
+        fullscreenBtn?.addEventListener('click', (event) => {
+            const isBrave = this.isBraveBrowser();
+            const isPrivate = this.isPrivateWindow();
+            this.debugLog('Fullscreen button clicked:', {
+                isBrave,
+                isPrivate,
+                isFullscreen: this.isFullscreen(),
+                eventTrusted: event.isTrusted,
+                eventType: event.type,
+                timestamp: Date.now()
+            });
+            this.lastUserInteraction = Date.now();
+            this.checkFullscreenPermissions();
             if (this.isFullscreen()) {
-                this.exitFullscreen();
+                this.debugLog('Exiting fullscreen via button');
+                this.exitFullscreen().catch(err => {
+                    this.debugWarn('Exit fullscreen button failed:', err.message);
+                });
             }
             else {
-                this.enterFullscreen();
+                this.debugLog('Entering fullscreen via button');
+                if (isBrave && !isPrivate) {
+                    this.enterFullscreenWithBraveSupport().catch(err => {
+                        this.debugWarn('Brave fullscreen button failed:', err.message);
+                        this.showTemporaryMessage('Brave Browser: Please allow fullscreen in site settings');
+                    });
+                }
+                else {
+                    this.enterFullscreen().catch(err => {
+                        this.debugWarn('Fullscreen button failed:', err.message);
+                        if (isBrave) {
+                            this.showTemporaryMessage('Try refreshing the page or check Brave shields settings');
+                        }
+                    });
+                }
             }
         });
         const updateFullscreenIcon = () => {
@@ -2616,6 +3265,7 @@ export class WebPlayer extends BasePlayer {
             }
             this.debugLog('Keyboard event:', e.key, 'target:', target.tagName);
             let shortcutText = '';
+            this.lastUserInteraction = Date.now();
             switch (e.key) {
                 case ' ':
                 case 'Spacebar':
@@ -2676,12 +3326,13 @@ export class WebPlayer extends BasePlayer {
                 case 'f':
                     e.preventDefault();
                     if (!document.fullscreenElement) {
-                        this.enterFullscreen();
-                        shortcutText = 'Fullscreen';
+                        this.triggerFullscreenButton();
                     }
                     else {
-                        this.exitFullscreen();
-                        shortcutText = 'Exit Fullscreen';
+                        this.exitFullscreen().catch(err => {
+                            this.debugWarn('Exit fullscreen shortcut failed:', err.message);
+                        });
+                        this.showShortcutIndicator('Exit Fullscreen');
                     }
                     break;
                 case 'p':
@@ -2722,6 +3373,33 @@ export class WebPlayer extends BasePlayer {
         if (this.playerWrapper) {
             this.playerWrapper.addEventListener('keydown', handleKeydown);
             this.playerWrapper.setAttribute('tabindex', '0');
+            this.playerWrapper.addEventListener('focus', () => {
+                this.debugLog('Player focused - keyboard shortcuts available');
+            });
+            this.playerWrapper.addEventListener('click', (e) => {
+                const target = e.target;
+                if (!target.closest('.uvf-controls')) {
+                    this.playerWrapper?.focus();
+                    this.lastUserInteraction = Date.now();
+                }
+            });
+            this.playerWrapper.addEventListener('mousedown', () => {
+                this.playerWrapper?.focus();
+                this.lastUserInteraction = Date.now();
+            });
+            this.playerWrapper.addEventListener('dblclick', (e) => {
+                const target = e.target;
+                if (!target.closest('.uvf-controls')) {
+                    e.preventDefault();
+                    this.debugLog('Double-click detected - attempting fullscreen');
+                    if (!document.fullscreenElement) {
+                        this.triggerFullscreenButton();
+                    }
+                    else {
+                        this.exitFullscreen();
+                    }
+                }
+            });
         }
         if (this.video) {
             this.video.addEventListener('keydown', handleKeydown);

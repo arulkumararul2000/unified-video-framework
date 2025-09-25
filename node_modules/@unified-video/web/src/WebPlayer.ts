@@ -66,6 +66,10 @@ export class WebPlayer extends BasePlayer {
   private _deferredPause = false;
   private _lastToggleAt = 0;
   private _TOGGLE_DEBOUNCE_MS = 120;
+  
+  // Fullscreen fallback tracking
+  private hasTriedButtonFallback: boolean = false;
+  private lastUserInteraction: number = 0;
 
   // Debug logging helper
   private debugLog(message: string, ...args: any[]): void {
@@ -797,40 +801,85 @@ export class WebPlayer extends BasePlayer {
     if (!this.playerWrapper) return;
 
     try {
+      // Check if fullscreen is supported
+      if (!document.fullscreenEnabled && 
+          !(document as any).webkitFullscreenEnabled && 
+          !(document as any).mozFullScreenEnabled && 
+          !(document as any).msFullscreenEnabled) {
+        this.debugWarn('Fullscreen not supported by browser');
+        return;
+      }
+      
+      // Check if already in fullscreen
+      if (document.fullscreenElement || 
+          (document as any).webkitFullscreenElement || 
+          (document as any).mozFullScreenElement || 
+          (document as any).msFullscreenElement) {
+        this.debugLog('Already in fullscreen mode');
+        return;
+      }
+      
       // Target the player wrapper to maintain custom controls
       const element = this.playerWrapper;
       
       if (element.requestFullscreen) {
-        await element.requestFullscreen();
+        await element.requestFullscreen().catch(err => {
+          this.debugWarn('Fullscreen request failed:', err.message);
+          // Don't throw, just log the error
+        });
       } else if ((element as any).webkitRequestFullscreen) {
-        await (element as any).webkitRequestFullscreen();
+        await (element as any).webkitRequestFullscreen().catch((err: any) => {
+          this.debugWarn('WebKit fullscreen request failed:', err.message);
+        });
       } else if ((element as any).mozRequestFullScreen) {
-        await (element as any).mozRequestFullScreen();
+        await (element as any).mozRequestFullScreen().catch((err: any) => {
+          this.debugWarn('Mozilla fullscreen request failed:', err.message);
+        });
       } else if ((element as any).msRequestFullscreen) {
-        await (element as any).msRequestFullscreen();
+        await (element as any).msRequestFullscreen().catch((err: any) => {
+          this.debugWarn('MS fullscreen request failed:', err.message);
+        });
       } else {
-        throw new Error('Fullscreen API not supported');
+        this.debugWarn('Fullscreen API not supported by this browser');
+        return;
       }
       
       // Add fullscreen class for styling
       this.playerWrapper.classList.add('uvf-fullscreen');
       this.emit('onFullscreenChanged', true);
     } catch (error) {
-      console.error('Failed to enter fullscreen:', error);
-      throw error;
+      this.debugWarn('Failed to enter fullscreen:', (error as Error).message);
+      // Don't re-throw the error to prevent breaking the user experience
     }
   }
 
   async exitFullscreen(): Promise<void> {
     try {
+      // Check if we're actually in fullscreen
+      if (!document.fullscreenElement && 
+          !(document as any).webkitFullscreenElement && 
+          !(document as any).mozFullScreenElement && 
+          !(document as any).msFullscreenElement) {
+        this.debugLog('Not in fullscreen mode');
+        return;
+      }
+      
       if (document.exitFullscreen) {
-        await document.exitFullscreen();
+        await document.exitFullscreen().catch(err => {
+          this.debugWarn('Exit fullscreen failed:', err.message);
+        });
       } else if ((document as any).webkitExitFullscreen) {
-        await (document as any).webkitExitFullscreen();
+        await (document as any).webkitExitFullscreen().catch((err: any) => {
+          this.debugWarn('WebKit exit fullscreen failed:', err.message);
+        });
       } else if ((document as any).mozCancelFullScreen) {
-        await (document as any).mozCancelFullScreen();
+        await (document as any).mozCancelFullScreen().catch((err: any) => {
+          this.debugWarn('Mozilla exit fullscreen failed:', err.message);
+        });
       } else if ((document as any).msExitFullscreen) {
-        await (document as any).msExitFullscreen();
+        await (document as any).msExitFullscreen().catch((err: any) => {
+          this.debugWarn('MS exit fullscreen failed:', err.message);
+        });
       }
       
       // Remove fullscreen class
@@ -839,8 +888,8 @@ export class WebPlayer extends BasePlayer {
       }
       this.emit('onFullscreenChanged', false);
     } catch (error) {
-      console.error('Failed to exit fullscreen:', error);
-      throw error;
+      this.debugWarn('Failed to exit fullscreen:', (error as Error).message);
+      // Don't re-throw the error to prevent breaking the user experience
     }
   }
 
@@ -865,8 +914,738 @@ export class WebPlayer extends BasePlayer {
         await (document as any).exitPictureInPicture();
       }
     } catch (error) {
-      console.error('Failed to exit PiP:', error);
-      throw error;
+      this.debugWarn('Failed to exit PiP:', (error as Error).message);
+      // Don't re-throw the error to prevent breaking the user experience
+    }
+  }
+
+  /**
+   * Focuses the player wrapper to enable keyboard shortcuts
+   */
+  focusPlayer(): void {
+    if (this.playerWrapper) {
+      this.playerWrapper.focus();
+      this.debugLog('Player focused programmatically');
+    }
+  }
+
+  /**
+   * Shows a helpful tip to the user about fullscreen options
+   */
+  showFullscreenTip(): void {
+    this.showShortcutIndicator('💡 Double-click or use ⌨️ F key for fullscreen');
+    
+    // Also show in debug log
+    this.debugLog('Tip: Double-click the video area or press F key for fullscreen, or use the fullscreen button in controls');
+  }
+
+  /**
+   * Detects if we're running in Brave browser
+   */
+  private isBraveBrowser(): boolean {
+    // Multiple ways to detect Brave browser
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isBrave = (
+      // Check for Brave-specific user agent
+      userAgent.includes('brave') ||
+      // Check for Brave's navigator.brave object
+      !!(navigator as any).brave ||
+      // Check for Brave's specific properties
+      (window as any).chrome && (window as any).chrome.app && (window as any).chrome.app.isInstalled === false
+    );
+    
+    this.debugLog('Browser detection - Is Brave:', isBrave, 'User Agent:', userAgent);
+    return isBrave;
+  }
+
+  /**
+   * Checks fullscreen permissions and site settings
+   */
+  private async checkFullscreenPermissions(): Promise<void> {
+    try {
+      // Check if fullscreen is enabled
+      const fullscreenEnabled = document.fullscreenEnabled ||
+                                 (document as any).webkitFullscreenEnabled ||
+                                 (document as any).mozFullScreenEnabled ||
+                                 (document as any).msFullscreenEnabled;
+      
+      this.debugLog('Fullscreen permissions check:', {
+        fullscreenEnabled,
+        documentFullscreenEnabled: document.fullscreenEnabled,
+        webkitEnabled: (document as any).webkitFullscreenEnabled,
+        mozEnabled: (document as any).mozFullScreenEnabled,
+        msEnabled: (document as any).msFullscreenEnabled,
+        currentOrigin: window.location.origin,
+        currentHref: window.location.href,
+        isSecureContext: window.isSecureContext,
+        protocol: window.location.protocol,
+        isBrave: this.isBraveBrowser(),
+        isPrivate: this.isPrivateWindow()
+      });
+      
+      // Check permissions API if available
+      if ('permissions' in navigator) {
+        try {
+          const permission = await (navigator as any).permissions.query({ name: 'fullscreen' });
+          this.debugLog('Fullscreen permission state:', permission.state);
+        } catch (err) {
+          this.debugLog('Permissions API check failed:', (err as Error).message);
+        }
+      }
+      
+    } catch (error) {
+      this.debugWarn('Permission check failed:', (error as Error).message);
+    }
+  }
+
+  /**
+   * Detects if running in private/incognito mode
+   */
+  private isPrivateWindow(): boolean {
+    try {
+      // Different methods for different browsers
+      if ('webkitRequestFileSystem' in window) {
+        // Chrome/Edge detection
+        return new Promise<boolean>((resolve) => {
+          (window as any).webkitRequestFileSystem(
+            (window as any).TEMPORARY,
+            1,
+            () => resolve(false), // Not private
+            () => resolve(true)   // Private
+          );
+        }) as any;
+      }
+      
+      // Firefox detection
+      if ('MozAppearance' in document.documentElement.style) {
+        if (window.indexedDB === null) return true;
+        if (window.indexedDB === undefined) return true;
+      }
+      
+      // Safari detection
+      try {
+        window.localStorage.setItem('test', '1');
+        window.localStorage.removeItem('test');
+        return false;
+      } catch {
+        return true;
+      }
+      
+    } catch {
+      return false;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Triggers the fullscreen button reliably with Brave-specific enhancements
+   */
+  triggerFullscreenButton(): void {
+    const fullscreenBtn = document.getElementById('uvf-fullscreen-btn');
+    
+    // Enhanced debugging for Brave browser
+    const isBrave = this.isBraveBrowser();
+    const isPrivate = this.isPrivateWindow();
+    
+    this.debugLog('Fullscreen trigger attempt:', {
+      buttonExists: !!fullscreenBtn,
+      isBrave,
+      isPrivate,
+      currentFullscreenElement: document.fullscreenElement,
+      timestamp: Date.now(),
+      lastUserInteraction: this.lastUserInteraction,
+      timeSinceInteraction: Date.now() - this.lastUserInteraction
+    });
+    
+    // Run permissions check
+    this.checkFullscreenPermissions();
+    
+    if (fullscreenBtn) {
+      this.debugLog('Triggering fullscreen button click');
+      
+      // Special handling for Brave browser
+      if (isBrave) {
+        this.debugLog('Applying Brave browser specific fullscreen handling');
+        
+        // For Brave, we need to ensure the gesture is absolutely fresh
+        if (Date.now() - this.lastUserInteraction > 1000) {
+          this.debugWarn('User gesture may be stale for Brave browser');
+          this.showTemporaryMessage('Click the fullscreen button directly in Brave browser');
+          return;
+        }
+        
+        // Request permissions first in Brave if needed
+        this.requestFullscreenPermissionBrave().then(() => {
+          this.performFullscreenButtonClick(fullscreenBtn);
+        }).catch(() => {
+          this.performFullscreenButtonClick(fullscreenBtn);
+        });
+      } else {
+        this.performFullscreenButtonClick(fullscreenBtn);
+      }
+      
+    } else {
+      this.debugWarn('Fullscreen button not found');
+      this.showShortcutIndicator('Fullscreen Button Missing');
+      
+      // Enhanced guidance for Brave
+      if (isBrave) {
+        this.showTemporaryMessage('Brave: Please use fullscreen button in controls');
+      } else {
+        this.showTemporaryMessage('Press F key when player controls are visible');
+      }
+    }
+  }
+
+  /**
+   * Performs the actual fullscreen button click with multiple event types
+   */
+  private performFullscreenButtonClick(fullscreenBtn: HTMLElement): void {
+    // Create multiple types of events to ensure maximum compatibility
+    const events = [
+      new MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        detail: 1,
+        button: 0,
+        buttons: 1,
+        isTrusted: true
+      } as any),
+      new MouseEvent('mouseup', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        detail: 1,
+        button: 0,
+        buttons: 0,
+        isTrusted: true
+      } as any),
+      new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        detail: 1,
+        button: 0,
+        buttons: 0,
+        isTrusted: true
+      } as any)
+    ];
+    
+    // Log each event dispatch
+    this.debugLog('Dispatching mouse events:', events.length);
+    
+    // Dispatch all events in sequence
+    events.forEach((event, index) => {
+      try {
+        fullscreenBtn.dispatchEvent(event);
+        this.debugLog(`Event ${index + 1} dispatched:`, event.type);
+      } catch (error) {
+        this.debugWarn(`Event ${index + 1} dispatch failed:`, (error as Error).message);
+      }
+    });
+    
+    // Also try direct click method with enhanced error handling
+    try {
+      fullscreenBtn.click();
+      this.debugLog('Direct button click executed');
+    } catch (error) {
+      this.debugWarn('Direct button click failed:', (error as Error).message);
+    }
+    
+    // Focus the button to ensure gesture context
+    try {
+      fullscreenBtn.focus();
+      setTimeout(() => fullscreenBtn.blur(), 100);
+    } catch (error) {
+      this.debugLog('Button focus failed:', (error as Error).message);
+    }
+    
+    // Show that we're attempting fullscreen via button
+    this.showShortcutIndicator('Fullscreen');
+  }
+
+  /**
+   * Requests fullscreen permission specifically for Brave browser
+   */
+  private async requestFullscreenPermissionBrave(): Promise<void> {
+    try {
+      // Check if we can request permission
+      if ('permissions' in navigator && 'request' in (navigator as any).permissions) {
+        await (navigator as any).permissions.request({ name: 'fullscreen' });
+        this.debugLog('Brave fullscreen permission requested');
+      }
+    } catch (error) {
+      this.debugLog('Brave permission request failed:', (error as Error).message);
+      // Don't throw, continue with normal flow
+    }
+  }
+
+  /**
+   * Enhanced fullscreen method with specific Brave browser support
+   */
+  async enterFullscreenWithBraveSupport(): Promise<void> {
+    if (!this.playerWrapper) {
+      throw new Error('Player wrapper not available');
+    }
+
+    this.debugLog('Attempting Brave-specific fullscreen entry');
+    
+    // First, check if we can request permissions
+    await this.requestFullscreenPermissionBrave();
+    
+    // Check current fullscreen state
+    if (document.fullscreenElement || 
+        (document as any).webkitFullscreenElement || 
+        (document as any).mozFullScreenElement || 
+        (document as any).msFullscreenElement) {
+      this.debugLog('Already in fullscreen mode');
+      return;
+    }
+    
+    // Enhanced permission and capability checking for Brave
+    const fullscreenEnabled = document.fullscreenEnabled ||
+                               (document as any).webkitFullscreenEnabled ||
+                               (document as any).mozFullScreenEnabled ||
+                               (document as any).msFullscreenEnabled;
+    
+    if (!fullscreenEnabled) {
+      throw new Error('Fullscreen not supported or disabled in Brave settings');
+    }
+    
+    // Check if the site has fullscreen blocked
+    if ('permissions' in navigator) {
+      try {
+        const permission = await (navigator as any).permissions.query({ name: 'fullscreen' });
+        this.debugLog('Brave fullscreen permission state:', permission.state);
+        
+        if (permission.state === 'denied') {
+          throw new Error('Fullscreen permission denied in Brave site settings');
+        }
+      } catch (permError) {
+        this.debugLog('Permission check failed:', (permError as Error).message);
+      }
+    }
+    
+    // Try multiple fullscreen methods with proper error handling
+    let fullscreenError: Error | null = null;
+    
+    try {
+      // Try standard fullscreen API first
+      if (this.playerWrapper.requestFullscreen) {
+        this.debugLog('Attempting standard requestFullscreen()');
+        await this.playerWrapper.requestFullscreen({
+          navigationUI: 'hide'
+        } as any);
+      }
+      // Webkit (Safari/Chrome-based)
+      else if ((this.playerWrapper as any).webkitRequestFullscreen) {
+        this.debugLog('Attempting webkitRequestFullscreen()');
+        await (this.playerWrapper as any).webkitRequestFullscreen();
+      }
+      // Firefox
+      else if ((this.playerWrapper as any).mozRequestFullScreen) {
+        this.debugLog('Attempting mozRequestFullScreen()');
+        await (this.playerWrapper as any).mozRequestFullScreen();
+      }
+      // IE/Edge
+      else if ((this.playerWrapper as any).msRequestFullscreen) {
+        this.debugLog('Attempting msRequestFullscreen()');
+        await (this.playerWrapper as any).msRequestFullscreen();
+      }
+      else {
+        throw new Error('No fullscreen API available');
+      }
+      
+      // If we get here, fullscreen was successful
+      this.playerWrapper.classList.add('uvf-fullscreen');
+      this.emit('onFullscreenChanged', true);
+      this.debugLog('Brave fullscreen entry successful');
+      
+    } catch (error) {
+      fullscreenError = error as Error;
+      this.debugWarn('Brave fullscreen attempt failed:', fullscreenError.message);
+      
+      // Provide specific guidance for common Brave issues
+      if (fullscreenError.message.includes('denied') || 
+          fullscreenError.message.includes('not allowed')) {
+        throw new Error('Brave Browser: Fullscreen blocked. Check site permissions in Settings > Site and Shields Settings');
+      } else if (fullscreenError.message.includes('gesture') || 
+                 fullscreenError.message.includes('user activation')) {
+        throw new Error('Brave Browser: User interaction required. Click the fullscreen button directly');
+      } else {
+        throw new Error(`Brave Browser: ${fullscreenError.message}`);
+      }
+    }
+  }
+
+  /**
+   * Shows a temporary message to the user
+   */
+  showTemporaryMessage(message: string): void {
+    const existingMsg = document.getElementById('uvf-temp-message');
+    if (existingMsg) {
+      existingMsg.remove();
+    }
+    
+    const msgDiv = document.createElement('div');
+    msgDiv.id = 'uvf-temp-message';
+    msgDiv.textContent = message;
+    msgDiv.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 14px;
+      z-index: 10001;
+      pointer-events: none;
+    `;
+    
+    document.body.appendChild(msgDiv);
+    
+    setTimeout(() => {
+      if (msgDiv.parentElement) {
+        msgDiv.remove();
+      }
+    }, 3000);
+  }
+
+  /**
+   * Enters fullscreen synchronously to preserve user gesture context
+   */
+  enterFullscreenSynchronously(): void {
+    if (!this.playerWrapper) {
+      throw new Error('Player wrapper not available');
+    }
+
+    // Check if fullscreen is supported
+    if (!document.fullscreenEnabled && 
+        !(document as any).webkitFullscreenEnabled && 
+        !(document as any).mozFullScreenEnabled && 
+        !(document as any).msFullscreenEnabled) {
+      throw new Error('Fullscreen not supported by browser');
+    }
+    
+    // Check if already in fullscreen
+    if (document.fullscreenElement || 
+        (document as any).webkitFullscreenElement || 
+        (document as any).mozFullScreenElement || 
+        (document as any).msFullscreenElement) {
+      this.debugLog('Already in fullscreen mode');
+      return;
+    }
+    
+    this.debugLog('Attempting synchronous fullscreen');
+    
+    // Target the player wrapper to maintain custom controls
+    const element = this.playerWrapper;
+    
+    // Call fullscreen API synchronously (no await) to preserve user gesture
+    if (element.requestFullscreen) {
+      element.requestFullscreen().then(() => {
+        this.debugLog('Successfully entered fullscreen via requestFullscreen');
+        this.playerWrapper?.classList.add('uvf-fullscreen');
+        this.emit('onFullscreenChanged', true);
+      }).catch((error) => {
+        this.debugWarn('requestFullscreen failed:', error.message);
+        throw error;
+      });
+    } else if ((element as any).webkitRequestFullscreen) {
+      (element as any).webkitRequestFullscreen();
+      this.debugLog('Successfully requested fullscreen via webkitRequestFullscreen');
+      this.playerWrapper?.classList.add('uvf-fullscreen');
+      this.emit('onFullscreenChanged', true);
+    } else if ((element as any).mozRequestFullScreen) {
+      (element as any).mozRequestFullScreen();
+      this.debugLog('Successfully requested fullscreen via mozRequestFullScreen');
+      this.playerWrapper?.classList.add('uvf-fullscreen');
+      this.emit('onFullscreenChanged', true);
+    } else if ((element as any).msRequestFullscreen) {
+      (element as any).msRequestFullscreen();
+      this.debugLog('Successfully requested fullscreen via msRequestFullscreen');
+      this.playerWrapper?.classList.add('uvf-fullscreen');
+      this.emit('onFullscreenChanged', true);
+    } else {
+      throw new Error('Fullscreen API not supported by this browser');
+    }
+  }
+
+  /**
+   * Requests fullscreen with proper user gesture context
+   */
+  async requestFullscreenWithUserGesture(event: Event): Promise<boolean> {
+    if (!this.playerWrapper) return false;
+
+    try {
+      // Check if fullscreen is supported
+      if (!document.fullscreenEnabled && 
+          !(document as any).webkitFullscreenEnabled && 
+          !(document as any).mozFullScreenEnabled && 
+          !(document as any).msFullscreenEnabled) {
+        this.debugWarn('Fullscreen not supported by browser');
+        return false;
+      }
+      
+      // Check if already in fullscreen
+      if (document.fullscreenElement || 
+          (document as any).webkitFullscreenElement || 
+          (document as any).mozFullScreenElement || 
+          (document as any).msFullscreenElement) {
+        this.debugLog('Already in fullscreen mode');
+        return false;
+      }
+      
+      // Check if this is within a reasonable time of user interaction
+      const timeSinceInteraction = Date.now() - this.lastUserInteraction;
+      this.debugLog('Attempting fullscreen within user gesture context', {
+        eventType: event.type,
+        timeSinceInteraction,
+        isTrusted: event.isTrusted
+      });
+      
+      // Target the player wrapper to maintain custom controls
+      const element = this.playerWrapper;
+      
+      // Try fullscreen immediately while in the event context
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+      } else if ((element as any).webkitRequestFullscreen) {
+        await (element as any).webkitRequestFullscreen();
+      } else if ((element as any).mozRequestFullScreen) {
+        await (element as any).mozRequestFullScreen();
+      } else if ((element as any).msRequestFullscreen) {
+        await (element as any).msRequestFullscreen();
+      } else {
+        this.debugWarn('Fullscreen API not supported by this browser');
+        return false;
+      }
+      
+      // Add fullscreen class for styling
+      this.playerWrapper.classList.add('uvf-fullscreen');
+      this.emit('onFullscreenChanged', true);
+      this.debugLog('Successfully entered fullscreen');
+      return true;
+      
+    } catch (error) {
+      this.debugWarn('Failed to enter fullscreen:', (error as Error).message);
+      return false;
+    }
+  }
+
+  /**
+   * Shows clear fullscreen instructions overlay
+   */
+  showFullscreenInstructions(): void {
+    // Remove any existing instruction overlay
+    const existingOverlay = document.getElementById('uvf-fullscreen-instructions');
+    if (existingOverlay) {
+      existingOverlay.remove();
+    }
+
+    // Create instruction overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'uvf-fullscreen-instructions';
+    overlay.innerHTML = `
+      <div class="uvf-fullscreen-instruction-content">
+        <div class="uvf-fullscreen-icon">⛶</div>
+        <h3>Enter Fullscreen</h3>
+        <p>Click the fullscreen button in the player controls</p>
+        <div class="uvf-fullscreen-pointer">👆 Look for this icon in the bottom right</div>
+        <button class="uvf-instruction-close" onclick="this.parentElement.parentElement.remove()">Got it</button>
+      </div>
+    `;
+    
+    overlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: white;
+      text-align: center;
+    `;
+    
+    const content = overlay.querySelector('.uvf-fullscreen-instruction-content') as HTMLElement;
+    if (content) {
+      content.style.cssText = `
+        background: rgba(255, 255, 255, 0.1);
+        padding: 40px;
+        border-radius: 12px;
+        border: 2px solid var(--uvf-accent-1, #ff0000);
+        backdrop-filter: blur(10px);
+        max-width: 400px;
+        animation: fadeIn 0.3s ease-out;
+      `;
+    }
+    
+    const icon = overlay.querySelector('.uvf-fullscreen-icon') as HTMLElement;
+    if (icon) {
+      icon.style.cssText = `
+        font-size: 48px;
+        margin-bottom: 16px;
+      `;
+    }
+    
+    const title = overlay.querySelector('h3') as HTMLElement;
+    if (title) {
+      title.style.cssText = `
+        margin: 0 0 16px 0;
+        font-size: 24px;
+        font-weight: 600;
+      `;
+    }
+    
+    const text = overlay.querySelector('p') as HTMLElement;
+    if (text) {
+      text.style.cssText = `
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        opacity: 0.9;
+      `;
+    }
+    
+    const pointer = overlay.querySelector('.uvf-fullscreen-pointer') as HTMLElement;
+    if (pointer) {
+      pointer.style.cssText = `
+        font-size: 14px;
+        opacity: 0.8;
+        margin-bottom: 24px;
+      `;
+    }
+    
+    const button = overlay.querySelector('.uvf-instruction-close') as HTMLElement;
+    if (button) {
+      button.style.cssText = `
+        background: var(--uvf-accent-1, #ff0000);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      `;
+      
+      button.addEventListener('mouseenter', () => {
+        button.style.transform = 'scale(1.05)';
+        button.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+      });
+      
+      button.addEventListener('mouseleave', () => {
+        button.style.transform = 'scale(1)';
+        button.style.boxShadow = 'none';
+      });
+    }
+    
+    // Add CSS animation
+    if (!document.getElementById('uvf-fullscreen-animation-styles')) {
+      const style = document.createElement('style');
+      style.id = 'uvf-fullscreen-animation-styles';
+      style.textContent = `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // Add to player wrapper
+    if (this.playerWrapper) {
+      this.playerWrapper.appendChild(overlay);
+    }
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      if (overlay.parentElement) {
+        overlay.remove();
+      }
+    }, 5000);
+    
+    // Also highlight the fullscreen button if it exists
+    const fullscreenBtn = document.getElementById('uvf-fullscreen-btn');
+    if (fullscreenBtn) {
+      fullscreenBtn.style.animation = 'pulse 2s infinite';
+      
+      // Add pulse animation if not already added
+      if (!document.getElementById('uvf-pulse-animation-styles')) {
+        const style = document.createElement('style');
+        style.id = 'uvf-pulse-animation-styles';
+        style.textContent = `
+          @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 var(--uvf-accent-1, #ff0000); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      // Remove pulse after 3 seconds
+      setTimeout(() => {
+        fullscreenBtn.style.animation = '';
+      }, 3000);
+    }
+    
+    this.debugLog('Showing fullscreen instructions overlay');
+  }
+
+  /**
+   * Attempts fullscreen with better user guidance
+   */
+  async attemptFullscreen(): Promise<boolean> {
+    try {
+      await this.enterFullscreen();
+      return true;
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+      
+      if (errorMessage.includes('user gesture') || 
+          errorMessage.includes('user activation') || 
+          errorMessage.includes('Permissions check failed')) {
+        
+        // Try using the fullscreen button as a last resort
+        const fullscreenBtn = document.getElementById('uvf-fullscreen-btn');
+        if (fullscreenBtn && !this.hasTriedButtonFallback) {
+          this.hasTriedButtonFallback = true;
+          this.debugLog('Attempting fullscreen via button as fallback');
+          
+          // Reset flag after a short delay
+          setTimeout(() => {
+            this.hasTriedButtonFallback = false;
+          }, 1000);
+          
+          // Try clicking the button programmatically
+          const clickEvent = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            detail: 1
+          });
+          fullscreenBtn.dispatchEvent(clickEvent);
+          return false; // We don't know if it succeeded immediately
+        } else {
+          // Show user-friendly guidance
+          this.showShortcutIndicator('Click Fullscreen Button');
+          this.debugWarn('Fullscreen requires direct user interaction. Please click the fullscreen button in the player controls.');
+          return false;
+        }
+      } else {
+        this.debugWarn('Fullscreen failed:', errorMessage);
+        return false;
+      }
     }
   }
 
@@ -928,6 +1707,21 @@ export class WebPlayer extends BasePlayer {
         --uvf-scrollbar-thumb-hover-start: rgba(255,0,0,0.5);
         --uvf-scrollbar-thumb-hover-end: rgba(255,0,0,0.6);
         --uvf-firefox-scrollbar-color: rgba(255,255,255,0.25);
+      }
+      
+      /* Player focus styles for better UX */
+      .uvf-player-wrapper:focus {
+        outline: 2px solid var(--uvf-accent-1);
+        outline-offset: -2px;
+      }
+      
+      .uvf-player-wrapper:focus-visible {
+        outline: 2px solid var(--uvf-accent-1);
+        outline-offset: -2px;
+      }
+      
+      .uvf-player-wrapper:focus:not(:focus-visible) {
+        outline: none;
       }
       
       /* Responsive Container Styles */
@@ -2762,12 +3556,51 @@ export class WebPlayer extends BasePlayer {
       }
     });
     
-    // Fullscreen button
-    fullscreenBtn?.addEventListener('click', () => {
+    // Fullscreen button with enhanced Brave support
+    fullscreenBtn?.addEventListener('click', (event) => {
+      // Enhanced debugging for Brave browser
+      const isBrave = this.isBraveBrowser();
+      const isPrivate = this.isPrivateWindow();
+      
+      this.debugLog('Fullscreen button clicked:', {
+        isBrave,
+        isPrivate,
+        isFullscreen: this.isFullscreen(),
+        eventTrusted: event.isTrusted,
+        eventType: event.type,
+        timestamp: Date.now()
+      });
+      
+      // Update user interaction timestamp
+      this.lastUserInteraction = Date.now();
+      
+      // Run permissions check before attempting fullscreen
+      this.checkFullscreenPermissions();
+      
       if (this.isFullscreen()) {
-        this.exitFullscreen();
+        this.debugLog('Exiting fullscreen via button');
+        this.exitFullscreen().catch(err => {
+          this.debugWarn('Exit fullscreen button failed:', err.message);
+        });
       } else {
-        this.enterFullscreen();
+        this.debugLog('Entering fullscreen via button');
+        
+        // Special handling for Brave browser
+        if (isBrave && !isPrivate) {
+          // For Brave normal tabs, try direct API call first
+          this.enterFullscreenWithBraveSupport().catch(err => {
+            this.debugWarn('Brave fullscreen button failed:', err.message);
+            this.showTemporaryMessage('Brave Browser: Please allow fullscreen in site settings');
+          });
+        } else {
+          this.enterFullscreen().catch(err => {
+            this.debugWarn('Fullscreen button failed:', err.message);
+            
+            if (isBrave) {
+              this.showTemporaryMessage('Try refreshing the page or check Brave shields settings');
+            }
+          });
+        }
       }
     });
     
@@ -2881,6 +3714,9 @@ export class WebPlayer extends BasePlayer {
       
       let shortcutText = '';
       
+      // Update interaction timestamp
+      this.lastUserInteraction = Date.now();
+      
       switch(e.key) {
         case ' ':
         case 'Spacebar': // For older browsers
@@ -2942,12 +3778,16 @@ export class WebPlayer extends BasePlayer {
           break;
         case 'f':
           e.preventDefault();
+          
           if (!document.fullscreenElement) {
-            this.enterFullscreen();
-            shortcutText = 'Fullscreen';
+            // Always use the fullscreen button for maximum reliability
+            this.triggerFullscreenButton();
           } else {
-            this.exitFullscreen();
-            shortcutText = 'Exit Fullscreen';
+            // Exit fullscreen - this usually works fine
+            this.exitFullscreen().catch(err => {
+              this.debugWarn('Exit fullscreen shortcut failed:', err.message);
+            });
+            this.showShortcutIndicator('Exit Fullscreen');
           }
           break;
         case 'p':
@@ -2993,6 +3833,45 @@ export class WebPlayer extends BasePlayer {
     if (this.playerWrapper) {
       this.playerWrapper.addEventListener('keydown', handleKeydown);
       this.playerWrapper.setAttribute('tabindex', '0'); // Make it focusable
+      
+      // Add visual feedback when player is focused for better UX
+      this.playerWrapper.addEventListener('focus', () => {
+        this.debugLog('Player focused - keyboard shortcuts available');
+      });
+      
+      // Auto-focus the player when clicked to enable keyboard shortcuts
+      this.playerWrapper.addEventListener('click', (e) => {
+        // Don't focus if clicking on a control button
+        const target = e.target as HTMLElement;
+        if (!target.closest('.uvf-controls')) {
+          this.playerWrapper?.focus();
+          // Also store the click event for potential fullscreen use
+          this.lastUserInteraction = Date.now();
+        }
+      });
+      
+      // Also focus on any interaction with the video area
+      this.playerWrapper.addEventListener('mousedown', () => {
+        this.playerWrapper?.focus();
+        this.lastUserInteraction = Date.now();
+      });
+      
+      // Add double-click to fullscreen support
+      this.playerWrapper.addEventListener('dblclick', (e) => {
+        // Don't trigger if double-clicking on controls
+        const target = e.target as HTMLElement;
+        if (!target.closest('.uvf-controls')) {
+          e.preventDefault();
+          this.debugLog('Double-click detected - attempting fullscreen');
+          
+          if (!document.fullscreenElement) {
+            // Always use the fullscreen button for maximum reliability
+            this.triggerFullscreenButton();
+          } else {
+            this.exitFullscreen();
+          }
+        }
+      });
     }
     
     // Add to the video element
