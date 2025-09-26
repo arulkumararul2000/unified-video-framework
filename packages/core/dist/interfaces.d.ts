@@ -9,7 +9,7 @@ export declare enum PlatformType {
     WEB = "web",
     WINDOWS = "windows"
 }
-export declare enum PlayerState {
+export declare enum PlayerStateEnum {
     IDLE = "idle",
     LOADING = "loading",
     READY = "ready",
@@ -19,6 +19,7 @@ export declare enum PlayerState {
     ENDED = "ended",
     ERROR = "error"
 }
+export { PlayerStateEnum as PlayerState };
 export declare enum DRMType {
     FAIRPLAY = "fairplay",
     WIDEVINE = "widevine",
@@ -189,6 +190,85 @@ export interface EventEmitter {
     emit(event: PlayerEvent, data?: any): void;
     removeAllListeners(event?: PlayerEvent): void;
 }
+export type PlayerEvents = {
+    [K in PlayerEvent]: K;
+};
+export interface VideoPlayerInterface {
+    load(source: VideoSource): Promise<void>;
+    play(): Promise<void>;
+    pause(): void;
+    seek(position: number): void;
+    setVolume(volume: number): void;
+    getCurrentTime(): number;
+    getDuration(): number;
+    getVolume(): number;
+    isMuted(): boolean;
+    mute(): void;
+    unmute(): void;
+    setPlaybackRate(rate: number): void;
+    getPlaybackRate(): number;
+    enterFullscreen(): void;
+    exitFullscreen(): void;
+    enterPictureInPicture(): void;
+    exitPictureInPicture(): void;
+    on(event: string, handler: Function): void;
+    off(event: string, handler: Function): void;
+    destroy(): void;
+    getState(): VideoPlayerState;
+}
+export type VideoPlayerState = 'idle' | 'loading' | 'ready' | 'playing' | 'paused' | 'buffering' | 'ended' | 'error';
+export interface IVideoPlayer {
+    initialize(container: any, config?: PlayerConfig): Promise<void>;
+    destroy(): Promise<void>;
+    load(videoSource: VideoSource): Promise<void>;
+    play(): Promise<void>;
+    pause(): void;
+    stop(): void;
+    seek(time: number): void;
+    setVolume(level: number): void;
+    mute(): void;
+    unmute(): void;
+    toggleMute(): void;
+    getQualities(): Quality[];
+    getCurrentQuality(): Quality | null;
+    setQuality(index: number): void;
+    setAutoQuality(enabled: boolean): void;
+    setPlaybackRate(rate: number): void;
+    getPlaybackRate(): number;
+    getCurrentTime(): number;
+    getDuration(): number;
+    getBufferedPercentage(): number;
+    getState(): PlayerStateInterface;
+    isPlaying(): boolean;
+    isPaused(): boolean;
+    isEnded(): boolean;
+    enterFullscreen(): Promise<void>;
+    exitFullscreen(): Promise<void>;
+    toggleFullscreen(): Promise<void>;
+    enterPictureInPicture(): Promise<void>;
+    exitPictureInPicture(): Promise<void>;
+    on(event: PlayerEvent, handler: EventHandler): void;
+    off(event: PlayerEvent, handler?: EventHandler): void;
+    once(event: PlayerEvent, handler: EventHandler): void;
+    getSubtitles(): SubtitleTrack[];
+    setSubtitleTrack(index: number): void;
+    disableSubtitles(): void;
+}
+export interface PlayerStateInterface {
+    isPlaying: boolean;
+    isPaused: boolean;
+    isBuffering: boolean;
+    isEnded: boolean;
+    isError: boolean;
+    currentTime: number;
+    duration: number;
+    bufferedPercentage: number;
+    volume: number;
+    isMuted: boolean;
+    playbackRate: number;
+    currentQuality: Quality | null;
+    availableQualities: Quality[];
+}
 export interface PaywallConfig {
     enabled?: boolean;
     apiBase?: string;
@@ -282,5 +362,6 @@ export interface PaywallGateway {
 export interface PlayerConfig extends VideoPlayerConfig {
     freeDuration?: number;
     paywall?: PaywallConfig;
+    volume?: number;
 }
 //# sourceMappingURL=interfaces.d.ts.map

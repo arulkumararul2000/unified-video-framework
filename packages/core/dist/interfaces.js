@@ -10,17 +10,18 @@ export var PlatformType;
     PlatformType["WEB"] = "web";
     PlatformType["WINDOWS"] = "windows";
 })(PlatformType || (PlatformType = {}));
-export var PlayerState;
-(function (PlayerState) {
-    PlayerState["IDLE"] = "idle";
-    PlayerState["LOADING"] = "loading";
-    PlayerState["READY"] = "ready";
-    PlayerState["PLAYING"] = "playing";
-    PlayerState["PAUSED"] = "paused";
-    PlayerState["BUFFERING"] = "buffering";
-    PlayerState["ENDED"] = "ended";
-    PlayerState["ERROR"] = "error";
-})(PlayerState || (PlayerState = {}));
+export var PlayerStateEnum;
+(function (PlayerStateEnum) {
+    PlayerStateEnum["IDLE"] = "idle";
+    PlayerStateEnum["LOADING"] = "loading";
+    PlayerStateEnum["READY"] = "ready";
+    PlayerStateEnum["PLAYING"] = "playing";
+    PlayerStateEnum["PAUSED"] = "paused";
+    PlayerStateEnum["BUFFERING"] = "buffering";
+    PlayerStateEnum["ENDED"] = "ended";
+    PlayerStateEnum["ERROR"] = "error";
+})(PlayerStateEnum || (PlayerStateEnum = {}));
+export { PlayerStateEnum as PlayerState };
 export var DRMType;
 (function (DRMType) {
     DRMType["FAIRPLAY"] = "fairplay";

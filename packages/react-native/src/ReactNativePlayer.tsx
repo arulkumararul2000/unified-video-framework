@@ -2,28 +2,70 @@
  * React Native implementation of the video player
  */
 
-import React, { useRef, useImperativeHandle, forwardRef, useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, Platform, ViewStyle } from 'react-native';
-import Video, { 
-  OnLoadData, 
-  OnProgressData, 
-  OnSeekData,
-  LoadError,
-  OnBufferData,
-  OnBandwidthUpdateData,
-  VideoProperties,
-  TextTrackType,
-  SelectedTrackType
-} from 'react-native-video';
+import React, { useRef, useImperativeHandle, forwardRef, useCallback, useState } from 'react';
+// Conditional import for react-native (should be peer dependency)
+let View: any, StyleSheet: any, Platform: any;
+type ViewStyle = any;
+
+try {
+  const RN = require('react-native');
+  View = RN.View;
+  StyleSheet = RN.StyleSheet;
+  Platform = RN.Platform;
+} catch (error) {
+  // react-native is not installed - create mock implementations
+  console.warn('react-native is not installed. Components will not render.');
+  View = 'div' as any;
+  StyleSheet = { create: (styles: any) => styles } as any;
+  Platform = { OS: 'web', Version: '1.0' } as any;
+}
+// Type definitions for react-native-video
+interface RNVideoTypes {
+  OnLoadData?: any;
+  OnProgressData?: any;
+  OnSeekData?: any;
+  LoadError?: any;
+  OnBufferData?: any;
+  OnBandwidthUpdateData?: any;
+  TextTrackType?: any;
+  SelectedTrackType?: any;
+}
+
+// Conditional import for react-native-video (should be peer dependency)
+let Video: any;
+let videoTypes: RNVideoTypes = {};
+
+try {
+  const RNVideo = require('react-native-video');
+  Video = RNVideo.default || RNVideo;
+  videoTypes = {
+    OnLoadData: RNVideo.OnLoadData,
+    OnProgressData: RNVideo.OnProgressData,
+    OnSeekData: RNVideo.OnSeekData,
+    LoadError: RNVideo.LoadError,
+    OnBufferData: RNVideo.OnBufferData,
+    OnBandwidthUpdateData: RNVideo.OnBandwidthUpdateData,
+    TextTrackType: RNVideo.TextTrackType,
+    SelectedTrackType: RNVideo.SelectedTrackType
+  };
+} catch (error) {
+  // react-native-video is not installed - create mock implementation
+  console.warn('react-native-video is not installed. Video playback will not work.');
+  Video = 'div' as any;
+  videoTypes = {
+    TextTrackType: { VTT: 'text/vtt' },
+    SelectedTrackType: { INDEX: 'index', DISABLED: 'disabled' }
+  };
+}
 import { 
-  IVideoPlayer,
   VideoSource,
   PlayerConfig,
-  PlayerState,
+  PlayerStateInterface,
   Quality,
   SubtitleTrack,
   PlayerError,
-  PlayerEvents
+  PlayerEvent,
+  EventHandler
 } from '@unified-video/core';
 import { EventEmitter } from './utils/EventEmitter';
 
@@ -34,13 +76,47 @@ interface ReactNativePlayerProps {
   onError?: (error: PlayerError) => void;
 }
 
-export interface ReactNativePlayerRef extends IVideoPlayer {
-  getVideoRef: () => Video | null;
+export interface ReactNativePlayerRef {
+  destroy(): Promise<void>;
+  load(videoSource: VideoSource): Promise<void>;
+  play(): Promise<void>;
+  pause(): void;
+  stop(): void;
+  seek(time: number): void;
+  setVolume(level: number): void;
+  mute(): void;
+  unmute(): void;
+  toggleMute(): void;
+  getQualities(): Quality[];
+  getCurrentQuality(): Quality | null;
+  setQuality(index: number): void;
+  setAutoQuality(enabled: boolean): void;
+  setPlaybackRate(rate: number): void;
+  getPlaybackRate(): number;
+  getCurrentTime(): number;
+  getDuration(): number;
+  getBufferedPercentage(): number;
+  getState(): PlayerStateInterface;
+  isPlaying(): boolean;
+  isPaused(): boolean;
+  isEnded(): boolean;
+  enterFullscreen(): Promise<void>;
+  exitFullscreen(): Promise<void>;
+  toggleFullscreen(): Promise<void>;
+  enterPictureInPicture(): Promise<void>;
+  exitPictureInPicture(): Promise<void>;
+  on(event: PlayerEvent, handler: EventHandler): void;
+  off(event: PlayerEvent, handler?: EventHandler): void;
+  once(event: PlayerEvent, handler: EventHandler): void;
+  getSubtitles(): SubtitleTrack[];
+  setSubtitleTrack(index: number): void;
+  disableSubtitles(): void;
+  getVideoRef(): any;
 }
 
 export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePlayerProps>(
-  ({ style, config = {}, onReady, onError }, ref) => {
-    const videoRef = useRef<Video>(null);
+  ({ style, config = {}, onError }, ref) => {
+    const videoRef = useRef<any>(null);
     const events = useRef(new EventEmitter()).current;
     
     const [source, setSource] = useState<VideoSource | null>(null);
@@ -56,7 +132,7 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
     const [selectedTextTrack, setSelectedTextTrack] = useState<number>(-1);
 
     // State getter
-    const getState = useCallback((): PlayerState => ({
+    const getState = useCallback((): PlayerStateInterface => ({
       isPlaying: !paused,
       isPaused: paused,
       isBuffering: buffering,
@@ -74,11 +150,7 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
 
     // Implement IVideoPlayer interface
     const playerMethods: ReactNativePlayerRef = {
-      async initialize(container: any, cfg?: PlayerConfig): Promise<void> {
-        // In React Native, initialization is handled by component mount
-        if (onReady) onReady();
-        events.emit('onReady');
-      },
+      // Remove initialize method as it's not needed for ReactNativePlayerRef
 
       async destroy(): Promise<void> {
         setSource(null);
@@ -233,7 +305,7 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
 
       async toggleFullscreen(): Promise<void> {
         // Toggle implementation would check current state
-        await this.enterFullscreen();
+        await playerMethods.enterFullscreen();
       },
 
       async enterPictureInPicture(): Promise<void> {
@@ -246,15 +318,15 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
         // PiP exit implementation
       },
 
-      on(event: keyof PlayerEvents, handler: Function): void {
+      on(event: PlayerEvent, handler: EventHandler): void {
         events.on(event as string, handler);
       },
 
-      off(event: keyof PlayerEvents, handler?: Function): void {
+      off(event: PlayerEvent, handler?: EventHandler): void {
         events.off(event as string, handler);
       },
 
-      once(event: keyof PlayerEvents, handler: Function): void {
+      once(event: PlayerEvent, handler: EventHandler): void {
         events.once(event as string, handler);
       },
 
@@ -270,7 +342,9 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
         setSelectedTextTrack(-1);
       },
 
-      getVideoRef: () => videoRef.current
+      getVideoRef(): any {
+        return videoRef.current;
+      }
     };
 
     useImperativeHandle(ref, () => playerMethods, [
@@ -279,17 +353,17 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
     ]);
 
     // Video event handlers
-    const handleLoad = useCallback((data: OnLoadData) => {
+    const handleLoad = useCallback((data: any) => {
       setDuration(data.duration);
       
       // Extract quality levels if available
       if (data.videoTracks && data.videoTracks.length > 0) {
-        const qualityLevels = data.videoTracks.map((track, index) => ({
+        const qualityLevels = data.videoTracks.map((track: any, index: number) => ({
+          id: index.toString(),
           height: track.height || 0,
           width: track.width || 0,
           bitrate: track.bitrate || 0,
-          label: `${track.height}p`,
-          index
+          label: `${track.height}p`
         }));
         setQualities(qualityLevels);
       }
@@ -301,7 +375,7 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
       });
     }, [events]);
 
-    const handleProgress = useCallback((data: OnProgressData) => {
+    const handleProgress = useCallback((data: any) => {
       setCurrentTime(data.currentTime);
       events.emit('onTimeUpdate', data.currentTime);
       
@@ -311,18 +385,18 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
       }
     }, [duration, events]);
 
-    const handleBuffer = useCallback((data: OnBufferData) => {
+    const handleBuffer = useCallback((data: any) => {
       setBuffering(data.isBuffering);
       events.emit('onBuffering', data.isBuffering);
     }, [events]);
 
-    const handleError = useCallback((error: LoadError) => {
+    const handleError = useCallback((error: any) => {
       const playerError: PlayerError = {
         code: error.error?.code || 'UNKNOWN',
         message: error.error?.localizedDescription || 'Unknown error',
-        type: 'media',
+        timestamp: Date.now(),
         fatal: true,
-        details: error.error
+        data: error.error
       };
       
       if (onError) onError(playerError);
@@ -333,12 +407,12 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
       events.emit('onEnded');
     }, [events]);
 
-    const handleSeek = useCallback((data: OnSeekData) => {
+    const handleSeek = useCallback((data: any) => {
       setCurrentTime(data.currentTime);
       events.emit('onSeeked');
     }, [events]);
 
-    const handleBandwidthUpdate = useCallback((data: OnBandwidthUpdateData) => {
+    const handleBandwidthUpdate = useCallback((data: any) => {
       // Could use this for adaptive bitrate switching
       console.log('Bandwidth update:', data.bitrate);
     }, []);
@@ -365,7 +439,7 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
 
     // Convert subtitles to text tracks
     const textTracks = source.subtitles?.map(subtitle => ({
-      type: 'text/vtt' as TextTrackType,
+      type: 'text/vtt' as any,
       language: subtitle.language,
       title: subtitle.label,
       uri: subtitle.url
@@ -391,8 +465,8 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
           textTracks={textTracks}
           selectedTextTrack={
             selectedTextTrack >= 0 
-              ? { type: SelectedTrackType.INDEX, value: selectedTextTrack }
-              : { type: SelectedTrackType.DISABLED }
+              ? { type: videoTypes.SelectedTrackType?.INDEX || 'index', value: selectedTextTrack }
+              : { type: videoTypes.SelectedTrackType?.DISABLED || 'disabled' }
           }
           onLoad={handleLoad}
           onProgress={handleProgress}
@@ -401,7 +475,7 @@ export const ReactNativePlayer = forwardRef<ReactNativePlayerRef, ReactNativePla
           onEnd={handleEnd}
           onSeek={handleSeek}
           onBandwidthUpdate={handleBandwidthUpdate}
-          onTimedMetadata={(metadata) => console.log('Metadata:', metadata)}
+          onTimedMetadata={(metadata: any) => console.log('Metadata:', metadata)}
         />
       </View>
     );

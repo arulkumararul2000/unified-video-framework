@@ -15,7 +15,7 @@ export type {
   SubtitleTrack,
   AudioTrack,
   Quality,
-  PlayerState,
+  PlayerStateEnum as PlayerState,
   PlayerEvent,
   PlayerError,
   PlayerMetrics

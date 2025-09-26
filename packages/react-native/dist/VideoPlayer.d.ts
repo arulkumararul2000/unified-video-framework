@@ -1,12 +1,10 @@
 import React from 'react';
-import type { VideoSource, VideoPlayerConfig, VideoPlayerInterface, VideoPlayerState } from '../../core/src/interfaces';
+import type { VideoSource, VideoPlayerConfig, VideoPlayerInterface, VideoPlayerState } from '@unified-video/core';
 export declare class ReactNativeVideoPlayer implements VideoPlayerInterface {
-    private videoRef;
-    private config;
     private state;
     private listeners;
-    constructor(container: any, config: VideoPlayerConfig);
-    load(source: VideoSource): Promise<void>;
+    constructor(_container: any, _config: VideoPlayerConfig);
+    load(_source: VideoSource): Promise<void>;
     play(): Promise<void>;
     pause(): void;
     seek(position: number): void;
@@ -17,7 +15,7 @@ export declare class ReactNativeVideoPlayer implements VideoPlayerInterface {
     isMuted(): boolean;
     mute(): void;
     unmute(): void;
-    setPlaybackRate(rate: number): void;
+    setPlaybackRate(_rate: number): void;
     getPlaybackRate(): number;
     enterFullscreen(): void;
     exitFullscreen(): void;

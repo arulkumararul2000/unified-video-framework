@@ -1711,12 +1711,12 @@ export class WebPlayer extends BasePlayer {
       
       /* Player focus styles for better UX */
       .uvf-player-wrapper:focus {
-        outline: 2px solid var(--uvf-accent-1);
+        // outline: 2px solid var(--uvf-accent-1);
         outline-offset: -2px;
       }
       
       .uvf-player-wrapper:focus-visible {
-        outline: 2px solid var(--uvf-accent-1);
+        // outline: 2px solid var(--uvf-accent-1);
         outline-offset: -2px;
       }
       

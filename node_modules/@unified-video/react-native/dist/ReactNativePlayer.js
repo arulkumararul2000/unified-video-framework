@@ -25,10 +25,45 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReactNativePlayer = void 0;
 const react_1 = __importStar(require("react"));
-const react_native_1 = require("react-native");
-const react_native_video_1 = __importStar(require("react-native-video"));
+let View, StyleSheet, Platform;
+try {
+    const RN = require('react-native');
+    View = RN.View;
+    StyleSheet = RN.StyleSheet;
+    Platform = RN.Platform;
+}
+catch (error) {
+    console.warn('react-native is not installed. Components will not render.');
+    View = 'div';
+    StyleSheet = { create: (styles) => styles };
+    Platform = { OS: 'web', Version: '1.0' };
+}
+let Video;
+let videoTypes = {};
+try {
+    const RNVideo = require('react-native-video');
+    Video = RNVideo.default || RNVideo;
+    videoTypes = {
+        OnLoadData: RNVideo.OnLoadData,
+        OnProgressData: RNVideo.OnProgressData,
+        OnSeekData: RNVideo.OnSeekData,
+        LoadError: RNVideo.LoadError,
+        OnBufferData: RNVideo.OnBufferData,
+        OnBandwidthUpdateData: RNVideo.OnBandwidthUpdateData,
+        TextTrackType: RNVideo.TextTrackType,
+        SelectedTrackType: RNVideo.SelectedTrackType
+    };
+}
+catch (error) {
+    console.warn('react-native-video is not installed. Video playback will not work.');
+    Video = 'div';
+    videoTypes = {
+        TextTrackType: { VTT: 'text/vtt' },
+        SelectedTrackType: { INDEX: 'index', DISABLED: 'disabled' }
+    };
+}
 const EventEmitter_1 = require("./utils/EventEmitter");
-exports.ReactNativePlayer = (0, react_1.forwardRef)(({ style, config = {}, onReady, onError }, ref) => {
+exports.ReactNativePlayer = (0, react_1.forwardRef)(({ style, config = {}, onError }, ref) => {
     const videoRef = (0, react_1.useRef)(null);
     const events = (0, react_1.useRef)(new EventEmitter_1.EventEmitter()).current;
     const [source, setSource] = (0, react_1.useState)(null);
@@ -58,11 +93,6 @@ exports.ReactNativePlayer = (0, react_1.forwardRef)(({ style, config = {}, onRea
         availableQualities: qualities
     }), [paused, buffering, currentTime, duration, volume, muted, rate, selectedQuality, qualities]);
     const playerMethods = {
-        async initialize(container, cfg) {
-            if (onReady)
-                onReady();
-            events.emit('onReady');
-        },
         async destroy() {
             setSource(null);
             events.removeAllListeners();
@@ -74,7 +104,7 @@ exports.ReactNativePlayer = (0, react_1.forwardRef)(({ style, config = {}, onRea
             };
             if (videoSource.drm) {
                 videoSrc.drm = {
-                    type: react_native_1.Platform.select({
+                    type: Platform.select({
                         ios: videoSource.drm.type === 'widevine' ? 'fairplay' : videoSource.drm.type,
                         android: videoSource.drm.type
                     }),
@@ -183,10 +213,10 @@ exports.ReactNativePlayer = (0, react_1.forwardRef)(({ style, config = {}, onRea
             }
         },
         async toggleFullscreen() {
-            await this.enterFullscreen();
+            await playerMethods.enterFullscreen();
         },
         async enterPictureInPicture() {
-            if (react_native_1.Platform.OS === 'ios' && videoRef.current) {
+            if (Platform.OS === 'ios' && videoRef.current) {
                 videoRef.current.restoreUserInterfaceForPictureInPictureStop?.();
             }
         },
@@ -210,7 +240,9 @@ exports.ReactNativePlayer = (0, react_1.forwardRef)(({ style, config = {}, onRea
         disableSubtitles() {
             setSelectedTextTrack(-1);
         },
-        getVideoRef: () => videoRef.current
+        getVideoRef() {
+            return videoRef.current;
+        }
     };
     (0, react_1.useImperativeHandle)(ref, () => playerMethods, [
         paused, volume, muted, rate, currentTime, duration,
@@ -220,11 +252,11 @@ exports.ReactNativePlayer = (0, react_1.forwardRef)(({ style, config = {}, onRea
         setDuration(data.duration);
         if (data.videoTracks && data.videoTracks.length > 0) {
             const qualityLevels = data.videoTracks.map((track, index) => ({
+                id: index.toString(),
                 height: track.height || 0,
                 width: track.width || 0,
                 bitrate: track.bitrate || 0,
-                label: `${track.height}p`,
-                index
+                label: `${track.height}p`
             }));
             setQualities(qualityLevels);
         }
@@ -250,9 +282,9 @@ exports.ReactNativePlayer = (0, react_1.forwardRef)(({ style, config = {}, onRea
         const playerError = {
             code: error.error?.code || 'UNKNOWN',
             message: error.error?.localizedDescription || 'Unknown error',
-            type: 'media',
+            timestamp: Date.now(),
             fatal: true,
-            details: error.error
+            data: error.error
         };
         if (onError)
             onError(playerError);
@@ -269,14 +301,14 @@ exports.ReactNativePlayer = (0, react_1.forwardRef)(({ style, config = {}, onRea
         console.log('Bandwidth update:', data.bitrate);
     }, []);
     if (!source) {
-        return <react_native_1.View style={[styles.container, style]}/>;
+        return <View style={[styles.container, style]}/>;
     }
     const videoSource = {
         uri: source.url
     };
     if (source.drm) {
         videoSource.drm = {
-            type: react_native_1.Platform.select({
+            type: Platform.select({
                 ios: source.drm.type === 'widevine' ? 'fairplay' : source.drm.type,
                 android: source.drm.type
             }),
@@ -290,13 +322,13 @@ exports.ReactNativePlayer = (0, react_1.forwardRef)(({ style, config = {}, onRea
         title: subtitle.label,
         uri: subtitle.url
     }));
-    return (<react_native_1.View style={[styles.container, style]}>
-        <react_native_video_1.default ref={videoRef} source={videoSource} style={styles.video} paused={paused} volume={volume} muted={muted} rate={rate} resizeMode="contain" repeat={config.loop || false} controls={config.controls !== false} playInBackground={false} playWhenInactive={false} ignoreSilentSwitch="ignore" progressUpdateInterval={250} textTracks={textTracks} selectedTextTrack={selectedTextTrack >= 0
-            ? { type: react_native_video_1.SelectedTrackType.INDEX, value: selectedTextTrack }
-            : { type: react_native_video_1.SelectedTrackType.DISABLED }} onLoad={handleLoad} onProgress={handleProgress} onBuffer={handleBuffer} onError={handleError} onEnd={handleEnd} onSeek={handleSeek} onBandwidthUpdate={handleBandwidthUpdate} onTimedMetadata={(metadata) => console.log('Metadata:', metadata)}/>
-      </react_native_1.View>);
+    return (<View style={[styles.container, style]}>
+        <Video ref={videoRef} source={videoSource} style={styles.video} paused={paused} volume={volume} muted={muted} rate={rate} resizeMode="contain" repeat={config.loop || false} controls={config.controls !== false} playInBackground={false} playWhenInactive={false} ignoreSilentSwitch="ignore" progressUpdateInterval={250} textTracks={textTracks} selectedTextTrack={selectedTextTrack >= 0
+            ? { type: videoTypes.SelectedTrackType?.INDEX || 'index', value: selectedTextTrack }
+            : { type: videoTypes.SelectedTrackType?.DISABLED || 'disabled' }} onLoad={handleLoad} onProgress={handleProgress} onBuffer={handleBuffer} onError={handleError} onEnd={handleEnd} onSeek={handleSeek} onBandwidthUpdate={handleBandwidthUpdate} onTimedMetadata={(metadata) => console.log('Metadata:', metadata)}/>
+      </View>);
 });
-const styles = react_native_1.StyleSheet.create({
+const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#000'

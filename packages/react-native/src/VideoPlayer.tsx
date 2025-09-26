@@ -3,29 +3,40 @@
  * This would wrap react-native-video or similar native video libraries
  */
 
-import React, { useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import React, { useEffect } from 'react';
+// Conditional import for react-native (should be peer dependency)
+let View: any, StyleSheet: any, Platform: any;
+
+try {
+  const RN = require('react-native');
+  View = RN.View;
+  StyleSheet = RN.StyleSheet;
+  Platform = RN.Platform;
+} catch (error) {
+  // react-native is not installed - create mock implementations
+  console.warn('react-native is not installed. Components will not render.');
+  View = 'div' as any;
+  StyleSheet = { create: (styles: any) => styles } as any;
+  Platform = { OS: 'web', Version: '1.0' } as any;
+}
 // Would import: import Video from 'react-native-video';
 import type { 
   VideoSource, 
   VideoPlayerConfig, 
   VideoPlayerInterface,
   VideoPlayerState 
-} from '../../core/src/interfaces';
+} from '@unified-video/core';
 
 export class ReactNativeVideoPlayer implements VideoPlayerInterface {
-  private videoRef: any;
-  private config: VideoPlayerConfig;
   private state: VideoPlayerState = 'idle';
   private listeners: Map<string, Function[]> = new Map();
 
-  constructor(container: any, config: VideoPlayerConfig) {
-    this.config = config;
+  constructor(_container: any, _config: VideoPlayerConfig) {
     // In real implementation, would initialize react-native-video here
     console.log('ReactNativeVideoPlayer initialized for', Platform.OS);
   }
 
-  async load(source: VideoSource): Promise<void> {
+  async load(_source: VideoSource): Promise<void> {
     // Implementation would load video into react-native-video
     this.state = 'loading';
     
@@ -102,7 +113,7 @@ export class ReactNativeVideoPlayer implements VideoPlayerInterface {
     this.emit('volumechange', { muted: false });
   }
 
-  setPlaybackRate(rate: number): void {
+  setPlaybackRate(_rate: number): void {
     // Would set rate on native player
     // this.videoRef.rate = rate;
   }
@@ -184,24 +195,21 @@ export const VideoPlayer: React.FC<{
   onPause?: () => void;
   onEnd?: () => void;
   onError?: (error: any) => void;
-}> = ({ source, config, style, ...callbacks }) => {
-  const videoRef = useRef(null);
-
+}> = ({ source, style }) => {
   useEffect(() => {
     // Initialize player when component mounts
     // Set up native video callbacks
-  }, []);
+    console.log('VideoPlayer mounted with source:', source.url);
+  }, [source.url]);
 
   return (
     <View style={[styles.container, style]}>
       {/* In real implementation, would render react-native-video here */}
       {/* <Video
-        ref={videoRef}
         source={{ uri: source.url }}
         style={styles.video}
         controls={config?.controls}
         paused={!config?.autoPlay}
-        {...callbacks}
       /> */}
     </View>
   );

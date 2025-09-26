@@ -25,15 +25,26 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VideoPlayer = exports.ReactNativeVideoPlayer = void 0;
 const react_1 = __importStar(require("react"));
-const react_native_1 = require("react-native");
+let View, StyleSheet, Platform;
+try {
+    const RN = require('react-native');
+    View = RN.View;
+    StyleSheet = RN.StyleSheet;
+    Platform = RN.Platform;
+}
+catch (error) {
+    console.warn('react-native is not installed. Components will not render.');
+    View = 'div';
+    StyleSheet = { create: (styles) => styles };
+    Platform = { OS: 'web', Version: '1.0' };
+}
 class ReactNativeVideoPlayer {
-    constructor(container, config) {
+    constructor(_container, _config) {
         this.state = 'idle';
         this.listeners = new Map();
-        this.config = config;
-        console.log('ReactNativeVideoPlayer initialized for', react_native_1.Platform.OS);
+        console.log('ReactNativeVideoPlayer initialized for', Platform.OS);
     }
-    async load(source) {
+    async load(_source) {
         this.state = 'loading';
         return Promise.resolve();
     }
@@ -70,23 +81,23 @@ class ReactNativeVideoPlayer {
     unmute() {
         this.emit('volumechange', { muted: false });
     }
-    setPlaybackRate(rate) {
+    setPlaybackRate(_rate) {
     }
     getPlaybackRate() {
         return 1;
     }
     enterFullscreen() {
-        if (react_native_1.Platform.OS === 'ios') {
+        if (Platform.OS === 'ios') {
         }
-        else if (react_native_1.Platform.OS === 'android') {
+        else if (Platform.OS === 'android') {
         }
     }
     exitFullscreen() {
     }
     enterPictureInPicture() {
-        if (react_native_1.Platform.OS === 'ios' && react_native_1.Platform.Version >= 14) {
+        if (Platform.OS === 'ios' && Platform.Version >= 14) {
         }
-        else if (react_native_1.Platform.OS === 'android' && react_native_1.Platform.Version >= 26) {
+        else if (Platform.OS === 'android' && Platform.Version >= 26) {
         }
     }
     exitPictureInPicture() {
@@ -121,17 +132,17 @@ class ReactNativeVideoPlayer {
     }
 }
 exports.ReactNativeVideoPlayer = ReactNativeVideoPlayer;
-const VideoPlayer = ({ source, config, style, ...callbacks }) => {
-    const videoRef = (0, react_1.useRef)(null);
+const VideoPlayer = ({ source, style }) => {
     (0, react_1.useEffect)(() => {
-    }, []);
-    return (<react_native_1.View style={[styles.container, style]}>
+        console.log('VideoPlayer mounted with source:', source.url);
+    }, [source.url]);
+    return (<View style={[styles.container, style]}>
       
       
-    </react_native_1.View>);
+    </View>);
 };
 exports.VideoPlayer = VideoPlayer;
-const styles = react_native_1.StyleSheet.create({
+const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'black',
