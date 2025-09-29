@@ -1,4 +1,4 @@
-import { BasePlayer } from "../../core/dist/index.js";
+import { BasePlayer } from '@unified-video/core';
 export class WebPlayer extends BasePlayer {
     constructor() {
         super(...arguments);
@@ -2385,8 +2385,8 @@ export class WebPlayer extends BasePlayer {
         }
       }
       
-      /* Responsive Media Queries */
-      /* Mobile devices (portrait) */
+      /* Enhanced Responsive Media Queries with UX Best Practices */
+      /* Mobile devices (portrait) - Enhanced UX */
       @media screen and (max-width: 767px) and (orientation: portrait) {
         .uvf-responsive-container {
           padding: 0;
@@ -2400,146 +2400,276 @@ export class WebPlayer extends BasePlayer {
         
         .uvf-responsive-container .uvf-video-container {
           width: 100vw !important;
-          aspect-ratio: unset !important; /* Let JS handle the aspect ratio */
+          aspect-ratio: unset !important;
         }
         
+        /* Enhanced mobile controls bar with better spacing */
         .uvf-controls-bar {
-          padding: 12px 8px;
-          background: linear-gradient(to top, var(--uvf-overlay-strong) 0%, var(--uvf-overlay-medium) 70%, var(--uvf-overlay-transparent) 100%);
+          padding: 16px 12px;
+          background: linear-gradient(to top, var(--uvf-overlay-strong) 0%, var(--uvf-overlay-medium) 80%, var(--uvf-overlay-transparent) 100%);
         }
         
+        .uvf-progress-section {
+          margin-bottom: 16px;
+        }
+        
+        /* Mobile-first responsive controls layout */
         .uvf-controls-row {
-          gap: 8px;
+          gap: 12px;
           flex-wrap: nowrap;
           align-items: center;
-          justify-content: space-between;
+          justify-content: flex-start;
+          position: relative;
         }
         
-        /* Mobile control sizing - 70% of desktop size */
+        /* Touch-friendly control sizing (minimum 44px touch target) */
         .uvf-control-btn {
-          width: 28px;  /* 70% of 40px */
-          height: 28px;
-          min-width: 28px;
-          min-height: 28px;
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          min-height: 44px;
+          border-radius: 22px;
+          background: rgba(255,255,255,0.15);
+          backdrop-filter: blur(8px);
         }
         
         .uvf-control-btn.play-pause {
-          width: 35px;  /* 70% of 50px */
-          height: 35px;
-          min-width: 35px;
-          min-height: 35px;
+          width: 52px;
+          height: 52px;
+          min-width: 52px;
+          min-height: 52px;
+          border-radius: 26px;
+          background: linear-gradient(135deg, var(--uvf-accent-1), var(--uvf-accent-2));
+          box-shadow: 0 4px 12px rgba(var(--uvf-accent-1), 0.3);
         }
         
         .uvf-control-btn svg {
-          width: 14px;  /* 70% of 20px */
-          height: 14px;
+          width: 20px;
+          height: 20px;
         }
         
         .uvf-control-btn.play-pause svg {
-          width: 17px;  /* 70% of 24px */
-          height: 17px;
+          width: 24px;
+          height: 24px;
         }
         
-        /* Skip buttons */
+        /* Skip buttons with clear visual hierarchy */
+        #uvf-skip-back,
+        #uvf-skip-forward {
+          background: rgba(255,255,255,0.12);
+        }
+        
         #uvf-skip-back svg,
         #uvf-skip-forward svg {
-          width: 15px;  /* 70% of 22px */
-          height: 15px;
+          width: 22px;
+          height: 22px;
         }
         
+        /* Mobile time display - compact but readable */
         .uvf-time-display {
-          font-size: 10px;  /* 70% of 14px */
-          min-width: 84px;   /* 70% of 120px */
-          padding: 0 7px;    /* 70% of 10px */
+          font-size: 12px;
+          font-weight: 600;
+          min-width: 90px;
+          padding: 0 8px;
           order: 4;
+          margin-left: auto;
+          text-shadow: 0 1px 3px rgba(0,0,0,0.8);
         }
         
-        /* Volume control mobile adjustments */
+        /* Simplified volume control for mobile */
         .uvf-volume-control {
           order: 3;
+          position: relative;
         }
         
+        /* Hide volume panel on mobile - use device controls */
         .uvf-volume-panel {
-          left: -60px;
-          width: 140px;
+          display: none;
         }
         
-        .uvf-volume-slider {
-          width: 80px;  /* Reduced from 120px for mobile */
+        /* Mobile volume button as simple mute toggle */
+        .uvf-volume-control .uvf-control-btn {
+          width: 44px;
+          height: 44px;
         }
         
-        /* Right controls mobile layout */
+        /* Compact right controls for mobile */
         .uvf-right-controls {
           order: 5;
-          gap: 6px;
-          margin-left: 4px;
+          gap: 8px;
+          margin-left: 8px;
+          display: flex;
+          align-items: center;
         }
         
-        .uvf-top-controls {
-          top: 8px;
-          right: 8px;
-          gap: 6px;
+        /* Hide less essential controls on mobile */
+        .uvf-quality-badge {
+          display: none;
         }
         
-        .uvf-top-btn {
-          width: 28px;  /* 70% of 40px */
-          height: 28px;
-          min-width: 28px;
-          min-height: 28px;
-        }
-        
-        .uvf-top-btn svg {
-          width: 14px;  /* 70% of 20px */
-          height: 14px;
-        }
-        
-        .uvf-title-bar {
-          padding: 8px;
-        }
-        
-        .uvf-video-title {
-          font-size: 13px;  /* 70% of 18px */
-        }
-        
-        .uvf-video-subtitle {
-          font-size: 9px;   /* 70% of 13px */
-        }
-        
-        .uvf-center-play-btn {
-          width: 56px;  /* 70% of 80px */
-          height: 56px;
-        }
-        
-        .uvf-center-play-btn svg {
-          width: 25px;  /* 70% of 35px */
-          height: 25px;
-        }
-        
-        .uvf-progress-bar-wrapper {
-          height: 6px;  /* Slightly reduced for mobile */
-          margin-bottom: 8px;
-        }
-        
-        .uvf-progress-handle {
-          width: 14px;  /* Slightly larger for touch */
-          height: 14px;
-        }
-        
+        /* Settings menu - hidden by default, accessible via menu */
         .uvf-settings-menu {
-          min-width: 140px;
-          bottom: 30px;
-          right: 8px;
-          font-size: 12px;
+          min-width: 160px;
+          bottom: 60px;
+          right: 12px;
+          font-size: 14px;
+          max-height: 50vh;
         }
         
         .uvf-settings-option {
-          padding: 6px 12px;
-          font-size: 12px;
+          padding: 12px 16px;
+          font-size: 14px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
         }
         
-        .uvf-quality-badge {
-          font-size: 9px;  /* 70% of 11px, but more readable at 9px */
-          padding: 2px 4px;
+        .uvf-settings-option:hover {
+          background: rgba(255,255,255,0.15);
+          padding-left: 20px;
+        }
+        
+        /* Simplified settings - hide complex options */
+        .uvf-settings-group:first-child .uvf-settings-option[data-speed="0.5"],
+        .uvf-settings-group:first-child .uvf-settings-option[data-speed="0.75"],
+        .uvf-settings-group:first-child .uvf-settings-option[data-speed="2"] {
+          display: none;
+        }
+        }
+        
+        /* Enhanced top controls for mobile */
+        .uvf-top-controls {
+          top: 12px;
+          right: 12px;
+          gap: 8px;
+        }
+        
+        /* Touch-friendly top buttons */
+        .uvf-top-btn {
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          min-height: 44px;
+          background: rgba(0,0,0,0.7);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .uvf-top-btn svg {
+          width: 20px;
+          height: 20px;
+        }
+        
+        /* Hide less essential top controls on mobile */
+        #uvf-share-btn {
+          display: none;
+        }
+        
+        /* Enhanced title bar for mobile */
+        .uvf-title-bar {
+          padding: 12px;
+        }
+        
+        .uvf-video-title {
+          font-size: 16px;
+          font-weight: 700;
+          line-height: 1.2;
+        }
+        
+        .uvf-video-subtitle {
+          font-size: 12px;
+          margin-top: 4px;
+          opacity: 0.8;
+        }
+        
+        .uvf-video-thumb {
+          width: 48px;
+          height: 48px;
+          border-radius: 6px;
+        }
+        
+        /* Touch-optimized center play button */
+        .uvf-center-play-btn {
+          width: 72px;
+          height: 72px;
+          background: rgba(255,255,255,0.2);
+          backdrop-filter: blur(15px);
+          border: 2px solid rgba(255,255,255,0.4);
+        }
+        
+        .uvf-center-play-btn svg {
+          width: 32px;
+          height: 32px;
+        }
+        
+        /* Enhanced progress bar for touch */
+        .uvf-progress-bar-wrapper {
+          height: 8px;
+          margin-bottom: 12px;
+          border-radius: 4px;
+          background: rgba(255,255,255,0.15);
+          position: relative;
+          cursor: pointer;
+        }
+        
+        /* Larger touch target for progress bar */
+        .uvf-progress-bar-wrapper::before {
+          content: '';
+          position: absolute;
+          top: -10px;
+          left: 0;
+          right: 0;
+          bottom: -10px;
+          z-index: 1;
+        }
+        
+        .uvf-progress-handle {
+          width: 18px;
+          height: 18px;
+          background: #fff;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .uvf-progress-bar-wrapper:active .uvf-progress-handle {
+          transform: translate(-50%, -50%) scale(1.2);
+        }
+        
+        /* Mobile accessibility improvements */
+        .uvf-control-btn,
+        .uvf-top-btn {
+          position: relative;
+          overflow: visible;
+        }
+        
+        /* Enhanced focus states for mobile */
+        .uvf-control-btn:focus,
+        .uvf-top-btn:focus {
+          outline: 2px solid var(--uvf-accent-1);
+          outline-offset: 2px;
+        }
+        
+        /* Mobile control reordering for optimal UX */
+        .uvf-controls-row {
+          display: flex;
+          align-items: center;
+        }
+        
+        /* Priority order for mobile controls */
+        .uvf-control-btn.play-pause { order: 1; }
+        #uvf-skip-back { order: 2; }
+        #uvf-skip-forward { order: 3; }
+        .uvf-volume-control { order: 4; }
+        .uvf-time-display { order: 5; }
+        .uvf-right-controls { order: 6; }
+        
+        /* Hide PiP on mobile - not commonly supported */
+        #uvf-pip-btn {
+          display: none;
+        }
+        
+        /* Essential controls only in right section */
+        .uvf-right-controls > *:not(#uvf-settings-btn):not(#uvf-fullscreen-btn) {
+          display: none;
         }
         
         /* Ensure all controls remain visible and functional */
@@ -2547,13 +2677,23 @@ export class WebPlayer extends BasePlayer {
           flex-shrink: 0;
         }
         
-        /* Mobile-specific control group ordering for better layout */
-        .uvf-control-btn:nth-child(1) { order: 1; } /* play-pause */
-        .uvf-control-btn:nth-child(2) { order: 2; } /* skip-back */
-        .uvf-control-btn:nth-child(3) { order: 3; } /* skip-forward */
+        /* Loading spinner optimization for mobile */
+        .uvf-loading-spinner {
+          width: 48px;
+          height: 48px;
+          border-width: 4px;
+        }
+        
+        /* Mobile shortcut indicators */
+        .uvf-shortcut-indicator {
+          font-size: 20px;
+          padding: 16px 24px;
+          border-radius: 12px;
+          max-width: 280px;
+        }
       }
       
-      /* Mobile devices (landscape) */
+      /* Mobile devices (landscape) - Optimized for fullscreen viewing */
       @media screen and (max-width: 767px) and (orientation: landscape) {
         .uvf-responsive-container {
           width: 100vw !important;
@@ -2573,128 +2713,476 @@ export class WebPlayer extends BasePlayer {
           aspect-ratio: unset !important;
         }
         
+        /* Compact controls for landscape */
         .uvf-controls-bar {
-          padding: 8px;
+          padding: 10px 12px;
+          background: linear-gradient(to top, var(--uvf-overlay-strong) 0%, var(--uvf-overlay-medium) 80%, var(--uvf-overlay-transparent) 100%);
         }
         
-        .uvf-top-controls {
-          top: 6px;
-          right: 6px;
+        .uvf-progress-section {
+          margin-bottom: 10px;
         }
         
-        .uvf-title-bar {
-          padding: 6px;
+        .uvf-controls-row {
+          gap: 10px;
         }
         
+        /* Touch-friendly but compact controls for landscape */
         .uvf-control-btn {
-          width: 28px;  /* 70% sizing for landscape mobile */
-          height: 28px;
-        }
-        
-        .uvf-control-btn svg {
-          width: 14px;
-          height: 14px;
+          width: 40px;
+          height: 40px;
+          min-width: 40px;
+          min-height: 40px;
         }
         
         .uvf-control-btn.play-pause {
-          width: 35px;  /* 70% of 50px */
-          height: 35px;
+          width: 48px;
+          height: 48px;
+          min-width: 48px;
+          min-height: 48px;
+        }
+        
+        .uvf-control-btn svg {
+          width: 18px;
+          height: 18px;
         }
         
         .uvf-control-btn.play-pause svg {
-          width: 17px;
-          height: 17px;
+          width: 22px;
+          height: 22px;
+        }
+        
+        /* Compact top controls */
+        .uvf-top-controls {
+          top: 8px;
+          right: 12px;
+          gap: 6px;
         }
         
         .uvf-top-btn {
+          width: 40px;
+          height: 40px;
+          min-width: 40px;
+          min-height: 40px;
+        }
+        
+        .uvf-top-btn svg {
+          width: 18px;
+          height: 18px;
+        }
+        
+        .uvf-title-bar {
+          padding: 8px 12px;
+        }
+        
+        .uvf-video-title {
+          font-size: 14px;
+        }
+        
+        .uvf-video-subtitle {
+          font-size: 11px;
+        }
+        
+        .uvf-time-display {
+          font-size: 11px;
+          min-width: 80px;
+          padding: 0 6px;
+        }
+        
+        /* Hide volume panel in landscape too */
+        .uvf-volume-panel {
+          display: none;
+        }
+        
+        /* Compact progress bar for landscape */
+        .uvf-progress-bar-wrapper {
+          height: 6px;
+          margin-bottom: 8px;
+        }
+        
+        .uvf-progress-handle {
+          width: 16px;
+          height: 16px;
+        }
+      }
+      
+      /* Tablet devices - Enhanced UX with desktop features */
+      @media screen and (min-width: 768px) and (max-width: 1023px) {
+        .uvf-controls-bar {
+          padding: 18px 16px;
+          background: linear-gradient(to top, var(--uvf-overlay-strong) 0%, var(--uvf-overlay-medium) 70%, var(--uvf-overlay-transparent) 100%);
+        }
+        
+        .uvf-progress-section {
+          margin-bottom: 14px;
+        }
+        
+        .uvf-controls-row {
+          gap: 12px;
+        }
+        
+        /* Touch-optimized tablet controls */
+        .uvf-control-btn {
+          width: 42px;
+          height: 42px;
+          min-width: 42px;
+          min-height: 42px;
+        }
+        
+        .uvf-control-btn.play-pause {
+          width: 50px;
+          height: 50px;
+          min-width: 50px;
+          min-height: 50px;
+        }
+        
+        .uvf-control-btn svg {
+          width: 19px;
+          height: 19px;
+        }
+        
+        .uvf-control-btn.play-pause svg {
+          width: 23px;
+          height: 23px;
+        }
+        
+        /* Tablet top controls */
+        .uvf-top-btn {
+          width: 42px;
+          height: 42px;
+          min-width: 42px;
+          min-height: 42px;
+        }
+        
+        .uvf-top-btn svg {
+          width: 19px;
+          height: 19px;
+        }
+        
+        .uvf-top-controls {
+          top: 16px;
+          right: 16px;
+          gap: 8px;
+        }
+        
+        .uvf-title-bar {
+          padding: 16px;
+        }
+        
+        .uvf-video-title {
+          font-size: 17px;
+          font-weight: 600;
+        }
+        
+        .uvf-video-subtitle {
+          font-size: 12px;
+        }
+        
+        .uvf-time-display {
+          font-size: 13px;
+          font-weight: 500;
+          min-width: 110px;
+          padding: 0 8px;
+        }
+        
+        /* Tablet center play button */
+        .uvf-center-play-btn {
+          width: 76px;
+          height: 76px;
+        }
+        
+        .uvf-center-play-btn svg {
+          width: 34px;
+          height: 34px;
+        }
+        
+        /* Tablet volume control - keep desktop functionality */
+        .uvf-volume-panel {
+          display: flex;
+        }
+        
+        .uvf-volume-slider {
+          width: 100px;
+        }
+        
+        /* Show quality badge on tablets */
+        .uvf-quality-badge {
+          font-size: 10px;
+          padding: 3px 6px;
+        }
+        
+        /* Tablet progress bar */
+        .uvf-progress-bar-wrapper {
+          height: 7px;
+        }
+        
+        .uvf-progress-handle {
+          width: 16px;
+          height: 16px;
+        }
+        
+        /* Settings menu for tablets */
+        .uvf-settings-menu {
+          min-width: 180px;
+          font-size: 13px;
+        }
+        
+        .uvf-settings-option {
+          padding: 10px 14px;
+          font-size: 13px;
+        }
+      }
+      
+      /* Large screens - Enhanced desktop experience */
+      @media screen and (min-width: 1024px) {
+        .uvf-responsive-container {
+          padding: 10px;
+        }
+        
+        .uvf-controls-bar {
+          padding: 20px;
+          background: linear-gradient(to top, var(--uvf-overlay-strong) 0%, var(--uvf-overlay-medium) 60%, var(--uvf-overlay-transparent) 100%);
+        }
+        
+        .uvf-progress-section {
+          margin-bottom: 16px;
+        }
+        
+        .uvf-controls-row {
+          gap: 14px;
+        }
+        
+        /* Desktop controls with enhanced hover */
+        .uvf-control-btn {
+          width: 40px;
+          height: 40px;
+          transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        
+        .uvf-control-btn:hover {
+          transform: scale(1.1);
+          background: var(--uvf-overlay-medium);
+        }
+        
+        .uvf-control-btn:active {
+          transform: scale(0.95);
+        }
+        
+        .uvf-control-btn svg {
+          width: 20px;
+          height: 20px;
+          transition: all 0.2s ease;
+        }
+        
+        .uvf-control-btn:hover svg {
+          opacity: 1;
+        }
+        
+        .uvf-control-btn.play-pause {
+          width: 50px;
+          height: 50px;
+        }
+        
+        .uvf-control-btn.play-pause:hover {
+          transform: scale(1.08);
+          background: var(--uvf-primary-color);
+        }
+        
+        .uvf-control-btn.play-pause svg {
+          width: 24px;
+          height: 24px;
+        }
+        
+        /* Enhanced top controls */
+        .uvf-top-btn {
+          width: 40px;
+          height: 40px;
+          transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        
+        .uvf-top-btn:hover {
+          transform: scale(1.1);
+          background: var(--uvf-overlay-medium);
+        }
+        
+        .uvf-top-btn svg {
+          width: 20px;
+          height: 20px;
+        }
+        
+        .uvf-top-controls {
+          top: 20px;
+          right: 20px;
+          gap: 10px;
+        }
+        
+        .uvf-title-bar {
+          padding: 20px;
+        }
+        
+        .uvf-video-title {
+          font-size: 18px;
+          font-weight: 600;
+        }
+        
+        .uvf-video-subtitle {
+          font-size: 13px;
+          opacity: 0.9;
+        }
+        
+        .uvf-time-display {
+          font-size: 14px;
+          font-weight: 500;
+          min-width: 120px;
+          padding: 0 10px;
+        }
+        
+        /* Enhanced center play button */
+        .uvf-center-play-btn {
+          width: 80px;
+          height: 80px;
+          transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        
+        .uvf-center-play-btn:hover {
+          transform: scale(1.1);
+          background: var(--uvf-primary-color);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .uvf-center-play-btn svg {
+          width: 35px;
+          height: 35px;
+        }
+        
+        /* Enhanced progress bar for desktop */
+        .uvf-progress-bar-wrapper:hover .uvf-progress-handle {
+          transform: scale(1.2);
+        }
+        
+        .uvf-progress-bar-wrapper:hover .uvf-progress-bar {
+          height: 6px;
+        }
+        
+        /* Volume slider enhancements */
+        .uvf-volume-panel:hover .uvf-volume-slider {
+          width: 120px;
+        }
+        
+        .uvf-volume-slider {
+          transition: width 0.2s ease;
+        }
+        
+        /* Settings menu enhancement */
+        .uvf-settings-menu {
+          backdrop-filter: blur(10px);
+          background: rgba(0, 0, 0, 0.85);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .uvf-settings-option:hover {
+          background: var(--uvf-overlay-medium);
+          transform: translateX(4px);
+        }
+      }
+      
+      /* Ultra-wide screens (1440px and above) */
+      @media screen and (min-width: 1440px) {
+        .uvf-controls-bar {
+          padding: 24px;
+        }
+        
+        .uvf-control-btn {
+          width: 44px;
+          height: 44px;
+        }
+        
+        .uvf-control-btn svg {
+          width: 22px;
+          height: 22px;
+        }
+        
+        .uvf-control-btn.play-pause {
+          width: 56px;
+          height: 56px;
+        }
+        
+        .uvf-control-btn.play-pause svg {
           width: 28px;
           height: 28px;
         }
         
+        .uvf-top-btn {
+          width: 44px;
+          height: 44px;
+        }
+        
         .uvf-top-btn svg {
-          width: 14px;
-          height: 14px;
-        }
-        
-        .uvf-time-display {
-          font-size: 10px;
-          min-width: 80px;
-        }
-      }
-      
-      /* Tablet devices */
-      @media screen and (min-width: 768px) and (max-width: 1023px) {
-        .uvf-controls-bar {
-          padding: 18px 15px;
-        }
-        
-        .uvf-control-btn {
-          width: 36px;  /* 90% of desktop size for tablets */
-          height: 36px;
-        }
-        
-        .uvf-control-btn svg {
-          width: 18px;
-          height: 18px;
-        }
-        
-        .uvf-control-btn.play-pause {
-          width: 45px;  /* 90% of 50px */
-          height: 45px;
-        }
-        
-        .uvf-control-btn.play-pause svg {
-          width: 22px;  /* 90% of 24px */
+          width: 22px;
           height: 22px;
         }
         
-        .uvf-top-btn {
-          width: 36px;
-          height: 36px;
-        }
-        
-        .uvf-top-btn svg {
-          width: 18px;
-          height: 18px;
-        }
-        
-        .uvf-top-controls {
-          top: 15px;
-          right: 15px;
-        }
-        
-        .uvf-title-bar {
-          padding: 15px;
-        }
-        
-        .uvf-video-title {
-          font-size: 16px;  /* 90% of 18px */
-        }
-        
-        .uvf-video-subtitle {
-          font-size: 12px;  /* 90% of 13px */
-        }
-        
-        .uvf-time-display {
-          font-size: 13px;  /* 90% of 14px */
-          min-width: 108px;  /* 90% of 120px */
-        }
-        
         .uvf-center-play-btn {
-          width: 72px;  /* 90% of 80px */
-          height: 72px;
+          width: 90px;
+          height: 90px;
         }
         
         .uvf-center-play-btn svg {
-          width: 32px;  /* 90% of 35px */
-          height: 32px;
+          width: 40px;
+          height: 40px;
+        }
+        
+        .uvf-video-title {
+          font-size: 20px;
+        }
+        
+        .uvf-time-display {
+          font-size: 15px;
+          min-width: 130px;
+        }
+        
+        .uvf-volume-slider {
+          width: 130px;
+        }
+        
+        .uvf-volume-panel:hover .uvf-volume-slider {
+          width: 150px;
         }
       }
       
-      /* Large screens */
-      @media screen and (min-width: 1024px) {
-        .uvf-responsive-container {
-          padding: 10px;
+      /* High-DPI display optimizations */
+      @media screen and (-webkit-min-device-pixel-ratio: 2), 
+             screen and (min-resolution: 192dpi) {
+        .uvf-control-btn,
+        .uvf-top-btn {
+          image-rendering: -webkit-optimize-contrast;
+          image-rendering: crisp-edges;
+        }
+        
+        .uvf-progress-handle {
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .uvf-settings-menu {
+          border-width: 0.5px;
+        }
+      }
+      
+      /* Reduced motion accessibility */
+      @media (prefers-reduced-motion: reduce) {
+        .uvf-control-btn,
+        .uvf-top-btn,
+        .uvf-center-play-btn,
+        .uvf-progress-handle,
+        .uvf-volume-slider,
+        .uvf-settings-option {
+          transition: none !important;
+        }
+        
+        .uvf-control-btn:hover,
+        .uvf-top-btn:hover,
+        .uvf-center-play-btn:hover {
+          transform: none !important;
         }
       }
       
@@ -2729,6 +3217,75 @@ export class WebPlayer extends BasePlayer {
         
         .uvf-volume-slider {
           height: 10px;
+        }
+        
+        /* Touch-specific hover replacements */
+        .uvf-control-btn:active {
+          background: var(--uvf-overlay-medium);
+          transform: scale(0.95);
+        }
+        
+        .uvf-top-btn:active {
+          background: var(--uvf-overlay-medium);
+          transform: scale(0.95);
+        }
+      }
+      
+      /* Keyboard navigation and accessibility */
+      .uvf-control-btn:focus-visible,
+      .uvf-top-btn:focus-visible,
+      .uvf-center-play-btn:focus-visible {
+        outline: 2px solid var(--uvf-primary-color, #007bff);
+        outline-offset: 2px;
+        background: var(--uvf-overlay-medium);
+      }
+      
+      .uvf-progress-bar-wrapper:focus-visible {
+        outline: 2px solid var(--uvf-primary-color, #007bff);
+        outline-offset: 2px;
+      }
+      
+      .uvf-volume-slider:focus-visible {
+        outline: 2px solid var(--uvf-primary-color, #007bff);
+        outline-offset: 1px;
+      }
+      
+      .uvf-settings-option:focus-visible {
+        background: var(--uvf-overlay-medium);
+        outline: 2px solid var(--uvf-primary-color, #007bff);
+        outline-offset: -2px;
+      }
+      
+      /* Screen reader and accessibility improvements */
+      .uvf-sr-only {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
+      }
+      
+      /* High contrast mode support */
+      @media (prefers-contrast: high) {
+        .uvf-control-btn,
+        .uvf-top-btn {
+          border: 1px solid;
+        }
+        
+        .uvf-progress-bar {
+          border: 1px solid;
+        }
+        
+        .uvf-progress-handle {
+          border: 2px solid;
+        }
+        
+        .uvf-settings-menu {
+          border: 2px solid;
         }
       }
       

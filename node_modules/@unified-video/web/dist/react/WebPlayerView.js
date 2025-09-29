@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { WebPlayer } from "../WebPlayer.js";
+import { WebPlayer } from '../WebPlayer';
 let EPGOverlay = null;
 const loadEPGComponents = async () => {
     if (!EPGOverlay) {
