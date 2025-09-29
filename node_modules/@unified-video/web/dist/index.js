@@ -1,7 +1,7 @@
-export * from "../../core/dist/index.js";
-export { WebPlayer } from "./WebPlayer.js";
-export { WebPlayerView } from "./react/WebPlayerView.js";
-export { SecureVideoPlayer } from "./SecureVideoPlayer.js";
-export * from "./react/EPG.js";
+export * from '@unified-video/core';
+export { WebPlayer } from './WebPlayer';
+export { WebPlayerView } from './react/WebPlayerView';
+export { SecureVideoPlayer } from './SecureVideoPlayer';
+export * from './react/EPG';
 export const VERSION = '1.0.0';
 //# sourceMappingURL=index.js.map
