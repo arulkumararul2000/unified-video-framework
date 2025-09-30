@@ -1,6 +1,6 @@
 {
   "name": "unified-video-framework",
-  "version": "1.4.92",
+  "version": "1.4.95",
   "description": "Cross-platform video player framework supporting iOS, Android, Web, Smart TVs (Samsung/LG), Roku, and more",
   "main": "packages/core/dist/index.js",
   "types": "packages/core/dist/index.d.ts",
@@ -106,12 +106,14 @@
     "player",
     "streaming",
     "cross-platform",
+    "react",
     "react-native",
     "enact",
     "smart-tv",
     "tizen",
     "webos",
     "roku",
+    "accessibility",
     "drm",
     "hls",
     "dash"

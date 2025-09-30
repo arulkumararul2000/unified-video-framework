@@ -2827,9 +2827,9 @@ export class WebPlayer extends BasePlayer {
           align-items: center;
         }
         
-        /* Hide less essential controls on mobile */
+        /* Remove quality badge completely - not essential */
         .uvf-quality-badge {
-          display: none;
+          display: none !important;
         }
         
         /* Settings menu - hidden by default, accessible via menu */
@@ -2885,9 +2885,9 @@ export class WebPlayer extends BasePlayer {
           height: 20px;
         }
         
-        /* Hide less essential top controls on mobile */
+        /* Share button - keep visible on all devices */
         #uvf-share-btn {
-          display: none;
+          display: block;
         }
         
         /* Enhanced title bar for mobile */
@@ -2987,14 +2987,22 @@ export class WebPlayer extends BasePlayer {
         .uvf-time-display { order: 5; }
         .uvf-right-controls { order: 6; }
         
-        /* Hide PiP on mobile - not commonly supported */
+        /* Show PiP on all devices - modern mobile browsers support it well */
         #uvf-pip-btn {
+          display: block;
+        }
+        
+        /* Essential controls in right section - Settings, PiP, and Fullscreen only */
+        .uvf-right-controls > *:not(#uvf-settings-btn):not(#uvf-fullscreen-btn):not(#uvf-pip-btn) {
           display: none;
         }
         
-        /* Essential controls only in right section */
-        .uvf-right-controls > *:not(#uvf-settings-btn):not(#uvf-fullscreen-btn) {
-          display: none;
+        /* Hide skip buttons on small mobile devices to save space */
+        @media screen and (max-width: 480px) {
+          #uvf-skip-back,
+          #uvf-skip-forward {
+            display: none;
+          }
         }
         
         /* Ensure all controls remain visible and functional */
@@ -3509,6 +3517,11 @@ export class WebPlayer extends BasePlayer {
         .uvf-center-play-btn:hover {
           transform: none !important;
         }
+      }
+      
+      /* Global control visibility rules */
+      .uvf-quality-badge {
+        display: none !important; /* Remove quality badge from all devices */
       }
       
       /* Define overlay variables late to allow theme overrides elsewhere if needed */
