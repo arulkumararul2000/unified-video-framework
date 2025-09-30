@@ -31,9 +31,14 @@ export class WebPlayer extends BasePlayer {
   private autoQuality: boolean = true;
   private useCustomControls: boolean = true;
   private controlsContainer: HTMLElement | null = null;
-  private hideControlsTimeout: any = null;
-  private volumeHideTimeout: any = null;
+  private volumeHideTimeout: NodeJS.Timeout | null = null;
+  private hideControlsTimeout: NodeJS.Timeout | null = null;
   private isVolumeSliding: boolean = false;
+  private availableQualities: Array<{value: string, label: string}> = [];
+  private availableSubtitles: Array<{value: string, label: string}> = [];
+  private currentQuality = 'auto';
+  private currentSubtitle = 'off';
+  private currentPlaybackRate = 1;
   private isDragging: boolean = false;
   private watermarkCanvas: HTMLCanvasElement | null = null;
   private playerWrapper: HTMLElement | null = null;
@@ -471,6 +476,9 @@ export class WebPlayer extends BasePlayer {
           index: index
         }));
 
+        // Update settings menu with detected qualities
+        this.updateSettingsMenu();
+
         // Start playback if autoPlay is enabled
         if (this.config.autoPlay) {
           this.play();
@@ -565,6 +573,9 @@ export class WebPlayer extends BasePlayer {
           label: `${info.height}p`,
           index: index
         }));
+        
+        // Update settings menu with detected qualities
+        this.updateSettingsMenu();
       }
     });
 
@@ -747,11 +758,6 @@ export class WebPlayer extends BasePlayer {
     super.unmute();
   }
 
-  setPlaybackRate(rate: number): void {
-    if (!this.video) return;
-    this.video.playbackRate = rate;
-    super.setPlaybackRate(rate);
-  }
 
   getCurrentTime(): number {
     if (this.video && typeof this.video.currentTime === 'number') {
@@ -778,6 +784,13 @@ export class WebPlayer extends BasePlayer {
     this.currentQualityIndex = index;
     this.autoQuality = false;
   }
+
+  setPlaybackRate(rate: number): void {
+    if (!this.video) return;
+    this.video.playbackRate = rate;
+    super.setPlaybackRate(rate);
+  }
+
 
   setAutoQuality(enabled: boolean): void {
     this.autoQuality = enabled;
@@ -2862,12 +2875,16 @@ export class WebPlayer extends BasePlayer {
         }
         }
         
-        /* Enhanced top controls for mobile */
-        .uvf-top-controls {
-          top: 12px;
-          right: 12px;
-          gap: 8px;
-        }
+      /* Enhanced top controls for mobile with proper alignment */
+      .uvf-top-controls {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 10;
+      }
         
         /* Touch-friendly top buttons */
         .uvf-top-btn {
@@ -3344,9 +3361,13 @@ export class WebPlayer extends BasePlayer {
         }
         
         .uvf-top-controls {
+          position: absolute;
           top: 20px;
           right: 20px;
-          gap: 10px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          z-index: 10;
         }
         
         .uvf-title-bar {
@@ -3370,22 +3391,49 @@ export class WebPlayer extends BasePlayer {
           padding: 0 10px;
         }
         
-        /* Enhanced center play button */
+        /* Enhanced center play button with smooth transitions */
         .uvf-center-play-btn {
           width: 80px;
           height: 80px;
-          transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+          background: rgba(0, 0, 0, 0.6);
+          border-radius: 50%;
+          opacity: 0.9;
+          backdrop-filter: blur(4px);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transform: scale(1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          cursor: pointer;
         }
         
         .uvf-center-play-btn:hover {
           transform: scale(1.1);
-          background: var(--uvf-primary-color);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+          background: rgba(255, 87, 34, 0.9);
+          opacity: 1;
+          box-shadow: 0 8px 24px rgba(255, 87, 34, 0.4);
+        }
+        
+        .uvf-center-play-btn:active {
+          transform: scale(0.95);
+          transition: all 0.1s ease;
         }
         
         .uvf-center-play-btn svg {
           width: 35px;
           height: 35px;
+          fill: #fff;
+        }
+        
+        /* Optional: Add subtle pulse animation on idle */
+        @keyframes uvf-pulse {
+          0%, 100% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.05); opacity: 1; }
+        }
+        
+        .uvf-center-play-btn.uvf-pulse {
+          animation: uvf-pulse 2s ease-in-out infinite;
         }
         
         /* Enhanced progress bar for desktop */
@@ -3733,7 +3781,7 @@ export class WebPlayer extends BasePlayer {
     `;
     container.appendChild(titleBar);
     
-    // Add top controls
+    // Add top controls with proper alignment
     const topControls = document.createElement('div');
     topControls.className = 'uvf-top-controls';
     topControls.innerHTML = `
@@ -3748,7 +3796,7 @@ export class WebPlayer extends BasePlayer {
         </svg>
         <span>Stop Casting</span>
       </button>
-      <div class="uvf-top-btn" id="uvf-share-btn" title="Share">
+      <div class="uvf-top-btn" id="uvf-share-btn" title="Share" aria-label="Share">
         <svg viewBox="0 0 24 24">
           <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
         </svg>
@@ -3763,9 +3811,9 @@ export class WebPlayer extends BasePlayer {
     loadingContainer.innerHTML = '<div class="uvf-loading-spinner"></div>';
     container.appendChild(loadingContainer);
 
-    // Add center play button
+    // Add center play button with pulse animation
     const centerPlayBtn = document.createElement('div');
-    centerPlayBtn.className = 'uvf-center-play-btn';
+    centerPlayBtn.className = 'uvf-center-play-btn uvf-pulse';
     centerPlayBtn.id = 'uvf-center-play';
     centerPlayBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
     container.appendChild(centerPlayBtn);
@@ -3880,28 +3928,13 @@ export class WebPlayer extends BasePlayer {
     settingsBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
     settingsContainer.appendChild(settingsBtn);
     
-    // Settings menu
+    // Settings menu - will be populated dynamically based on video capabilities
     const settingsMenu = document.createElement('div');
     settingsMenu.className = 'uvf-settings-menu';
     settingsMenu.id = 'uvf-settings-menu';
-    settingsMenu.innerHTML = `
-      <div class="uvf-settings-group">
-        <div class="uvf-settings-label">Playback Speed</div>
-        <div class="uvf-settings-option speed-option" data-speed="0.5">0.5x</div>
-        <div class="uvf-settings-option speed-option" data-speed="0.75">0.75x</div>
-        <div class="uvf-settings-option speed-option active" data-speed="1">Normal</div>
-        <div class="uvf-settings-option speed-option" data-speed="1.25">1.25x</div>
-        <div class="uvf-settings-option speed-option" data-speed="1.5">1.5x</div>
-        <div class="uvf-settings-option speed-option" data-speed="2">2x</div>
-      </div>
-      <div class="uvf-settings-group">
-        <div class="uvf-settings-label">Quality</div>
-        <div class="uvf-settings-option quality-option active" data-quality="auto">Auto</div>
-        <div class="uvf-settings-option quality-option" data-quality="1080">1080p</div>
-        <div class="uvf-settings-option quality-option" data-quality="720">720p</div>
-        <div class="uvf-settings-option quality-option" data-quality="480">480p</div>
-      </div>
-    `;
+    // Initially empty - will be populated by updateSettingsMenu method
+    settingsMenu.innerHTML = '';
+    settingsMenu.style.display = 'none';
     settingsContainer.appendChild(settingsMenu);
     rightControls.appendChild(settingsContainer);
     
@@ -4012,7 +4045,7 @@ export class WebPlayer extends BasePlayer {
     
     // Volume panel interactions
     volumeBtn?.addEventListener('mouseenter', () => {
-      clearTimeout(this.volumeHideTimeout);
+      if (this.volumeHideTimeout) clearTimeout(this.volumeHideTimeout);
       volumePanel?.classList.add('active');
     });
     
@@ -4025,7 +4058,7 @@ export class WebPlayer extends BasePlayer {
     });
     
     volumePanel?.addEventListener('mouseenter', () => {
-      clearTimeout(this.volumeHideTimeout);
+      if (this.volumeHideTimeout) clearTimeout(this.volumeHideTimeout);
       volumePanel.classList.add('active');
     });
     
@@ -4196,12 +4229,19 @@ export class WebPlayer extends BasePlayer {
     this.video.addEventListener('canplay', () => {
       const loading = document.getElementById('uvf-loading');
       if (loading) loading.classList.remove('active');
+      // Update settings menu when video is ready
+      this.updateSettingsMenu();
+    });
+
+    this.video.addEventListener('loadedmetadata', () => {
+      // Update settings menu when metadata is loaded
+      this.updateSettingsMenu();
     });
     
     // Note: Enhanced mouse movement and control visibility handled in setupFullscreenListeners()
     
     this.controlsContainer?.addEventListener('mouseenter', () => {
-      clearTimeout(this.hideControlsTimeout);
+      if (this.hideControlsTimeout) clearTimeout(this.hideControlsTimeout);
     });
     
     this.controlsContainer?.addEventListener('mouseleave', () => {
@@ -4214,29 +4254,13 @@ export class WebPlayer extends BasePlayer {
     progressBar?.addEventListener('mousemove', (e) => this.updateTimeTooltip(e as MouseEvent));
     progressBar?.addEventListener('mouseleave', () => this.hideTimeTooltip());
     
-    // Settings menu
+    // Settings menu - dynamically populated
     const settingsMenu = document.getElementById('uvf-settings-menu');
     settingsBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
+      // Update the menu content before showing it
+      this.updateSettingsMenu();
       settingsMenu?.classList.toggle('active');
-    });
-    
-    // Speed options
-    document.querySelectorAll('.speed-option').forEach(option => {
-      option.addEventListener('click', (e) => {
-        const speed = parseFloat((e.target as HTMLElement).dataset.speed || '1');
-        this.setSpeed(speed);
-        settingsMenu?.classList.remove('active');
-      });
-    });
-    
-    // Quality options
-    document.querySelectorAll('.quality-option').forEach(option => {
-      option.addEventListener('click', (e) => {
-        const quality = (e.target as HTMLElement).dataset.quality;
-        this.setQualityByLabel(quality || 'auto');
-        settingsMenu?.classList.remove('active');
-      });
     });
     
     // EPG button
@@ -4720,7 +4744,7 @@ export class WebPlayer extends BasePlayer {
   }
 
   private showControls(): void {
-    clearTimeout(this.hideControlsTimeout);
+    if (this.hideControlsTimeout) clearTimeout(this.hideControlsTimeout);
     const wrapper = this.container?.querySelector('.uvf-player-wrapper');
     if (wrapper) {
       wrapper.classList.add('controls-visible');
@@ -4741,7 +4765,7 @@ export class WebPlayer extends BasePlayer {
   private scheduleHideControls(): void {
     if (!this.state.isPlaying) return;
     
-    clearTimeout(this.hideControlsTimeout);
+    if (this.hideControlsTimeout) clearTimeout(this.hideControlsTimeout);
     // Use longer timeout in fullscreen for better UX
     const timeout = this.isFullscreen() ? 4000 : 3000;
     this.hideControlsTimeout = setTimeout(() => {
@@ -5382,6 +5406,267 @@ export class WebPlayer extends BasePlayer {
     }
   }
 
+  /**
+   * Dynamically populate settings menu based on video capabilities
+   */
+  private updateSettingsMenu(): void {
+    const settingsMenu = document.getElementById('uvf-settings-menu');
+    if (!settingsMenu) return;
+
+    // Detect available qualities from video
+    this.detectAvailableQualities();
+    // Detect available subtitles
+    this.detectAvailableSubtitles();
+
+    let menuHTML = '';
+
+    // Playback Speed Section
+    menuHTML += `
+      <div class="uvf-settings-group">
+        <div class="uvf-settings-label">Playback Speed</div>
+        <div class="uvf-settings-option speed-option" data-speed="0.25">0.25x</div>
+        <div class="uvf-settings-option speed-option" data-speed="0.5">0.5x</div>
+        <div class="uvf-settings-option speed-option" data-speed="0.75">0.75x</div>
+        <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 1 ? 'active' : ''}" data-speed="1">Normal</div>
+        <div class="uvf-settings-option speed-option" data-speed="1.25">1.25x</div>
+        <div class="uvf-settings-option speed-option" data-speed="1.5">1.5x</div>
+        <div class="uvf-settings-option speed-option" data-speed="1.75">1.75x</div>
+        <div class="uvf-settings-option speed-option" data-speed="2">2x</div>
+      </div>`;
+
+    // Quality Section (only if qualities detected)
+    if (this.availableQualities.length > 0) {
+      menuHTML += `<div class="uvf-settings-group">
+        <div class="uvf-settings-label">Quality</div>`;
+      
+      this.availableQualities.forEach(quality => {
+        const isActive = quality.value === this.currentQuality ? 'active' : '';
+        menuHTML += `<div class="uvf-settings-option quality-option ${isActive}" data-quality="${quality.value}">${quality.label}</div>`;
+      });
+      
+      menuHTML += `</div>`;
+    }
+
+    // Subtitles Section (only if subtitles available)
+    if (this.availableSubtitles.length > 0) {
+      menuHTML += `<div class="uvf-settings-group">
+        <div class="uvf-settings-label">Subtitles/Captions</div>`;
+      
+      this.availableSubtitles.forEach(subtitle => {
+        const isActive = subtitle.value === this.currentSubtitle ? 'active' : '';
+        menuHTML += `<div class="uvf-settings-option subtitle-option ${isActive}" data-subtitle="${subtitle.value}">${subtitle.label}</div>`;
+      });
+      
+      menuHTML += `</div>`;
+    }
+
+    settingsMenu.innerHTML = menuHTML;
+
+    // Add event listeners for settings options
+    this.setupSettingsEventListeners();
+  }
+
+  /**
+   * Detect available video qualities from different sources
+   */
+  private detectAvailableQualities(): void {
+    this.availableQualities = [{ value: 'auto', label: 'Auto' }];
+
+    if (this.hls && this.hls.levels) {
+      // HLS qualities
+      this.hls.levels.forEach((level: any, index: number) => {
+        if (level.height) {
+          this.availableQualities.push({
+            value: index.toString(),
+            label: `${level.height}p`
+          });
+        }
+      });
+    } else if (this.dash && this.dash.getBitrateInfoListFor) {
+      // DASH qualities
+      try {
+        const videoQualities = this.dash.getBitrateInfoListFor('video');
+        videoQualities.forEach((quality: any, index: number) => {
+          if (quality.height) {
+            this.availableQualities.push({
+              value: index.toString(),
+              label: `${quality.height}p`
+            });
+          }
+        });
+      } catch (e) {
+        this.debugError('Error detecting DASH qualities:', e);
+      }
+    } else if (this.video?.videoHeight) {
+      // Native video - add common resolutions based on current resolution
+      const height = this.video.videoHeight;
+      const commonQualities = [2160, 1440, 1080, 720, 480, 360];
+      
+      commonQualities.forEach(quality => {
+        if (quality <= height) {
+          this.availableQualities.push({
+            value: quality.toString(),
+            label: `${quality}p`
+          });
+        }
+      });
+    }
+  }
+
+  /**
+   * Detect available subtitle tracks
+   */
+  private detectAvailableSubtitles(): void {
+    this.availableSubtitles = [{ value: 'off', label: 'Off' }];
+
+    if (this.video?.textTracks) {
+      // HTML5 text tracks
+      Array.from(this.video.textTracks).forEach((track, index) => {
+        if (track.kind === 'subtitles' || track.kind === 'captions') {
+          this.availableSubtitles.push({
+            value: index.toString(),
+            label: track.label || track.language || `Track ${index + 1}`
+          });
+        }
+      });
+    }
+
+    // HLS subtitles
+    if (this.hls && this.hls.subtitleTracks) {
+      this.hls.subtitleTracks.forEach((track: any, index: number) => {
+        this.availableSubtitles.push({
+          value: `hls-${index}`,
+          label: track.name || track.lang || `Track ${index + 1}`
+        });
+      });
+    }
+  }
+
+  /**
+   * Setup event listeners for settings menu options
+   */
+  private setupSettingsEventListeners(): void {
+    const settingsMenu = document.getElementById('uvf-settings-menu');
+    if (!settingsMenu) return;
+
+    // Speed options
+    settingsMenu.querySelectorAll('.speed-option').forEach(option => {
+      option.addEventListener('click', (e) => {
+        const speed = parseFloat((e.target as HTMLElement).dataset.speed || '1');
+        this.setPlaybackRateFromSettings(speed);
+        this.updateSettingsActiveStates('speed-option', e.target as HTMLElement);
+      });
+    });
+
+    // Quality options
+    settingsMenu.querySelectorAll('.quality-option').forEach(option => {
+      option.addEventListener('click', (e) => {
+        const quality = (e.target as HTMLElement).dataset.quality || 'auto';
+        this.setQualityFromSettings(quality);
+        this.updateSettingsActiveStates('quality-option', e.target as HTMLElement);
+      });
+    });
+
+    // Subtitle options
+    settingsMenu.querySelectorAll('.subtitle-option').forEach(option => {
+      option.addEventListener('click', (e) => {
+        const subtitle = (e.target as HTMLElement).dataset.subtitle || 'off';
+        this.setSubtitle(subtitle);
+        this.updateSettingsActiveStates('subtitle-option', e.target as HTMLElement);
+      });
+    });
+  }
+
+  /**
+   * Update active states in settings menu
+   */
+  private updateSettingsActiveStates(className: string, activeElement: HTMLElement): void {
+    const settingsMenu = document.getElementById('uvf-settings-menu');
+    if (!settingsMenu) return;
+
+    // Remove active class from all options of this type
+    settingsMenu.querySelectorAll(`.${className}`).forEach(option => {
+      option.classList.remove('active');
+    });
+
+    // Add active class to selected option
+    activeElement.classList.add('active');
+  }
+
+  /**
+   * Set playback rate for settings menu
+   */
+  private setPlaybackRateFromSettings(rate: number): void {
+    this.currentPlaybackRate = rate;
+    if (this.video) {
+      this.video.playbackRate = rate;
+    }
+    this.debugLog(`Playback rate set to ${rate}x`);
+  }
+
+  /**
+   * Set video quality for settings menu
+   */
+  private setQualityFromSettings(quality: string): void {
+    this.currentQuality = quality;
+    
+    if (quality === 'auto') {
+      // Enable auto quality
+      if (this.hls) {
+        this.hls.currentLevel = -1; // Auto
+      } else if (this.dash) {
+        this.dash.setAutoSwitchQualityFor('video', true);
+      }
+    } else {
+      // Set specific quality
+      const qualityIndex = parseInt(quality);
+      
+      if (this.hls && !isNaN(qualityIndex) && this.hls.levels[qualityIndex]) {
+        this.hls.currentLevel = qualityIndex;
+      } else if (this.dash && !isNaN(qualityIndex)) {
+        this.dash.setAutoSwitchQualityFor('video', false);
+        this.dash.setQualityFor('video', qualityIndex);
+      }
+    }
+    
+    this.debugLog(`Quality set to ${quality}`);
+  }
+
+  /**
+   * Set subtitle track
+   */
+  private setSubtitle(subtitle: string): void {
+    this.currentSubtitle = subtitle;
+    
+    if (subtitle === 'off') {
+      // Disable all subtitles
+      if (this.video?.textTracks) {
+        Array.from(this.video.textTracks).forEach(track => {
+          track.mode = 'disabled';
+        });
+      }
+      if (this.hls) {
+        this.hls.subtitleTrack = -1;
+      }
+    } else if (subtitle.startsWith('hls-')) {
+      // HLS subtitle
+      const index = parseInt(subtitle.replace('hls-', ''));
+      if (this.hls && !isNaN(index)) {
+        this.hls.subtitleTrack = index;
+      }
+    } else {
+      // HTML5 text track
+      const trackIndex = parseInt(subtitle);
+      if (this.video?.textTracks && !isNaN(trackIndex)) {
+        Array.from(this.video.textTracks).forEach((track, index) => {
+          track.mode = index === trackIndex ? 'showing' : 'disabled';
+        });
+      }
+    }
+    
+    this.debugLog(`Subtitle set to ${subtitle}`);
+  }
+
   private _updateCastActiveTracks(): void {
     try {
       const castNs = (window as any).cast;
@@ -5921,9 +6206,11 @@ export class WebPlayer extends BasePlayer {
     // Clear timeouts
     if (this.hideControlsTimeout) {
       clearTimeout(this.hideControlsTimeout);
+      this.hideControlsTimeout = null;
     }
     if (this.volumeHideTimeout) {
       clearTimeout(this.volumeHideTimeout);
+      this.volumeHideTimeout = null;
     }
 
     // Clear security monitoring

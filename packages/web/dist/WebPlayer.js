@@ -10,9 +10,14 @@ export class WebPlayer extends BasePlayer {
         this.autoQuality = true;
         this.useCustomControls = true;
         this.controlsContainer = null;
-        this.hideControlsTimeout = null;
         this.volumeHideTimeout = null;
+        this.hideControlsTimeout = null;
         this.isVolumeSliding = false;
+        this.availableQualities = [];
+        this.availableSubtitles = [];
+        this.currentQuality = 'auto';
+        this.currentSubtitle = 'off';
+        this.currentPlaybackRate = 1;
         this.isDragging = false;
         this.watermarkCanvas = null;
         this.playerWrapper = null;
@@ -361,6 +366,7 @@ export class WebPlayer extends BasePlayer {
                     label: `${level.height}p`,
                     index: index
                 }));
+                this.updateSettingsMenu();
                 if (this.config.autoPlay) {
                     this.play();
                 }
@@ -443,6 +449,7 @@ export class WebPlayer extends BasePlayer {
                     label: `${info.height}p`,
                     index: index
                 }));
+                this.updateSettingsMenu();
             }
         });
         this.dash.on(window.dashjs.MediaPlayer.events.ERROR, (e) => {
@@ -599,12 +606,6 @@ export class WebPlayer extends BasePlayer {
         this.video.muted = false;
         super.unmute();
     }
-    setPlaybackRate(rate) {
-        if (!this.video)
-            return;
-        this.video.playbackRate = rate;
-        super.setPlaybackRate(rate);
-    }
     getCurrentTime() {
         if (this.video && typeof this.video.currentTime === 'number') {
             return this.video.currentTime;
@@ -626,6 +627,12 @@ export class WebPlayer extends BasePlayer {
         }
         this.currentQualityIndex = index;
         this.autoQuality = false;
+    }
+    setPlaybackRate(rate) {
+        if (!this.video)
+            return;
+        this.video.playbackRate = rate;
+        super.setPlaybackRate(rate);
     }
     setAutoQuality(enabled) {
         this.autoQuality = enabled;
@@ -2537,12 +2544,16 @@ export class WebPlayer extends BasePlayer {
         }
         }
         
-        /* Enhanced top controls for mobile */
-        .uvf-top-controls {
-          top: 12px;
-          right: 12px;
-          gap: 8px;
-        }
+      /* Enhanced top controls for mobile with proper alignment */
+      .uvf-top-controls {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 10;
+      }
         
         /* Touch-friendly top buttons */
         .uvf-top-btn {
@@ -3019,9 +3030,13 @@ export class WebPlayer extends BasePlayer {
         }
         
         .uvf-top-controls {
+          position: absolute;
           top: 20px;
           right: 20px;
-          gap: 10px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          z-index: 10;
         }
         
         .uvf-title-bar {
@@ -3045,22 +3060,49 @@ export class WebPlayer extends BasePlayer {
           padding: 0 10px;
         }
         
-        /* Enhanced center play button */
+        /* Enhanced center play button with smooth transitions */
         .uvf-center-play-btn {
           width: 80px;
           height: 80px;
-          transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+          background: rgba(0, 0, 0, 0.6);
+          border-radius: 50%;
+          opacity: 0.9;
+          backdrop-filter: blur(4px);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transform: scale(1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          cursor: pointer;
         }
         
         .uvf-center-play-btn:hover {
           transform: scale(1.1);
-          background: var(--uvf-primary-color);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+          background: rgba(255, 87, 34, 0.9);
+          opacity: 1;
+          box-shadow: 0 8px 24px rgba(255, 87, 34, 0.4);
+        }
+        
+        .uvf-center-play-btn:active {
+          transform: scale(0.95);
+          transition: all 0.1s ease;
         }
         
         .uvf-center-play-btn svg {
           width: 35px;
           height: 35px;
+          fill: #fff;
+        }
+        
+        /* Optional: Add subtle pulse animation on idle */
+        @keyframes uvf-pulse {
+          0%, 100% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.05); opacity: 1; }
+        }
+        
+        .uvf-center-play-btn.uvf-pulse {
+          animation: uvf-pulse 2s ease-in-out infinite;
         }
         
         /* Enhanced progress bar for desktop */
@@ -3416,7 +3458,7 @@ export class WebPlayer extends BasePlayer {
         </svg>
         <span>Stop Casting</span>
       </button>
-      <div class="uvf-top-btn" id="uvf-share-btn" title="Share">
+      <div class="uvf-top-btn" id="uvf-share-btn" title="Share" aria-label="Share">
         <svg viewBox="0 0 24 24">
           <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
         </svg>
@@ -3429,7 +3471,7 @@ export class WebPlayer extends BasePlayer {
         loadingContainer.innerHTML = '<div class="uvf-loading-spinner"></div>';
         container.appendChild(loadingContainer);
         const centerPlayBtn = document.createElement('div');
-        centerPlayBtn.className = 'uvf-center-play-btn';
+        centerPlayBtn.className = 'uvf-center-play-btn uvf-pulse';
         centerPlayBtn.id = 'uvf-center-play';
         centerPlayBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
         container.appendChild(centerPlayBtn);
@@ -3521,24 +3563,8 @@ export class WebPlayer extends BasePlayer {
         const settingsMenu = document.createElement('div');
         settingsMenu.className = 'uvf-settings-menu';
         settingsMenu.id = 'uvf-settings-menu';
-        settingsMenu.innerHTML = `
-      <div class="uvf-settings-group">
-        <div class="uvf-settings-label">Playback Speed</div>
-        <div class="uvf-settings-option speed-option" data-speed="0.5">0.5x</div>
-        <div class="uvf-settings-option speed-option" data-speed="0.75">0.75x</div>
-        <div class="uvf-settings-option speed-option active" data-speed="1">Normal</div>
-        <div class="uvf-settings-option speed-option" data-speed="1.25">1.25x</div>
-        <div class="uvf-settings-option speed-option" data-speed="1.5">1.5x</div>
-        <div class="uvf-settings-option speed-option" data-speed="2">2x</div>
-      </div>
-      <div class="uvf-settings-group">
-        <div class="uvf-settings-label">Quality</div>
-        <div class="uvf-settings-option quality-option active" data-quality="auto">Auto</div>
-        <div class="uvf-settings-option quality-option" data-quality="1080">1080p</div>
-        <div class="uvf-settings-option quality-option" data-quality="720">720p</div>
-        <div class="uvf-settings-option quality-option" data-quality="480">480p</div>
-      </div>
-    `;
+        settingsMenu.innerHTML = '';
+        settingsMenu.style.display = 'none';
         settingsContainer.appendChild(settingsMenu);
         rightControls.appendChild(settingsContainer);
         const epgBtn = document.createElement('button');
@@ -3628,7 +3654,8 @@ export class WebPlayer extends BasePlayer {
             this.toggleMuteAction();
         });
         volumeBtn?.addEventListener('mouseenter', () => {
-            clearTimeout(this.volumeHideTimeout);
+            if (this.volumeHideTimeout)
+                clearTimeout(this.volumeHideTimeout);
             volumePanel?.classList.add('active');
         });
         volumeBtn?.addEventListener('mouseleave', () => {
@@ -3639,7 +3666,8 @@ export class WebPlayer extends BasePlayer {
             }, 800);
         });
         volumePanel?.addEventListener('mouseenter', () => {
-            clearTimeout(this.volumeHideTimeout);
+            if (this.volumeHideTimeout)
+                clearTimeout(this.volumeHideTimeout);
             volumePanel.classList.add('active');
         });
         volumePanel?.addEventListener('mouseleave', () => {
@@ -3776,9 +3804,14 @@ export class WebPlayer extends BasePlayer {
             const loading = document.getElementById('uvf-loading');
             if (loading)
                 loading.classList.remove('active');
+            this.updateSettingsMenu();
+        });
+        this.video.addEventListener('loadedmetadata', () => {
+            this.updateSettingsMenu();
         });
         this.controlsContainer?.addEventListener('mouseenter', () => {
-            clearTimeout(this.hideControlsTimeout);
+            if (this.hideControlsTimeout)
+                clearTimeout(this.hideControlsTimeout);
         });
         this.controlsContainer?.addEventListener('mouseleave', () => {
             if (this.state.isPlaying) {
@@ -3790,21 +3823,8 @@ export class WebPlayer extends BasePlayer {
         const settingsMenu = document.getElementById('uvf-settings-menu');
         settingsBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
+            this.updateSettingsMenu();
             settingsMenu?.classList.toggle('active');
-        });
-        document.querySelectorAll('.speed-option').forEach(option => {
-            option.addEventListener('click', (e) => {
-                const speed = parseFloat(e.target.dataset.speed || '1');
-                this.setSpeed(speed);
-                settingsMenu?.classList.remove('active');
-            });
-        });
-        document.querySelectorAll('.quality-option').forEach(option => {
-            option.addEventListener('click', (e) => {
-                const quality = e.target.dataset.quality;
-                this.setQualityByLabel(quality || 'auto');
-                settingsMenu?.classList.remove('active');
-            });
         });
         const epgBtn = document.getElementById('uvf-epg-btn');
         epgBtn?.addEventListener('click', (e) => {
@@ -4233,7 +4253,8 @@ export class WebPlayer extends BasePlayer {
         }
     }
     showControls() {
-        clearTimeout(this.hideControlsTimeout);
+        if (this.hideControlsTimeout)
+            clearTimeout(this.hideControlsTimeout);
         const wrapper = this.container?.querySelector('.uvf-player-wrapper');
         if (wrapper) {
             wrapper.classList.add('controls-visible');
@@ -4252,7 +4273,8 @@ export class WebPlayer extends BasePlayer {
     scheduleHideControls() {
         if (!this.state.isPlaying)
             return;
-        clearTimeout(this.hideControlsTimeout);
+        if (this.hideControlsTimeout)
+            clearTimeout(this.hideControlsTimeout);
         const timeout = this.isFullscreen() ? 4000 : 3000;
         this.hideControlsTimeout = setTimeout(() => {
             if (this.state.isPlaying && !this.controlsContainer?.matches(':hover')) {
@@ -4889,6 +4911,200 @@ export class WebPlayer extends BasePlayer {
                 wrapper.classList.remove('uvf-casting');
         }
     }
+    updateSettingsMenu() {
+        const settingsMenu = document.getElementById('uvf-settings-menu');
+        if (!settingsMenu)
+            return;
+        this.detectAvailableQualities();
+        this.detectAvailableSubtitles();
+        let menuHTML = '';
+        menuHTML += `
+      <div class="uvf-settings-group">
+        <div class="uvf-settings-label">Playback Speed</div>
+        <div class="uvf-settings-option speed-option" data-speed="0.25">0.25x</div>
+        <div class="uvf-settings-option speed-option" data-speed="0.5">0.5x</div>
+        <div class="uvf-settings-option speed-option" data-speed="0.75">0.75x</div>
+        <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 1 ? 'active' : ''}" data-speed="1">Normal</div>
+        <div class="uvf-settings-option speed-option" data-speed="1.25">1.25x</div>
+        <div class="uvf-settings-option speed-option" data-speed="1.5">1.5x</div>
+        <div class="uvf-settings-option speed-option" data-speed="1.75">1.75x</div>
+        <div class="uvf-settings-option speed-option" data-speed="2">2x</div>
+      </div>`;
+        if (this.availableQualities.length > 0) {
+            menuHTML += `<div class="uvf-settings-group">
+        <div class="uvf-settings-label">Quality</div>`;
+            this.availableQualities.forEach(quality => {
+                const isActive = quality.value === this.currentQuality ? 'active' : '';
+                menuHTML += `<div class="uvf-settings-option quality-option ${isActive}" data-quality="${quality.value}">${quality.label}</div>`;
+            });
+            menuHTML += `</div>`;
+        }
+        if (this.availableSubtitles.length > 0) {
+            menuHTML += `<div class="uvf-settings-group">
+        <div class="uvf-settings-label">Subtitles/Captions</div>`;
+            this.availableSubtitles.forEach(subtitle => {
+                const isActive = subtitle.value === this.currentSubtitle ? 'active' : '';
+                menuHTML += `<div class="uvf-settings-option subtitle-option ${isActive}" data-subtitle="${subtitle.value}">${subtitle.label}</div>`;
+            });
+            menuHTML += `</div>`;
+        }
+        settingsMenu.innerHTML = menuHTML;
+        this.setupSettingsEventListeners();
+    }
+    detectAvailableQualities() {
+        this.availableQualities = [{ value: 'auto', label: 'Auto' }];
+        if (this.hls && this.hls.levels) {
+            this.hls.levels.forEach((level, index) => {
+                if (level.height) {
+                    this.availableQualities.push({
+                        value: index.toString(),
+                        label: `${level.height}p`
+                    });
+                }
+            });
+        }
+        else if (this.dash && this.dash.getBitrateInfoListFor) {
+            try {
+                const videoQualities = this.dash.getBitrateInfoListFor('video');
+                videoQualities.forEach((quality, index) => {
+                    if (quality.height) {
+                        this.availableQualities.push({
+                            value: index.toString(),
+                            label: `${quality.height}p`
+                        });
+                    }
+                });
+            }
+            catch (e) {
+                this.debugError('Error detecting DASH qualities:', e);
+            }
+        }
+        else if (this.video?.videoHeight) {
+            const height = this.video.videoHeight;
+            const commonQualities = [2160, 1440, 1080, 720, 480, 360];
+            commonQualities.forEach(quality => {
+                if (quality <= height) {
+                    this.availableQualities.push({
+                        value: quality.toString(),
+                        label: `${quality}p`
+                    });
+                }
+            });
+        }
+    }
+    detectAvailableSubtitles() {
+        this.availableSubtitles = [{ value: 'off', label: 'Off' }];
+        if (this.video?.textTracks) {
+            Array.from(this.video.textTracks).forEach((track, index) => {
+                if (track.kind === 'subtitles' || track.kind === 'captions') {
+                    this.availableSubtitles.push({
+                        value: index.toString(),
+                        label: track.label || track.language || `Track ${index + 1}`
+                    });
+                }
+            });
+        }
+        if (this.hls && this.hls.subtitleTracks) {
+            this.hls.subtitleTracks.forEach((track, index) => {
+                this.availableSubtitles.push({
+                    value: `hls-${index}`,
+                    label: track.name || track.lang || `Track ${index + 1}`
+                });
+            });
+        }
+    }
+    setupSettingsEventListeners() {
+        const settingsMenu = document.getElementById('uvf-settings-menu');
+        if (!settingsMenu)
+            return;
+        settingsMenu.querySelectorAll('.speed-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                const speed = parseFloat(e.target.dataset.speed || '1');
+                this.setPlaybackRateFromSettings(speed);
+                this.updateSettingsActiveStates('speed-option', e.target);
+            });
+        });
+        settingsMenu.querySelectorAll('.quality-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                const quality = e.target.dataset.quality || 'auto';
+                this.setQualityFromSettings(quality);
+                this.updateSettingsActiveStates('quality-option', e.target);
+            });
+        });
+        settingsMenu.querySelectorAll('.subtitle-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                const subtitle = e.target.dataset.subtitle || 'off';
+                this.setSubtitle(subtitle);
+                this.updateSettingsActiveStates('subtitle-option', e.target);
+            });
+        });
+    }
+    updateSettingsActiveStates(className, activeElement) {
+        const settingsMenu = document.getElementById('uvf-settings-menu');
+        if (!settingsMenu)
+            return;
+        settingsMenu.querySelectorAll(`.${className}`).forEach(option => {
+            option.classList.remove('active');
+        });
+        activeElement.classList.add('active');
+    }
+    setPlaybackRateFromSettings(rate) {
+        this.currentPlaybackRate = rate;
+        if (this.video) {
+            this.video.playbackRate = rate;
+        }
+        this.debugLog(`Playback rate set to ${rate}x`);
+    }
+    setQualityFromSettings(quality) {
+        this.currentQuality = quality;
+        if (quality === 'auto') {
+            if (this.hls) {
+                this.hls.currentLevel = -1;
+            }
+            else if (this.dash) {
+                this.dash.setAutoSwitchQualityFor('video', true);
+            }
+        }
+        else {
+            const qualityIndex = parseInt(quality);
+            if (this.hls && !isNaN(qualityIndex) && this.hls.levels[qualityIndex]) {
+                this.hls.currentLevel = qualityIndex;
+            }
+            else if (this.dash && !isNaN(qualityIndex)) {
+                this.dash.setAutoSwitchQualityFor('video', false);
+                this.dash.setQualityFor('video', qualityIndex);
+            }
+        }
+        this.debugLog(`Quality set to ${quality}`);
+    }
+    setSubtitle(subtitle) {
+        this.currentSubtitle = subtitle;
+        if (subtitle === 'off') {
+            if (this.video?.textTracks) {
+                Array.from(this.video.textTracks).forEach(track => {
+                    track.mode = 'disabled';
+                });
+            }
+            if (this.hls) {
+                this.hls.subtitleTrack = -1;
+            }
+        }
+        else if (subtitle.startsWith('hls-')) {
+            const index = parseInt(subtitle.replace('hls-', ''));
+            if (this.hls && !isNaN(index)) {
+                this.hls.subtitleTrack = index;
+            }
+        }
+        else {
+            const trackIndex = parseInt(subtitle);
+            if (this.video?.textTracks && !isNaN(trackIndex)) {
+                Array.from(this.video.textTracks).forEach((track, index) => {
+                    track.mode = index === trackIndex ? 'showing' : 'disabled';
+                });
+            }
+        }
+        this.debugLog(`Subtitle set to ${subtitle}`);
+    }
     _updateCastActiveTracks() {
         try {
             const castNs = window.cast;
@@ -5345,9 +5561,11 @@ export class WebPlayer extends BasePlayer {
         await this.cleanup();
         if (this.hideControlsTimeout) {
             clearTimeout(this.hideControlsTimeout);
+            this.hideControlsTimeout = null;
         }
         if (this.volumeHideTimeout) {
             clearTimeout(this.volumeHideTimeout);
+            this.volumeHideTimeout = null;
         }
         if (this.authValidationInterval) {
             clearInterval(this.authValidationInterval);
