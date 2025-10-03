@@ -122,8 +122,6 @@ export declare class WebPlayer extends BasePlayer {
     private scheduleHideControls;
     private isFullscreen;
     private setupFullscreenListeners;
-    private updateTimeTooltip;
-    private hideTimeTooltip;
     private showShortcutIndicator;
     setSettingsScrollbarStyle(mode: 'default' | 'compact' | 'overlay'): void;
     setSettingsScrollbarConfig(options: {

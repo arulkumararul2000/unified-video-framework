@@ -1,6 +1,6 @@
 {
   "name": "@unified-video/web",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "Web implementation of Unified Video Framework",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
