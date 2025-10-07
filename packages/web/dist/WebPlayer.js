@@ -2513,28 +2513,174 @@ export class WebPlayer extends BasePlayer {
         }
       }
       
+      /* Safe Area Variables - Support for modern mobile devices */
+      :root {
+        /* iOS Safe Area Fallbacks */
+        --uvf-safe-area-top: env(safe-area-inset-top, 0px);
+        --uvf-safe-area-right: env(safe-area-inset-right, 0px);
+        --uvf-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+        --uvf-safe-area-left: env(safe-area-inset-left, 0px);
+        
+        /* Dynamic Viewport Support */
+        --uvf-dvh: 1dvh;
+        --uvf-svh: 1svh;
+        --uvf-lvh: 1lvh;
+      }
+      
+      /* Cross-Browser Mobile Viewport Fixes */
+      
+      /* Modern browsers with dynamic viewport support */
+      @supports (height: 100dvh) {
+        .uvf-player-wrapper,
+        .uvf-video-container {
+          height: 100dvh;
+        }
+        
+        .uvf-responsive-container {
+          height: 100dvh;
+        }
+      }
+      
+      /* iOS Safari specific fixes - address bar handling */
+      @supports (-webkit-appearance: none) {
+        .uvf-player-wrapper.uvf-fullscreen,
+        .uvf-video-container.uvf-fullscreen {
+          height: -webkit-fill-available;
+          min-height: -webkit-fill-available;
+        }
+        
+        /* Handle iOS Safari's dynamic address bar */
+        @media screen and (max-width: 767px) {
+          .uvf-responsive-container {
+            height: -webkit-fill-available;
+            min-height: 100vh;
+          }
+          
+          .uvf-player-wrapper {
+            height: -webkit-fill-available;
+            min-height: 100vh;
+          }
+        }
+      }
+      
+      /* Android Chrome specific fixes */
+      @supports (display: -webkit-box) {
+        .uvf-responsive-container {
+          min-height: 100vh;
+        }
+        
+        /* Fix for Android Chrome's address bar behavior */
+        @media screen and (max-width: 767px) {
+          .uvf-video-container {
+            min-height: calc(100vh - 56px); /* Chrome mobile address bar height */
+          }
+        }
+      }
+      
+      /* Samsung Internet Browser fixes */
+      @media screen and (-webkit-min-device-pixel-ratio: 1) {
+        @media screen and (max-width: 767px) {
+          .uvf-responsive-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+          }
+        }
+      }
+      
+      /* Universal mobile fixes for all browsers */
+      @media screen and (max-width: 767px) {
+        html, body {
+          overflow-x: hidden;
+        }
+        
+        .uvf-player-wrapper {
+          /* Prevent scroll bounce on iOS */
+          -webkit-overflow-scrolling: touch;
+          overflow: hidden;
+          
+          /* Prevent zoom on double tap */
+          touch-action: manipulation;
+        }
+        
+        .uvf-video {
+          /* Prevent video from being selectable */
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+          
+          /* Ensure hardware acceleration */
+          -webkit-transform: translateZ(0);
+          transform: translateZ(0);
+        }
+        
+        /* Fix for controls being cut off by virtual keyboard */
+        .uvf-controls-bar {
+          position: fixed !important;
+          bottom: var(--uvf-safe-area-bottom, 0) !important;
+        }
+        
+        /* Ensure controls stay above virtual keyboards */
+        @supports (bottom: env(keyboard-inset-height)) {
+          .uvf-controls-bar {
+            bottom: max(var(--uvf-safe-area-bottom, 0), env(keyboard-inset-height, 0)) !important;
+          }
+        }
+      }
+      
       /* Enhanced Responsive Media Queries with UX Best Practices */
-      /* Mobile devices (portrait) - Enhanced UX */
+      /* Mobile devices (portrait) - Enhanced UX with Safe Areas */
       @media screen and (max-width: 767px) and (orientation: portrait) {
         .uvf-responsive-container {
           padding: 0;
           width: 100vw !important;
+          height: calc(100vh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
           margin: 0;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        @supports (height: 100dvh) {
+          .uvf-responsive-container {
+            height: calc(100dvh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
+          }
         }
         
         .uvf-responsive-container .uvf-player-wrapper {
           width: 100vw !important;
+          height: 100% !important;
+          min-height: calc(100vh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
+        }
+        
+        @supports (height: 100dvh) {
+          .uvf-responsive-container .uvf-player-wrapper {
+            min-height: calc(100dvh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
+          }
         }
         
         .uvf-responsive-container .uvf-video-container {
           width: 100vw !important;
+          height: 100% !important;
           aspect-ratio: unset !important;
+          min-height: inherit;
         }
         
-        /* Enhanced mobile controls bar with better spacing */
+        /* Enhanced mobile controls bar with safe area padding */
         .uvf-controls-bar {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
           padding: 16px 12px;
+          padding-bottom: calc(16px + var(--uvf-safe-area-bottom));
+          padding-left: calc(12px + var(--uvf-safe-area-left));
+          padding-right: calc(12px + var(--uvf-safe-area-right));
           background: linear-gradient(to top, var(--uvf-overlay-strong) 0%, var(--uvf-overlay-medium) 80%, var(--uvf-overlay-transparent) 100%);
+          box-sizing: border-box;
+          z-index: 1000;
         }
         
         .uvf-progress-section {
@@ -2706,11 +2852,11 @@ export class WebPlayer extends BasePlayer {
         }
         }
         
-      /* Enhanced top controls for mobile with proper alignment */
+      /* Enhanced top controls for mobile with safe area support */
       .uvf-top-controls {
         position: absolute;
-        top: 12px;
-        right: 12px;
+        top: calc(12px + var(--uvf-safe-area-top));
+        right: calc(12px + var(--uvf-safe-area-right));
         display: flex;
         align-items: center;
         gap: 8px;
@@ -2738,9 +2884,12 @@ export class WebPlayer extends BasePlayer {
           display: flex;
         }
         
-        /* Enhanced title bar for mobile */
+        /* Enhanced title bar for mobile with safe area support */
         .uvf-title-bar {
           padding: 12px;
+          padding-top: calc(12px + var(--uvf-safe-area-top));
+          padding-left: calc(12px + var(--uvf-safe-area-left));
+          padding-right: calc(12px + var(--uvf-safe-area-right));
         }
         
         .uvf-video-title {
@@ -2867,30 +3016,55 @@ export class WebPlayer extends BasePlayer {
         }
       }
       
-      /* Mobile devices (landscape) - Optimized for fullscreen viewing */
+      /* Mobile devices (landscape) - Optimized for fullscreen viewing with safe areas */
       @media screen and (max-width: 767px) and (orientation: landscape) {
         .uvf-responsive-container {
           width: 100vw !important;
-          height: 100vh !important;
+          height: calc(100vh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
           margin: 0;
           padding: 0;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        @supports (height: 100dvh) {
+          .uvf-responsive-container {
+            height: calc(100dvh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
+          }
         }
         
         .uvf-responsive-container .uvf-player-wrapper {
           width: 100vw !important;
-          height: 100vh !important;
+          height: 100% !important;
+          min-height: calc(100vh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
+        }
+        
+        @supports (height: 100dvh) {
+          .uvf-responsive-container .uvf-player-wrapper {
+            min-height: calc(100dvh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
+          }
         }
         
         .uvf-responsive-container .uvf-video-container {
           width: 100vw !important;
-          height: 100vh !important;
+          height: 100% !important;
           aspect-ratio: unset !important;
+          min-height: inherit;
         }
         
-        /* Compact controls for landscape */
+        /* Compact controls for landscape with safe area padding */
         .uvf-controls-bar {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
           padding: 10px 12px;
+          padding-bottom: calc(10px + var(--uvf-safe-area-bottom));
+          padding-left: calc(12px + var(--uvf-safe-area-left));
+          padding-right: calc(12px + var(--uvf-safe-area-right));
           background: linear-gradient(to top, var(--uvf-overlay-strong) 0%, var(--uvf-overlay-medium) 80%, var(--uvf-overlay-transparent) 100%);
+          box-sizing: border-box;
+          z-index: 1000;
         }
         
         .uvf-progress-section {
@@ -2926,11 +3100,18 @@ export class WebPlayer extends BasePlayer {
           height: 22px;
         }
         
-        /* Compact top controls */
+        /* Compact top controls with safe area padding */
         .uvf-top-controls {
-          top: 8px;
-          right: 12px;
+          top: calc(8px + var(--uvf-safe-area-top));
+          right: calc(12px + var(--uvf-safe-area-right));
           gap: 6px;
+        }
+        
+        .uvf-title-bar {
+          padding: 8px 12px;
+          padding-top: calc(8px + var(--uvf-safe-area-top));
+          padding-left: calc(12px + var(--uvf-safe-area-left));
+          padding-right: calc(12px + var(--uvf-safe-area-right));
         }
         
         .uvf-top-btn {
