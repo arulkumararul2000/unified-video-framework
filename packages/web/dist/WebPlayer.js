@@ -1877,6 +1877,56 @@ export class WebPlayer extends BasePlayer {
         opacity: 1;
       }
       
+      /* Fullscreen Button Specific Styling */
+      #uvf-fullscreen-btn {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.15);
+        position: relative;
+        z-index: 10;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      #uvf-fullscreen-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px rgba(255,255,255,0.15);
+      }
+      
+      #uvf-fullscreen-btn:active {
+        transform: scale(0.95);
+        transition: all 0.1s ease;
+      }
+      
+      #uvf-fullscreen-btn svg {
+        opacity: 0.9;
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+      }
+      
+      #uvf-fullscreen-btn:hover svg {
+        opacity: 1;
+        transform: scale(1.05);
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      }
+      
+      /* Fullscreen button state changes */
+      #uvf-fullscreen-btn.fullscreen-active {
+        background: linear-gradient(135deg, var(--uvf-accent-1), var(--uvf-accent-2));
+        border: 1px solid var(--uvf-accent-1);
+        box-shadow: 0 0 20px rgba(var(--uvf-accent-1), 0.3);
+      }
+      
+      #uvf-fullscreen-btn.fullscreen-active:hover {
+        background: linear-gradient(135deg, var(--uvf-accent-2), var(--uvf-accent-1));
+        transform: scale(1.1);
+        box-shadow: 0 0 25px rgba(var(--uvf-accent-1), 0.5);
+      }
+      
+      #uvf-fullscreen-btn.fullscreen-active svg {
+        opacity: 1;
+        color: white;
+        filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+      }
+      
       /* Settings Container */
       .uvf-settings-container {
         position: relative;
@@ -1887,28 +1937,115 @@ export class WebPlayer extends BasePlayer {
         min-height: 40px;
       }
       
-      /* Skip button specific styles for consistency */
+      /* Skip Buttons Specific Styling */
+      #uvf-skip-back,
+      #uvf-skip-forward {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.15);
+        position: relative;
+        z-index: 10;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      #uvf-skip-back:hover,
+      #uvf-skip-forward:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px rgba(255,255,255,0.15);
+      }
+      
+      #uvf-skip-back:active,
+      #uvf-skip-forward:active {
+        transform: scale(0.95);
+        transition: all 0.1s ease;
+      }
+      
       #uvf-skip-back svg,
       #uvf-skip-forward svg {
         width: 22px;
         height: 22px;
         stroke-width: 0;
         transform: scale(1);
+        opacity: 0.9;
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+      }
+      
+      #uvf-skip-back:hover svg,
+      #uvf-skip-forward:hover svg {
+        opacity: 1;
+        transform: scale(1.05);
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
       }
       
       #uvf-skip-forward svg {
         transform: scale(1) scaleX(-1); /* Mirror the icon for forward */
       }
       
+      #uvf-skip-forward:hover svg {
+        transform: scale(1.05) scaleX(-1); /* Keep mirror on hover */
+      }
+      
+      /* Volume Button Specific Styling */
+      #uvf-volume-btn {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.15);
+        position: relative;
+        z-index: 10;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      #uvf-volume-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px rgba(255,255,255,0.15);
+      }
+      
+      #uvf-volume-btn:active {
+        transform: scale(0.95);
+        transition: all 0.1s ease;
+      }
+      
+      #uvf-volume-btn svg {
+        opacity: 0.9;
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+      }
+      
+      #uvf-volume-btn:hover svg {
+        opacity: 1;
+        transform: scale(1.05);
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      }
+      
       .uvf-control-btn.play-pause {
         width: 50px;
         height: 50px;
         background: linear-gradient(135deg, var(--uvf-accent-1), var(--uvf-accent-2));
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      .uvf-control-btn.play-pause:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px rgba(255,0,0,0.3);
+        filter: saturate(1.1) brightness(1.05);
+      }
+      
+      .uvf-control-btn.play-pause:active {
+        transform: scale(0.95);
+        transition: all 0.1s ease;
       }
       
       .uvf-control-btn.play-pause svg {
         width: 24px;
         height: 24px;
+        opacity: 0.95;
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+      }
+      
+      .uvf-control-btn.play-pause:hover svg {
+        opacity: 1;
+        transform: scale(1.02);
+        filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
       }
       
       /* Time Display */
@@ -3313,6 +3450,8 @@ export class WebPlayer extends BasePlayer {
         /* Show PiP on all devices - modern mobile browsers support it well */
         #uvf-pip-btn {
           display: block;
+          background: rgba(255,255,255,0.12);
+          border: 1px solid rgba(255,255,255,0.1);
         }
         
         /* Essential controls in right section - Settings, PiP, and Fullscreen only */
@@ -4226,7 +4365,7 @@ export class WebPlayer extends BasePlayer {
         const centerPlayBtn = document.createElement('div');
         centerPlayBtn.className = 'uvf-center-play-btn uvf-pulse';
         centerPlayBtn.id = 'uvf-center-play';
-        centerPlayBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+        centerPlayBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/></svg>';
         centerPlayContainer.appendChild(centerPlayBtn);
         container.appendChild(centerPlayContainer);
         const shortcutIndicator = document.createElement('div');
@@ -4265,10 +4404,10 @@ export class WebPlayer extends BasePlayer {
         playPauseBtn.id = 'uvf-play-pause';
         playPauseBtn.innerHTML = `
       <svg viewBox="0 0 24 24" id="uvf-play-icon">
-        <path d="M8 5v14l11-7z"/>
+        <path d="M8 5v14l11-7z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/>
       </svg>
       <svg viewBox="0 0 24 24" id="uvf-pause-icon" style="display: none;">
-        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/>
       </svg>
     `;
         controlsRow.appendChild(playPauseBtn);
@@ -4277,24 +4416,24 @@ export class WebPlayer extends BasePlayer {
         skipBackBtn.id = 'uvf-skip-back';
         skipBackBtn.setAttribute('title', 'Skip backward 10s');
         skipBackBtn.setAttribute('aria-label', 'Skip backward 10 seconds');
-        skipBackBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>';
+        skipBackBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/></svg>';
         controlsRow.appendChild(skipBackBtn);
         const skipForwardBtn = document.createElement('button');
         skipForwardBtn.className = 'uvf-control-btn';
         skipForwardBtn.id = 'uvf-skip-forward';
         skipForwardBtn.setAttribute('title', 'Skip forward 10s');
         skipForwardBtn.setAttribute('aria-label', 'Skip forward 10 seconds');
-        skipForwardBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>';
+        skipForwardBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/></svg>';
         controlsRow.appendChild(skipForwardBtn);
         const volumeControl = document.createElement('div');
         volumeControl.className = 'uvf-volume-control';
         volumeControl.innerHTML = `
       <button class="uvf-control-btn" id="uvf-volume-btn">
         <svg viewBox="0 0 24 24" id="uvf-volume-icon">
-          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/>
         </svg>
         <svg viewBox="0 0 24 24" id="uvf-mute-icon" style="display: none;">
-          <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+          <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/>
         </svg>
       </button>
       <div class="uvf-volume-panel" id="uvf-volume-panel">
@@ -4422,12 +4561,12 @@ export class WebPlayer extends BasePlayer {
         pipBtn.className = 'uvf-control-btn';
         pipBtn.id = 'uvf-pip-btn';
         pipBtn.title = 'Picture-in-Picture';
-        pipBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/></svg>';
+        pipBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/></svg>';
         rightControls.appendChild(pipBtn);
         const fullscreenBtn = document.createElement('button');
         fullscreenBtn.className = 'uvf-control-btn';
         fullscreenBtn.id = 'uvf-fullscreen-btn';
-        fullscreenBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>';
+        fullscreenBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/></svg>';
         rightControls.appendChild(fullscreenBtn);
         controlsRow.appendChild(rightControls);
         controlsBar.appendChild(aboveSeekbarSection);
@@ -5915,7 +6054,7 @@ export class WebPlayer extends BasePlayer {
             <div class="uvf-accordion-title">
               <span class="uvf-accordion-icon">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                  <path d="M13,24l11-12L13,0V7.5C5.7,7.5,0,13.2,0,20.5C0,22.4,0.6,24.2,1.6,25.7C4.8,21.8,8.7,19.5,13,19.5V24z"/>
+                  <path d="M13,8.2c0-3.7-0.4-6.7-0.8-6.7s-0.8,3-0.8,6.7s0.4,6.7,0.8,6.7S13,11.9,13,8.2z M8.8,11.6 c0-2.8-0.3-5.1-0.6-5.1s-0.6,2.3-0.6,5.1s0.3,5.1,0.6,5.1S8.8,14.4,8.8,11.6z M17.2,11.6c0-2.8-0.3-5.1-0.6-5.1 s-0.6,2.3-0.6,5.1s0.3,5.1,0.6,5.1S17.2,14.4,17.2,11.6z M4.4,13c0-1.9-0.2-3.4-0.4-3.4S3.6,11.1,3.6,13s0.2,3.4,0.4,3.4 S4.4,14.9,4.4,13z M20.4,13c0-1.9-0.2-3.4-0.4-3.4S19.6,11.1,19.6,13s0.2,3.4,0.4,3.4S20.4,14.9,20.4,13z"/>
                 </svg>
               </span>
               <span>Playback Speed</span>
@@ -5944,7 +6083,7 @@ export class WebPlayer extends BasePlayer {
             <div class="uvf-accordion-title">
               <span class="uvf-accordion-icon">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                  <path d="M9,4v3h5V4h4V16H15v-3H9v3H5V4H9z M8,5H6v10h2V11h6v4h2V5h-2v4H8V5z"/>
+                  <path d="M14.5,9L12,7V9H3.5C2.67,9 2,9.67 2,10.5V13.5C2,14.33 2.67,15 3.5,15H12V17L14.5,15L17,13L14.5,11V9M22,4H10A2,2 0 0,0 8,6V8H10V6H22V18H10V16H8V18A2,2 0 0,0 10,20H22A2,2 0 0,0 24,18V6A2,2 0 0,0 22,4M5,11V13H7V11H5M9,11V13H11V11H9Z"/>
                 </svg>
               </span>
               <span>Quality</span>
@@ -5968,7 +6107,7 @@ export class WebPlayer extends BasePlayer {
             <div class="uvf-accordion-title">
               <span class="uvf-accordion-icon">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                  <path d="M20,4H4C2.89,4 2,4.89 2,6V18C2,19.11 2.89,20 4,20H20C21.11,20 22,19.11 22,18V6C22,4.89 21.11,4 20,4M20,18H4V6H20V18M6,10H8V12H6V10M6,14H14V16H6V14M16,14H18V16H16V14M10,10H18V12H10V10Z"/>
+                  <path d="M18,11H16.5V10.5H14.5V13.5H16.5V13H18V14A1,1 0 0,1 17,15H14A1,1 0 0,1 13,14V10A1,1 0 0,1 14,9H17A1,1 0 0,1 18,10M11,11H9.5V10.5H7.5V13.5H9.5V13H11V14A1,1 0 0,1 10,15H7A1,1 0 0,1 6,14V10A1,1 0 0,1 7,9H10A1,1 0 0,1 11,10M19,4H5C3.89,4 3,4.89 3,6V18A2,2 0 0,0 5,20H19A2,2 0 0,0 21,18V6C21,4.89 20.11,4 19,4Z"/>
                 </svg>
               </span>
               <span>Subtitles</span>
