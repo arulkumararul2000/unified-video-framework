@@ -1405,6 +1405,11 @@ export class WebPlayer extends BasePlayer {
         --uvf-icon-color: #ffffff;
         --uvf-text-primary: #ffffff;
         --uvf-text-secondary: rgba(255,255,255,0.75);
+        /* Button theme variables */
+        --uvf-button-bg: rgba(255,255,255,0.12);
+        --uvf-button-border: rgba(255,255,255,0.15);
+        --uvf-button-shadow: rgba(255,255,255,0.15);
+        --uvf-button-shadow-hover: rgba(255,255,255,0.25);
         /* Overlay variables (can be overridden by theme) */
         --uvf-overlay-strong: rgba(0,0,0,0.95);
         --uvf-overlay-medium: rgba(0,0,0,0.7);
@@ -1586,8 +1591,8 @@ export class WebPlayer extends BasePlayer {
       
       /* Center Play Button */
       .uvf-center-play-btn {
-        width: clamp(50px, 14vw, 96px);
-        height: clamp(50px, 14vw, 96px);
+        width: clamp(40px, 8vw, 60px);
+        height: clamp(40px, 8vw, 60px);
         background: linear-gradient(135deg, var(--uvf-accent-1), var(--uvf-accent-2));
         border: 0;
         border-radius: 50%;
@@ -1599,13 +1604,13 @@ export class WebPlayer extends BasePlayer {
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         opacity: 1;
         visibility: visible;
-        box-shadow: 0 8px 28px var(--uvf-accent-1-20);
+        box-shadow: 0 4px 16px var(--uvf-accent-1-20);
       }
       
       .uvf-center-play-btn:hover {
-        transform: scale(1.06);
+        transform: scale(1.08);
         filter: saturate(1.08) brightness(1.05);
-        box-shadow: 0 12px 36px var(--uvf-accent-1-20);
+        box-shadow: 0 6px 20px var(--uvf-accent-1-20);
       }
       
       .uvf-center-play-btn.hidden {
@@ -1617,11 +1622,11 @@ export class WebPlayer extends BasePlayer {
       }
       
       .uvf-center-play-btn svg {
-        width: clamp(26px, 4.5vw, 36px);
-        height: clamp(26px, 4.5vw, 36px);
+        width: clamp(18px, 3vw, 24px);
+        height: clamp(18px, 3vw, 24px);
         fill: #fff;
-        margin-left: 4px;
-        filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+        margin-left: 2px;
+        filter: drop-shadow(0 1px 3px rgba(0,0,0,0.35));
       }
       
       /* Pulse animation for center play button when paused */
@@ -1631,15 +1636,15 @@ export class WebPlayer extends BasePlayer {
       
       @keyframes uvf-centerPlayPulse {
         0% { 
-          box-shadow: 0 8px 28px var(--uvf-accent-1-20);
+          box-shadow: 0 4px 16px var(--uvf-accent-1-20);
           filter: saturate(1) brightness(1);
         }
         50% { 
-          box-shadow: 0 12px 36px var(--uvf-accent-1-20), 0 0 40px rgba(255,0,0,0.1);
+          box-shadow: 0 6px 20px var(--uvf-accent-1-20), 0 0 20px rgba(255,0,0,0.1);
           filter: saturate(1.05) brightness(1.02);
         }
         100% { 
-          box-shadow: 0 8px 28px var(--uvf-accent-1-20);
+          box-shadow: 0 4px 16px var(--uvf-accent-1-20);
           filter: saturate(1) brightness(1);
         }
       }
@@ -1856,31 +1861,39 @@ export class WebPlayer extends BasePlayer {
       
       /* Settings Button Specific Styling */
       #uvf-settings-btn {
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.1);
+        background: var(--uvf-button-bg);
+        border: 1px solid var(--uvf-button-border);
         position: relative;
         z-index: 10;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
       
       #uvf-settings-btn:hover {
-        background: rgba(255,255,255,0.2);
-        border: 1px solid rgba(255,255,255,0.2);
-        transform: scale(1.05);
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px var(--uvf-button-shadow);
+      }
+      
+      #uvf-settings-btn:active {
+        transform: scale(0.95);
+        transition: all 0.1s ease;
       }
       
       #uvf-settings-btn svg {
         opacity: 0.9;
-        transition: opacity 0.2s ease;
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
       }
       
       #uvf-settings-btn:hover svg {
         opacity: 1;
+        transform: scale(1.05);
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
       }
       
       /* Fullscreen Button Specific Styling */
       #uvf-fullscreen-btn {
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.15);
+        background: var(--uvf-button-bg);
+        border: 1px solid var(--uvf-button-border);
         position: relative;
         z-index: 10;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1888,7 +1901,7 @@ export class WebPlayer extends BasePlayer {
       
       #uvf-fullscreen-btn:hover {
         transform: scale(1.08);
-        box-shadow: 0 4px 12px rgba(255,255,255,0.15);
+        box-shadow: 0 4px 12px var(--uvf-button-shadow);
       }
       
       #uvf-fullscreen-btn:active {
@@ -1940,8 +1953,8 @@ export class WebPlayer extends BasePlayer {
       /* Skip Buttons Specific Styling */
       #uvf-skip-back,
       #uvf-skip-forward {
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.15);
+        background: var(--uvf-button-bg);
+        border: 1px solid var(--uvf-button-border);
         position: relative;
         z-index: 10;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1950,7 +1963,7 @@ export class WebPlayer extends BasePlayer {
       #uvf-skip-back:hover,
       #uvf-skip-forward:hover {
         transform: scale(1.08);
-        box-shadow: 0 4px 12px rgba(255,255,255,0.15);
+        box-shadow: 0 4px 12px var(--uvf-button-shadow);
       }
       
       #uvf-skip-back:active,
@@ -1987,8 +2000,8 @@ export class WebPlayer extends BasePlayer {
       
       /* Volume Button Specific Styling */
       #uvf-volume-btn {
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.15);
+        background: var(--uvf-button-bg);
+        border: 1px solid var(--uvf-button-border);
         position: relative;
         z-index: 10;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1996,7 +2009,7 @@ export class WebPlayer extends BasePlayer {
       
       #uvf-volume-btn:hover {
         transform: scale(1.08);
-        box-shadow: 0 4px 12px rgba(255,255,255,0.15);
+        box-shadow: 0 4px 12px var(--uvf-button-shadow);
       }
       
       #uvf-volume-btn:active {
@@ -2025,10 +2038,9 @@ export class WebPlayer extends BasePlayer {
       
       .uvf-control-btn.play-pause:hover {
         transform: scale(1.08);
-        box-shadow: 0 4px 12px rgba(255,0,0,0.3);
+        box-shadow: 0 4px 12px var(--uvf-accent-1-20);
         filter: saturate(1.1) brightness(1.05);
       }
-      
       .uvf-control-btn.play-pause:active {
         transform: scale(0.95);
         transition: all 0.1s ease;
@@ -2861,13 +2873,13 @@ export class WebPlayer extends BasePlayer {
       }
       
       .uvf-player-wrapper.uvf-fullscreen .uvf-center-play-btn {
-        width: 80px;
-        height: 80px;
+        width: 64px;
+        height: 64px;
       }
       
       .uvf-player-wrapper.uvf-fullscreen .uvf-center-play-btn svg {
-        width: 35px;
-        height: 35px;
+        width: 28px;
+        height: 28px;
       }
       
       /* Ensure overlays remain visible in fullscreen with consistent spacing */
@@ -3466,7 +3478,6 @@ export class WebPlayer extends BasePlayer {
           height: 44px !important;
           min-width: 44px !important;
           min-height: 44px !important;
-          background: rgba(255,255,255,0.15) !important;
           backdrop-filter: blur(8px) !important;
           border-radius: 22px !important;
           align-items: center !important;
@@ -3732,22 +3743,22 @@ export class WebPlayer extends BasePlayer {
         
         /* Tablet center play button - consistent theming */
         .uvf-center-play-btn {
-          width: clamp(76px, 15vw, 88px);
-          height: clamp(76px, 15vw, 88px);
+          width: clamp(48px, 10vw, 64px);
+          height: clamp(48px, 10vw, 64px);
           background: linear-gradient(135deg, var(--uvf-accent-1), var(--uvf-accent-2));
           border: 0;
-          box-shadow: 0 8px 24px var(--uvf-accent-1-20);
+          box-shadow: 0 4px 16px var(--uvf-accent-1-20);
         }
         
         .uvf-center-play-btn:hover {
-          transform: scale(1.06);
+          transform: scale(1.08);
           filter: saturate(1.08) brightness(1.05);
-          box-shadow: 0 12px 32px var(--uvf-accent-1-20);
+          box-shadow: 0 6px 20px var(--uvf-accent-1-20);
         }
         
         .uvf-center-play-btn svg {
-          width: clamp(30px, 4.8vw, 34px);
-          height: clamp(30px, 4.8vw, 34px);
+          width: clamp(20px, 3.5vw, 26px);
+          height: clamp(20px, 3.5vw, 26px);
         }
         
         /* Tablet volume control - keep desktop functionality */
@@ -3896,8 +3907,8 @@ export class WebPlayer extends BasePlayer {
         
         /* Enhanced center play button with smooth transitions */
         .uvf-center-play-btn {
-          width: clamp(80px, 12vw, 96px);
-          height: clamp(80px, 12vw, 96px);
+          width: clamp(56px, 10vw, 72px);
+          height: clamp(56px, 10vw, 72px);
           background: linear-gradient(135deg, var(--uvf-accent-1), var(--uvf-accent-2));
           border: 0;
           border-radius: 50%;
@@ -3907,13 +3918,13 @@ export class WebPlayer extends BasePlayer {
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          box-shadow: 0 8px 28px var(--uvf-accent-1-20);
+          box-shadow: 0 4px 16px var(--uvf-accent-1-20);
         }
         
         .uvf-center-play-btn:hover {
-          transform: scale(1.06);
+          transform: scale(1.08);
           filter: saturate(1.08) brightness(1.05);
-          box-shadow: 0 12px 36px var(--uvf-accent-1-20);
+          box-shadow: 0 6px 20px var(--uvf-accent-1-20);
         }
         
         .uvf-center-play-btn:active {
@@ -3922,11 +3933,11 @@ export class WebPlayer extends BasePlayer {
         }
         
         .uvf-center-play-btn svg {
-          width: clamp(32px, 5vw, 40px);
-          height: clamp(32px, 5vw, 40px);
+          width: clamp(24px, 4vw, 30px);
+          height: clamp(24px, 4vw, 30px);
           fill: #fff;
-          margin-left: 5px;
-          filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+          margin-left: 3px;
+          filter: drop-shadow(0 1px 3px rgba(0,0,0,0.35));
         }
         
         /* Optional: Add subtle pulse animation on idle */
@@ -4007,23 +4018,23 @@ export class WebPlayer extends BasePlayer {
         }
         
         .uvf-center-play-btn {
-          width: clamp(90px, 14vw, 60px);
-          height: clamp(90px, 14vw, 60px);
+          width: clamp(64px, 10vw, 76px);
+          height: clamp(64px, 10vw, 76px);
           background: linear-gradient(135deg, var(--uvf-accent-1), var(--uvf-accent-2));
           border: 0;
-          box-shadow: 0 10px 32px var(--uvf-accent-1-20);
+          box-shadow: 0 4px 16px var(--uvf-accent-1-20);
         }
         
         .uvf-center-play-btn:hover {
-          transform: scale(1.06);
+          transform: scale(1.08);
           filter: saturate(1.08) brightness(1.05);
-          box-shadow: 0 16px 40px var(--uvf-accent-1-20);
+          box-shadow: 0 6px 20px var(--uvf-accent-1-20);
         }
         
         .uvf-center-play-btn svg {
-          width: clamp(38px, 6vw, 44px);
-          height: clamp(38px, 6vw, 44px);
-          margin-left: 6px;
+          width: clamp(28px, 4.5vw, 32px);
+          height: clamp(28px, 4.5vw, 32px);
+          margin-left: 3px;
         }
         
         .uvf-video-title {
