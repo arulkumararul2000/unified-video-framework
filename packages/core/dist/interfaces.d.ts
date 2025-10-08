@@ -97,6 +97,8 @@ export interface VideoPlayerConfig {
     crossOrigin?: 'anonymous' | 'use-credentials';
     playsInline?: boolean;
     pictureInPicture?: boolean;
+    showFrameworkBranding?: boolean;
+    watermark?: WatermarkConfig;
     adaptiveBitrate?: AdaptiveBitrateConfig;
     drm?: DRMConfig;
     analytics?: AnalyticsConfig;
@@ -135,6 +137,24 @@ export interface OfflineConfig {
     enabled: boolean;
     storageLimit?: number;
     downloadQuality?: 'auto' | 'high' | 'medium' | 'low';
+}
+export interface WatermarkConfig {
+    enabled?: boolean;
+    text?: string;
+    showTime?: boolean;
+    updateInterval?: number;
+    randomPosition?: boolean;
+    position?: {
+        x?: number | 'left' | 'center' | 'right' | 'random';
+        y?: number | 'top' | 'center' | 'bottom' | 'random';
+    };
+    style?: {
+        fontSize?: number;
+        fontFamily?: string;
+        opacity?: number;
+        color?: string;
+        gradientColors?: [string, string];
+    };
 }
 export interface PlayerMetrics {
     sessionId: string;

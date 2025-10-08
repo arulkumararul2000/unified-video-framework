@@ -78,6 +78,8 @@ export interface PlayerEvents {
   // EPG (Electronic Program Guide) events
   epgToggle?: (data?: any) => void;
   epgDataSet?: (data?: any) => void;
+  // Framework branding events
+  frameworkBrandingClick?: (data: { timestamp: number; url: string; userAgent: string }) => void;
 }
 
 export interface PlayerError {

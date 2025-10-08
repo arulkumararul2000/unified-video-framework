@@ -26,6 +26,7 @@ export declare class WebPlayer extends BasePlayer {
     private currentSubtitle;
     private currentPlaybackRate;
     private isDragging;
+    private settingsConfig;
     private watermarkCanvas;
     private playerWrapper;
     private previewGateHit;
@@ -53,6 +54,7 @@ export declare class WebPlayer extends BasePlayer {
     private debugLog;
     private debugError;
     private debugWarn;
+    initialize(container: HTMLElement | string, config?: any): Promise<void>;
     protected setupPlayer(): Promise<void>;
     private setupVideoEventListeners;
     private getMediaErrorMessage;
@@ -102,6 +104,7 @@ export declare class WebPlayer extends BasePlayer {
     protected removeSubtitles(): void;
     private injectStyles;
     private getPlayerStyles;
+    private createFrameworkBranding;
     private createCustomControls;
     private setupControlsEventListeners;
     protected setupKeyboardShortcuts(): void;
@@ -147,9 +150,13 @@ export declare class WebPlayer extends BasePlayer {
     private _syncUIFromRemote;
     private _syncCastButtons;
     private updateSettingsMenu;
+    private generateAccordionMenu;
     private detectAvailableQualities;
     private detectAvailableSubtitles;
     private setupSettingsEventListeners;
+    private toggleAccordionSection;
+    private hideSettingsMenu;
+    private updateAccordionAfterSelection;
     private updateSettingsActiveStates;
     private setPlaybackRateFromSettings;
     private setQualityFromSettings;

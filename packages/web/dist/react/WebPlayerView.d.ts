@@ -6,9 +6,42 @@ import type { EPGData, EPGConfig, EPGProgram, EPGProgramRow } from './types/EPGT
 export type WebPlayerViewProps = {
     autoPlay?: boolean;
     muted?: boolean;
+    volume?: number;
+    controls?: boolean;
+    loop?: boolean;
+    preload?: 'none' | 'metadata' | 'auto';
+    crossOrigin?: 'anonymous' | 'use-credentials';
+    playsInline?: boolean;
+    defaultQuality?: number;
     enableAdaptiveBitrate?: boolean;
     debug?: boolean;
     freeDuration?: number;
+    customControls?: boolean;
+    settings?: {
+        enabled?: boolean;
+        speed?: boolean;
+        quality?: boolean;
+        subtitles?: boolean;
+    };
+    showFrameworkBranding?: boolean;
+    watermark?: boolean | {
+        enabled?: boolean;
+        text?: string;
+        showTime?: boolean;
+        updateInterval?: number;
+        randomPosition?: boolean;
+        position?: {
+            x?: number | 'left' | 'center' | 'right' | 'random';
+            y?: number | 'top' | 'center' | 'bottom' | 'random';
+        };
+        style?: {
+            fontSize?: number;
+            fontFamily?: string;
+            opacity?: number;
+            color?: string;
+            gradientColors?: [string, string];
+        };
+    };
     paywall?: import('@unified-video/core').PaywallConfig;
     paywallConfigUrl?: string;
     emailAuth?: {

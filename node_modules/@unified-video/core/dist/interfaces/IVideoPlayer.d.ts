@@ -66,6 +66,11 @@ export interface PlayerEvents {
     onFreePreviewEnded?: () => void;
     epgToggle?: (data?: any) => void;
     epgDataSet?: (data?: any) => void;
+    frameworkBrandingClick?: (data: {
+        timestamp: number;
+        url: string;
+        userAgent: string;
+    }) => void;
 }
 export interface PlayerError {
     code: string;

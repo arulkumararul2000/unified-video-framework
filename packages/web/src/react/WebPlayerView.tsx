@@ -24,9 +24,48 @@ export type WebPlayerViewProps = {
   // Player config
   autoPlay?: boolean;
   muted?: boolean;
+  volume?: number;
+  controls?: boolean;
+  loop?: boolean;
+  preload?: 'none' | 'metadata' | 'auto';
+  crossOrigin?: 'anonymous' | 'use-credentials';
+  playsInline?: boolean;
+  defaultQuality?: number;
   enableAdaptiveBitrate?: boolean;
   debug?: boolean;
   freeDuration?: number;
+  
+  // Custom controls configuration
+  customControls?: boolean;
+  settings?: {
+    enabled?: boolean;    // Show settings button (default: true)
+    speed?: boolean;      // Show playback speed options (default: true)
+    quality?: boolean;    // Show quality options (default: true)
+    subtitles?: boolean;  // Show subtitle options (default: true)
+  };
+  
+  // Framework branding control
+  showFrameworkBranding?: boolean;
+  
+  // Watermark configuration (can be boolean for simple enable/disable or object for full config)
+  watermark?: boolean | {
+    enabled?: boolean;
+    text?: string;
+    showTime?: boolean;
+    updateInterval?: number;
+    randomPosition?: boolean;
+    position?: {
+      x?: number | 'left' | 'center' | 'right' | 'random';
+      y?: number | 'top' | 'center' | 'bottom' | 'random';
+    };
+    style?: {
+      fontSize?: number;
+      fontFamily?: string;
+      opacity?: number;
+      color?: string;
+      gradientColors?: [string, string];
+    };
+  };
   // Paywall with Email Authentication
   paywall?: import('@unified-video/core').PaywallConfig;
   paywallConfigUrl?: string; // optional endpoint returning PaywallConfig JSON
@@ -423,13 +462,32 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         };
       }
 
+      // Normalize watermark config - handle both boolean and object formats
+      let watermarkConfig;
+      if (typeof props.watermark === 'boolean') {
+        watermarkConfig = { enabled: props.watermark };
+      } else {
+        watermarkConfig = props.watermark;
+      }
+      
       const config: PlayerConfig = {
         autoPlay: props.autoPlay ?? false,
         muted: props.muted ?? false,
+        volume: props.volume ?? 1.0,
+        controls: props.controls ?? true,
+        loop: props.loop ?? false,
+        preload: props.preload ?? 'metadata',
+        crossOrigin: props.crossOrigin,
+        playsInline: props.playsInline ?? true,
+        defaultQuality: props.defaultQuality,
         enableAdaptiveBitrate: props.enableAdaptiveBitrate ?? true,
         debug: props.debug ?? false,
         freeDuration: props.freeDuration,
-        paywall: paywallCfg
+        paywall: paywallCfg,
+        customControls: props.customControls,
+        settings: props.settings,
+        showFrameworkBranding: props.showFrameworkBranding,
+        watermark: watermarkConfig
       };
 
       try {
@@ -484,6 +542,13 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
   }, [
     props.autoPlay,
     props.muted,
+    props.volume,
+    props.controls,
+    props.loop,
+    props.preload,
+    props.crossOrigin,
+    props.playsInline,
+    props.defaultQuality,
     props.enableAdaptiveBitrate,
     props.debug,
     props.url,
@@ -496,6 +561,10 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     JSON.stringify(props.paywall),
     JSON.stringify(props.emailAuth),
     props.paywallConfigUrl,
+    props.customControls,
+    JSON.stringify(props.settings),
+    props.showFrameworkBranding,
+    JSON.stringify(props.watermark),
   ])
 
   // Update free preview duration at runtime without full re-init

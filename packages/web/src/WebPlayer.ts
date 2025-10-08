@@ -40,6 +40,14 @@ export class WebPlayer extends BasePlayer {
   private currentSubtitle = 'off';
   private currentPlaybackRate = 1;
   private isDragging: boolean = false;
+  
+  // Settings configuration
+  private settingsConfig = {
+    enabled: true,        // Show settings button
+    speed: true,         // Show playback speed options
+    quality: true,       // Show quality options
+    subtitles: true      // Show subtitle options
+  };
   private watermarkCanvas: HTMLCanvasElement | null = null;
   private playerWrapper: HTMLElement | null = null;
   // Free preview gate state
@@ -96,6 +104,34 @@ export class WebPlayer extends BasePlayer {
   }
 
 
+  async initialize(container: HTMLElement | string, config?: any): Promise<void> {
+    // Debug log the config being passed
+    console.log('WebPlayer.initialize called with config:', config);
+    
+    // Set useCustomControls based on config before calling parent initialize
+    if (config && config.customControls !== undefined) {
+      this.useCustomControls = config.customControls;
+      console.log('Custom controls set to:', this.useCustomControls);
+    }
+    
+    // Configure settings menu options
+    if (config && config.settings) {
+      console.log('Settings config found:', config.settings);
+      this.settingsConfig = {
+        enabled: config.settings.enabled !== undefined ? config.settings.enabled : true,
+        speed: config.settings.speed !== undefined ? config.settings.speed : true,
+        quality: config.settings.quality !== undefined ? config.settings.quality : true,
+        subtitles: config.settings.subtitles !== undefined ? config.settings.subtitles : true
+      };
+      console.log('Settings config applied:', this.settingsConfig);
+    } else {
+      console.log('No settings config found, using defaults:', this.settingsConfig);
+    }
+    
+    // Call parent initialize
+    await super.initialize(container, config);
+  }
+
   protected async setupPlayer(): Promise<void> {
     if (!this.container) {
       throw new Error('Container element is required');
@@ -139,6 +175,7 @@ export class WebPlayer extends BasePlayer {
     if (this.useCustomControls) {
       this.createCustomControls(videoContainer);
     }
+
 
     // Assemble the player
     wrapper.appendChild(videoContainer);
@@ -2158,6 +2195,39 @@ export class WebPlayer extends BasePlayer {
         pointer-events: none;
       }
       
+      /* Settings Button Specific Styling */
+      #uvf-settings-btn {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.1);
+        position: relative;
+        z-index: 10;
+      }
+      
+      #uvf-settings-btn:hover {
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.2);
+        transform: scale(1.05);
+      }
+      
+      #uvf-settings-btn svg {
+        opacity: 0.9;
+        transition: opacity 0.2s ease;
+      }
+      
+      #uvf-settings-btn:hover svg {
+        opacity: 1;
+      }
+      
+      /* Settings Container */
+      .uvf-settings-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 40px;
+        min-height: 40px;
+      }
+      
       /* Skip button specific styles for consistency */
       #uvf-skip-back svg,
       #uvf-skip-forward svg {
@@ -2187,7 +2257,6 @@ export class WebPlayer extends BasePlayer {
         color: var(--uvf-text-primary);
         font-size: 14px;
         font-weight: 500;
-        min-width: 120px;
         padding: 0 10px;
         text-shadow: 0 1px 2px rgba(0,0,0,0.5);
       }
@@ -2268,27 +2337,33 @@ export class WebPlayer extends BasePlayer {
         position: absolute;
         bottom: 50px;
         right: 0;
-        background: rgba(0,0,0,0.95);
+        background: rgba(0,0,0,0.92);
         backdrop-filter: blur(20px);
-        border: 1px solid rgba(255,255,255,0.1);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.15);
         border-radius: 12px;
-        padding: 10px 0;
-        min-width: 200px;
+        padding: 8px 0;
+        min-width: 220px;
+        max-width: 280px;
         max-height: 60vh;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
+        z-index: 9999;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 8px 25px rgba(0,0,0,0.3);
         /* Firefox */
         scrollbar-width: thin;
-        scrollbar-color: var(--uvf-firefox-scrollbar-color) transparent;
+        scrollbar-color: rgba(255,255,255,0.3) transparent;
         /* Avoid layout shift when scrollbar appears */
         scrollbar-gutter: stable both-edges;
         /* Space on the right so content doesn't hug the scrollbar */
-        padding-right: 6px;
+        padding-right: 8px;
+        /* Initial hidden state */
         opacity: 0;
         visibility: hidden;
-        transform: translateY(10px);
-        transition: all 0.3s ease;
+        transform: translateY(15px) scale(0.95);
+        pointer-events: none;
+        transition: opacity 0.25s ease, visibility 0.25s ease, transform 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
       }
       
       /* WebKit-based browsers (Chrome, Edge, Safari) */
@@ -2329,7 +2404,143 @@ export class WebPlayer extends BasePlayer {
       .uvf-settings-menu.active {
         opacity: 1;
         visibility: visible;
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
+        pointer-events: all;
+      }
+      
+      /* Improved Accordion Styles */
+      .uvf-settings-accordion {
+        padding: 8px 0;
+      }
+      
+      .uvf-accordion-item {
+        margin-bottom: 2px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(255,255,255,0.03);
+      }
+      
+      .uvf-accordion-item:last-child {
+        margin-bottom: 0;
+      }
+      
+      .uvf-accordion-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: rgba(255,255,255,0.05);
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+      
+      .uvf-accordion-header:hover {
+        background: rgba(255,255,255,0.1);
+      }
+      
+      .uvf-accordion-item.expanded .uvf-accordion-header {
+        background: rgba(255,255,255,0.08);
+        border-bottom-color: rgba(255,255,255,0.12);
+      }
+      
+      .uvf-accordion-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #fff;
+        flex: 1;
+      }
+      
+      .uvf-accordion-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.9;
+        width: 16px;
+        height: 16px;
+      }
+      
+      .uvf-accordion-icon svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
+      }
+      
+      .uvf-accordion-current {
+        font-size: 11px;
+        color: var(--uvf-accent-1);
+        background: rgba(255,255,255,0.08);
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-weight: 600;
+        margin-right: 8px;
+      }
+      
+      .uvf-accordion-arrow {
+        font-size: 10px;
+        color: rgba(255,255,255,0.7);
+        transition: transform 0.25s ease;
+        width: 16px;
+        text-align: center;
+      }
+      
+      .uvf-accordion-item.expanded .uvf-accordion-arrow {
+        transform: rotate(180deg);
+      }
+      
+      .uvf-accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(0,0,0,0.2);
+      }
+      
+      .uvf-accordion-item.expanded .uvf-accordion-content {
+        max-height: 250px;
+      }
+      
+      /* Settings options within accordion */
+      .uvf-accordion-content .uvf-settings-option {
+        color: #fff;
+        font-size: 13px;
+        padding: 10px 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      
+      .uvf-accordion-content .uvf-settings-option:last-child {
+        border-bottom: none;
+      }
+      
+      .uvf-accordion-content .uvf-settings-option:hover {
+        background: rgba(255,255,255,0.06);
+        padding-left: 20px;
+      }
+      
+      .uvf-accordion-content .uvf-settings-option.active {
+        color: var(--uvf-accent-1);
+        background: rgba(255,255,255,0.08);
+        font-weight: 600;
+      }
+      
+      .uvf-accordion-content .uvf-settings-option.active::after {
+        content: '✓';
+        font-size: 12px;
+        opacity: 0.8;
+      }
+      
+      .uvf-settings-empty {
+        padding: 20px;
+        text-align: center;
+        color: rgba(255,255,255,0.6);
+        font-size: 14px;
       }
       
       .uvf-settings-group {
@@ -2423,6 +2634,115 @@ export class WebPlayer extends BasePlayer {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+      
+                /* Above seekbar section with time and branding */
+                .uvf-above-seekbar-section {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                    opacity: 0;
+                    transform: translateY(10px);
+                    transition: all 0.3s ease;
+                }
+                
+                .uvf-player-wrapper:hover .uvf-above-seekbar-section,
+                .uvf-player-wrapper.controls-visible .uvf-above-seekbar-section {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+                
+                .uvf-time-display.uvf-above-seekbar {
+                    position: static;
+                    font-size: 13px;
+                    font-weight: 500;
+                    color: var(--uvf-text-primary);
+                    text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+                    background: rgba(0,0,0,0.3);
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    backdrop-filter: blur(4px);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    width: auto;
+                    white-space: nowrap;
+                }
+                
+                .uvf-framework-branding {
+                    position: static;
+                    bottom: unset;
+                    right: unset;
+                    opacity: 1;
+                    transform: none;
+                    margin: 0;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                
+                .uvf-logo-svg {
+                    height: 18px;
+                    width: auto;
+                    opacity: 0.85;
+                    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+                    transition: all 0.2s ease;
+                }
+                
+                .uvf-framework-branding:hover .uvf-logo-svg {
+                    opacity: 1;
+                    transform: scale(1.05);
+                }
+                
+                .uvf-framework-branding:active .uvf-logo-svg {
+                    transform: scale(0.95);
+                }
+                
+                /* Show on mobile - positioned above seekbar */
+                @media (max-width: 768px) {
+                    .uvf-above-seekbar-section {
+                        margin-bottom: 6px;
+                    }
+                    
+                    .uvf-time-display.uvf-above-seekbar {
+                        font-size: 12px;
+                        padding: 3px 6px;
+                    }
+                    
+                    .uvf-logo-svg {
+                        height: 16px;
+                    }
+                }
+                
+                @media (max-width: 480px) {
+                    .uvf-above-seekbar-section {
+                        margin-bottom: 5px;
+                    }
+                    
+                    .uvf-time-display.uvf-above-seekbar {
+                        font-size: 11px;
+                        padding: 2px 5px;
+                    }
+                    
+                    .uvf-logo-svg {
+                        height: 14px;
+                    }
+                }
+                
+                @media (max-height: 400px) {
+                    .uvf-above-seekbar-section {
+                        margin-bottom: 4px;
+                    }
+                    
+                    .uvf-time-display.uvf-above-seekbar {
+                        font-size: 11px;
+                        padding: 2px 4px;
+                    }
+                    
+                    .uvf-logo-svg {
+                        height: 12px;
+                    }
+                }
+          height: 16px;
+        }
       }
       
       /* Top Controls */
@@ -2741,7 +3061,6 @@ export class WebPlayer extends BasePlayer {
       
       .uvf-player-wrapper.uvf-fullscreen .uvf-time-display {
         font-size: 14px;
-        min-width: 120px;
         padding: 0 10px;
       }
       
@@ -3056,7 +3375,7 @@ export class WebPlayer extends BasePlayer {
           order: 2;
         }
         
-        .uvf-controls-row .uvf-time-display {
+        .uvf-controls-row .uvf-time-display:not(.uvf-above-seekbar) {
           order: 3;
           margin-left: auto;
           margin-right: 8px;
@@ -3111,16 +3430,27 @@ export class WebPlayer extends BasePlayer {
         }
         
         /* Mobile time display - compact but readable */
-        .uvf-time-display {
+        .uvf-time-display:not(.uvf-above-seekbar) {
           font-size: 12px;
           font-weight: 600;
-          min-width: 85px;
           padding: 0 6px;
           text-align: center;
           background: rgba(0,0,0,0.3);
           border-radius: 12px;
           text-shadow: 0 1px 3px rgba(0,0,0,0.8);
           flex-shrink: 0;
+        }
+        
+        /* Above-seekbar time display for mobile */
+        .uvf-time-display.uvf-above-seekbar {
+          font-size: 12px !important;
+          font-weight: 500 !important;
+          padding: 3px 6px !important;
+          background: rgba(0,0,0,0.4) !important;
+          border-radius: 10px !important;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+          backdrop-filter: blur(4px) !important;
+          border: 1px solid rgba(255,255,255,0.1) !important;
         }
         
         /* Simplified volume control for mobile */
@@ -3146,6 +3476,19 @@ export class WebPlayer extends BasePlayer {
           display: flex;
           align-items: center;
           flex-shrink: 0;
+          position: relative;
+          z-index: 10;
+        }
+        
+        /* Ensure settings container is visible */
+        .uvf-right-controls > div[style*="position: relative"],
+        .uvf-settings-container {
+          display: flex !important;
+          position: relative !important;
+          align-items: center !important;
+          justify-content: center !important;
+          min-width: 44px !important;
+          min-height: 44px !important;
         }
         
         /* Remove quality badge completely - not essential */
@@ -3318,6 +3661,26 @@ export class WebPlayer extends BasePlayer {
           display: none;
         }
         
+        /* Ensure settings button is always visible and properly sized on mobile */
+        #uvf-settings-btn {
+          display: flex !important;
+          width: 44px !important;
+          height: 44px !important;
+          min-width: 44px !important;
+          min-height: 44px !important;
+          background: rgba(255,255,255,0.15) !important;
+          backdrop-filter: blur(8px) !important;
+          border-radius: 22px !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+        
+        #uvf-settings-btn svg {
+          width: 20px !important;
+          height: 20px !important;
+          fill: var(--uvf-icon-color) !important;
+        }
+        
         /* Hide skip buttons on small mobile devices to save space */
         @media screen and (max-width: 480px) {
           #uvf-skip-back,
@@ -3471,7 +3834,6 @@ export class WebPlayer extends BasePlayer {
         
         .uvf-time-display {
           font-size: 11px;
-          min-width: 80px;
           padding: 0 6px;
         }
         
@@ -3567,7 +3929,6 @@ export class WebPlayer extends BasePlayer {
         .uvf-time-display {
           font-size: 13px;
           font-weight: 500;
-          min-width: 110px;
           padding: 0 8px;
         }
         
@@ -3732,7 +4093,6 @@ export class WebPlayer extends BasePlayer {
         .uvf-time-display {
           font-size: 14px;
           font-weight: 500;
-          min-width: 120px;
           padding: 0 10px;
         }
         
@@ -3874,7 +4234,6 @@ export class WebPlayer extends BasePlayer {
         
         .uvf-time-display {
           font-size: 15px;
-          min-width: 130px;
         }
         
         .uvf-volume-slider {
@@ -4111,6 +4470,70 @@ export class WebPlayer extends BasePlayer {
     `;
   }
 
+  /**
+   * Creates framework branding logo
+   * Only creates branding if showFrameworkBranding is not explicitly set to false
+   */
+    private createFrameworkBranding(container: HTMLElement): void {
+        // Double-check configuration (defensive programming)
+        if ((this.config as any).showFrameworkBranding === false) {
+            this.debugLog('Framework branding disabled by configuration');
+            return;
+        }
+        const brandingContainer = document.createElement('div');
+        brandingContainer.className = 'uvf-framework-branding';
+        brandingContainer.setAttribute('title', 'Powered by flicknexs');
+        
+        const logoSvg = `
+            <svg xmlns="http://www.w3.org/2000/svg" data-name="Layer 1" id="Layer_1" viewBox="0 0 180 29" class="uvf-logo-svg">
+                <defs>
+                    <style>.cls-1{fill:#0d5ef8;}.cls-2{fill:#ff0366;opacity:0.94;}.cls-3{fill:#fff;}</style>
+                </defs>
+                <title>flicknexs</title>
+                <path class="cls-1" d="M45.93,1.53q-.87.15-3.18.48l-3.59.51c-1.26.16-2.42.3-3.51.42s-2.17.19-3.26.25q.7,4,1.17,10.68T34,25.67a22.58,22.58,0,0,0,2.73-.14,19.27,19.27,0,0,0,2.47-.45c.09-1.29.16-2.69.22-4.22s.1-3.16.14-4.9c.75-.09,1.54-.16,2.37-.2s1.76,0,2.77,0c0-1,0-1.89-.1-2.57a12,12,0,0,0-.35-2,20.14,20.14,0,0,0-2.34.13,18.77,18.77,0,0,0-2.38.4c0-.78,0-1.57,0-2.37s-.06-1.59-.1-2.37c.51,0,1.3-.11,2.39-.23l4.1-.42A10.41,10.41,0,0,0,46.13,5,8.75,8.75,0,0,0,46.21,4a10.85,10.85,0,0,0-.08-1.34,6.31,6.31,0,0,0-.2-1.08Z"/>
+                <path class="cls-1" d="M61.11,21a20.41,20.41,0,0,0-3.07.25,26,26,0,0,0-3.25.7c-.14-.88-.25-1.94-.32-3.17s-.1-3.13-.1-5.67c0-1.76.05-3.42.14-5s.22-2.81.37-3.74a6.81,6.81,0,0,0-.74-.07l-.72,0a19.18,19.18,0,0,0-2.49.17A20.39,20.39,0,0,0,48.39,5c0,2.84.18,6.4.52,10.68s.75,7.81,1.2,10.6q3.78-.54,6.33-.73c1.69-.14,3.46-.2,5.32-.2a14.9,14.9,0,0,0-.21-2.26A15.21,15.21,0,0,0,61.11,21Z"/>
+                <path class="cls-1" d="M69.2,4.25A10.1,10.1,0,0,0,67.86,4a11.09,11.09,0,0,0-1.36-.07,7.12,7.12,0,0,0-1.92.25,5.51,5.51,0,0,0-1.59.7q.51,3.83.76,8.62T64,24.16A20.88,20.88,0,0,0,66.51,24a14.38,14.38,0,0,0,2.15-.39q.28-3,.45-7.12t.17-8q0-1.2,0-2.28c0-.72,0-1.37,0-2Z"/>
+                <path class="cls-1" d="M80.84,7.18a1.42,1.42,0,0,1,1.31,1,6.72,6.72,0,0,1,.46,2.8,15.48,15.48,0,0,0,2.7-.19,12.09,12.09,0,0,0,2.55-.84A7,7,0,0,0,86,5.42,5.65,5.65,0,0,0,81.8,3.81a8.68,8.68,0,0,0-7.07,3.51,13.28,13.28,0,0,0-2.81,8.61,8.82,8.82,0,0,0,2,6.15,7,7,0,0,0,5.45,2.16,8.74,8.74,0,0,0,5.8-1.78,6.86,6.86,0,0,0,2.34-5,4.63,4.63,0,0,0-1.84-.66,8.79,8.79,0,0,0-2.43-.13,4.83,4.83,0,0,1-.39,3,2.1,2.1,0,0,1-2,1.06,2.23,2.23,0,0,1-2-1.58,11.41,11.41,0,0,1-.72-4.56,15.42,15.42,0,0,1,.79-5.22c.52-1.44,1.18-2.16,2-2.16Z"/>
+                <path class="cls-1" d="M99.82,14.22a24.24,24.24,0,0,0,3-3.4,36.6,36.6,0,0,0,2.75-4.29a11.67,11.67,0,0,0-2.17-2,8.72,8.72,0,0,0-2.35-1.16a51.71,51.71,0,0,1-2.76,5.54,24.14,24.14,0,0,1-2.79,3.84c.07-1.54.19-3.05.36-4.54s.38-2.93.65-4.34a11.73,11.73,0,0,0-1.29-.25,12.48,12.48,0,0,0-1.44-.08a8.38,8.38,0,0,0-2.07.25,5.37,5.37,0,0,0-1.69.7c-.07,1.12-.13,2.22-.17,3.29s0,2.1,0,3.11q0,3.89.32,7.57a67.32,67.32,0,0,0,1,7,22.86,22.86,0,0,0,2.71-.17,13.09,13.09,0,0,0,2.23-.39q-.25-1.84-.39-3.66c-.1-1.21-.15-2.39-.17-3.55a.77.77,0,0,0,.15-.1l.16-.1a35.18,35.18,0,0,1,3.53,4.28a39,39,0,0,1,2.9,5A11.7,11.7,0,0,0,105,25.1a9.65,9.65,0,0,0,2.08-2.23A47.65,47.65,0,0,0,103.63,18a33.51,33.51,0,0,0-3.81-3.82Z"/>
+                <path class="cls-1" d="M124.86,1.87a17.07,17.07,0,0,0-2.83.24,22.53,22.53,0,0,0-2.9.69c.17,1.1.3,2.53.4,4.28s.14,3.74.14,6a50.57,50.57,0,0,0-2.37-5,55,55,0,0,0-3-4.79,14.37,14.37,0,0,0-3,.41,11.7,11.7,0,0,0-2.53.91l-.22.11a3,3,0,0,0-.31.2q0,3.48.27,8.49t.8,11.13a19.17,19.17,0,0,0,2.49-.17A12.81,12.81,0,0,0,114,24V14.4c0-.92,0-1.77,0-2.54a49.47,49.47,0,0,1,2.4,4.34q1.16,2.37,3,6.72c.71,0,1.44-.1,2.2-.18s1.72-.22,2.88-.41c.17-2.32.3-4.74.41-7.25s.15-4.93.15-7.23c0-.94,0-1.9,0-2.89s0-2-.11-3.09Z"/>
+                <path class="cls-1" d="M142.27,19.19c-.89.17-2.19.36-3.93.57s-2.89.33-3.43.33c-.07-.73-.13-1.5-.17-2.3s-.06-1.63-.08-2.47q1.49-.18,3.06-.27c1.05-.07,2.1-.1,3.17-.1,0-.93,0-1.75-.11-2.44a18.5,18.5,0,0,0-.34-2,21.7,21.7,0,0,0-2.92.19,19.5,19.5,0,0,0-2.86.62c0-1.07,0-1.87.05-2.4s0-1,.09-1.42c1.21-.07,2.39-.13,3.51-.16s2.2-.06,3.25-.06A20.56,20.56,0,0,0,142,4.83a19.15,19.15,0,0,0,.13-2.2,55.58,55.58,0,0,0-6.25.35c-2.12.23-4.63.62-7.51,1.16q.06,4,.63,9.91c.39,4,.81,7.44,1.28,10.42,2,0,4.41-.12,7.34-.34a37,37,0,0,0,5.21-.59,19.88,19.88,0,0,0-.16-2.43,8.59,8.59,0,0,0-.37-1.92Z"/>
+                <path class="cls-1" d="M157,11.89q1.72-2.16,2.95-3.82c.83-1.1,1.56-2.16,2.22-3.17A9.76,9.76,0,0,0,160.4,3a9.62,9.62,0,0,0-2.13-1.4c-.53,1-1.09,1.95-1.69,2.94s-1.27,2-2,3.15c-.71-1.14-1.44-2.28-2.19-3.4S150.85,2.08,150,1a15.86,15.86,0,0,0-2.71,1.35,19.56,19.56,0,0,0-2.57,1.88Q146.37,6,147.85,8c1,1.32,2,2.73,3,4.25-.58.79-1.19,1.58-1.83,2.39s-2.26,2.78-4.88,5.95a10.68,10.68,0,0,0,1.35,1.5A10.94,10.94,0,0,0,147,23.32q1.74-1.77,3.21-3.42c1-1.09,2-2.28,3.05-3.57.56,1,1.16,2.12,1.8,3.35s1.49,2.94,2.58,5.15A25.27,25.27,0,0,0,160,23.46a8.81,8.81,0,0,0,1.61-1.32c-.69-1.82-1.42-3.57-2.18-5.27s-1.6-3.35-2.48-5Z"/>
+                <path class="cls-1" d="M175.73,13.66a8.41,8.41,0,0,0-1.1-1.26,20.35,20.35,0,0,0-2-1.66,11.73,11.73,0,0,1-2.47-2.27,3.19,3.19,0,0,1-.56-1.77,1.53,1.53,0,0,1,.38-1.08,1.33,1.33,0,0,1,1-.41,1.93,1.93,0,0,1,1.63.76,5.25,5.25,0,0,1,.84,2.5a14.43,14.43,0,0,0,2.73-.41A6.64,6.64,0,0,0,178,7.23a6.74,6.74,0,0,0-2.32-4.11A7.23,7.23,0,0,0,171,1.73a7.69,7.69,0,0,0-5.27,1.77,5.83,5.83,0,0,0-2,4.57a6.91,6.91,0,0,0,.34,2.21a7.42,7.42,0,0,0,1,2,10.78,10.78,0,0,0,1.15,1.26a26.14,26.14,0,0,0,2.07,1.71a12.65,12.65,0,0,1,2.43,2.2,2.71,2.71,0,0,1,.55,1.59,2.06,2.06,0,0,1-.53,1.5,2,2,0,0,1-1.52.55,2.42,2.42,0,0,1-2.17-1.31,6.43,6.43,0,0,1-.81-3.43a8.78,8.78,0,0,0-2.12.32,10.48,10.48,0,0,0-2.17.77a6.45,6.45,0,0,0,2.23,4.9,7.93,7.93,0,0,0,5.57,2.06,7.31,7.31,0,0,0,5.11-1.89A6.18,6.18,0,0,0,177,17.7a7.12,7.12,0,0,0-.31-2.15,6.71,6.71,0,0,0-1-1.89Z"/>
+                <path class="cls-2" d="M24.28,12a1.43,1.43,0,0,1,.44,2.44l-8.11,6.84-8.1,6.85a1.43,1.43,0,0,1-2.33-.85L4.3,16.84,2.43,6.4A1.43,1.43,0,0,1,4.32,4.8l10,3.59Z"/>
+                <path class="cls-1" d="M29.4,13.7a1.62,1.62,0,0,1,0,2.81L19,22.5l-10.39,6a1.62,1.62,0,0,1-2.43-1.4v-24a1.62,1.62,0,0,1,2.43-1.4L19,7.7Z"/>
+                <path class="cls-3" d="M17.5,8.84l-2.33.74c-1.12.36-2,.63-2.63.82-.92.28-1.78.52-2.58.74s-1.61.41-2.41.59C8.22,13.68,9,16.3,9.72,19.6s1.37,6.23,1.79,8.8a18.88,18.88,0,0,0,2-.44,14.36,14.36,0,0,0,1.8-.64c-.08-1-.2-2-.34-3.2s-.31-2.38-.5-3.69c.55-.16,1.14-.3,1.76-.43s1.31-.26,2.07-.38q-.2-1.15-.39-1.92a8.8,8.8,0,0,0-.5-1.42,16.83,16.83,0,0,0-1.74.38,14.8,14.8,0,0,0-1.73.6c-.1-.59-.2-1.18-.32-1.78s-.24-1.18-.37-1.76L15,13.26l3-.82a8.59,8.59,0,0,0,0-1,6.88,6.88,0,0,0-.08-.83q-.09-.54-.21-1a6.18,6.18,0,0,0-.29-.78Z"/>
+            </svg>
+        `;
+        
+        brandingContainer.innerHTML = logoSvg;
+        
+        // Add click handler to redirect to flicknexs.com
+        brandingContainer.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Open flicknexs.com in a new tab/window
+            const link = document.createElement('a');
+            link.href = 'https://flicknexs.com/';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Emit analytics event
+            this.emit('frameworkBrandingClick', {
+                timestamp: Date.now(),
+                url: 'https://flicknexs.com/',
+                userAgent: navigator.userAgent
+            });
+        });
+        
+        container.appendChild(brandingContainer);
+        
+        this.debugLog('Framework branding added');
+    }
+
   private createCustomControls(container: HTMLElement): void {
     // Add gradients
     const topGradient = document.createElement('div');
@@ -4188,6 +4611,22 @@ export class WebPlayer extends BasePlayer {
     controlsBar.className = 'uvf-controls-bar';
     controlsBar.id = 'uvf-controls';
     
+    // Time and branding section above seekbar
+    const aboveSeekbarSection = document.createElement('div');
+    aboveSeekbarSection.className = 'uvf-above-seekbar-section';
+    
+    // Time display (moved to above seekbar)
+    const timeDisplay = document.createElement('div');
+    timeDisplay.className = 'uvf-time-display uvf-above-seekbar';
+    timeDisplay.id = 'uvf-time-display';
+    timeDisplay.textContent = '00:00 / 00:00';
+    aboveSeekbarSection.appendChild(timeDisplay);
+
+    // Add framework branding next to time display if enabled
+    if ((this.config as any).showFrameworkBranding !== false) {
+      this.createFrameworkBranding(aboveSeekbarSection);
+    }
+    
     // Progress section
     const progressSection = document.createElement('div');
     progressSection.className = 'uvf-progress-section';
@@ -4259,13 +4698,6 @@ export class WebPlayer extends BasePlayer {
     `;
     controlsRow.appendChild(volumeControl);
     
-    // Time display
-    const timeDisplay = document.createElement('div');
-    timeDisplay.className = 'uvf-time-display';
-    timeDisplay.id = 'uvf-time-display';
-    timeDisplay.textContent = '00:00 / 00:00';
-    controlsRow.appendChild(timeDisplay);
-    
     // Right controls
     const rightControls = document.createElement('div');
     rightControls.className = 'uvf-right-controls';
@@ -4277,25 +4709,117 @@ export class WebPlayer extends BasePlayer {
     qualityBadge.textContent = 'HD';
     rightControls.appendChild(qualityBadge);
     
-    // Settings button with menu
-    const settingsContainer = document.createElement('div');
-    settingsContainer.style.position = 'relative';
+    // Settings button with menu (show only if enabled)
+    this.debugLog('Settings config check:', this.settingsConfig);
+    this.debugLog('Settings enabled:', this.settingsConfig.enabled);
+    this.debugLog('Custom controls enabled:', this.useCustomControls);
     
-    const settingsBtn = document.createElement('button');
-    settingsBtn.className = 'uvf-control-btn';
-    settingsBtn.id = 'uvf-settings-btn';
-    settingsBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
-    settingsContainer.appendChild(settingsBtn);
-    
-    // Settings menu - will be populated dynamically based on video capabilities
-    const settingsMenu = document.createElement('div');
-    settingsMenu.className = 'uvf-settings-menu';
-    settingsMenu.id = 'uvf-settings-menu';
-    // Initially empty - will be populated by updateSettingsMenu method
-    settingsMenu.innerHTML = '';
-    settingsMenu.style.display = 'none';
-    settingsContainer.appendChild(settingsMenu);
-    rightControls.appendChild(settingsContainer);
+    if (this.settingsConfig.enabled) {
+      this.debugLog('Creating settings button...');
+      const settingsContainer = document.createElement('div');
+      settingsContainer.className = 'uvf-settings-container';
+      settingsContainer.style.position = 'relative';
+      settingsContainer.style.display = 'flex';
+      settingsContainer.style.alignItems = 'center';
+      settingsContainer.style.justifyContent = 'center';
+      
+      const settingsBtn = document.createElement('button');
+      settingsBtn.className = 'uvf-control-btn';
+      settingsBtn.id = 'uvf-settings-btn';
+      settingsBtn.setAttribute('title', 'Settings');
+      settingsBtn.setAttribute('aria-label', 'Settings');
+      settingsBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
+      settingsContainer.appendChild(settingsBtn);
+      
+      // Settings menu - will be populated dynamically based on video capabilities and configuration
+      const settingsMenu = document.createElement('div');
+      settingsMenu.className = 'uvf-settings-menu';
+      settingsMenu.id = 'uvf-settings-menu';
+      // Initially empty - will be populated by updateSettingsMenu method
+      settingsMenu.innerHTML = '';
+      // CSS handles initial hidden state
+      settingsContainer.appendChild(settingsMenu);
+      rightControls.appendChild(settingsContainer);
+      
+      this.debugLog('Settings button created and added to controls');
+      
+      // Add debugging for settings button visibility
+      setTimeout(() => {
+        const createdBtn = document.getElementById('uvf-settings-btn');
+        if (createdBtn) {
+          const computedStyle = window.getComputedStyle(createdBtn);
+          this.debugLog('Settings button found after creation:');
+          this.debugLog('- Display:', computedStyle.display);
+          this.debugLog('- Visibility:', computedStyle.visibility);
+          this.debugLog('- Opacity:', computedStyle.opacity);
+          this.debugLog('- Width:', computedStyle.width);
+          this.debugLog('- Height:', computedStyle.height);
+          this.debugLog('- Position:', computedStyle.position);
+          this.debugLog('- Z-index:', computedStyle.zIndex);
+          
+          const rect = createdBtn.getBoundingClientRect();
+          this.debugLog('- Bounding rect:', { width: rect.width, height: rect.height, top: rect.top, left: rect.left });
+          
+          // Check parent containers
+          const settingsContainer = createdBtn.closest('.uvf-settings-container');
+          if (settingsContainer) {
+            const containerStyle = window.getComputedStyle(settingsContainer);
+            const containerRect = settingsContainer.getBoundingClientRect();
+            this.debugLog('Settings container display:', containerStyle.display);
+            this.debugLog('Settings container visibility:', containerStyle.visibility);
+            this.debugLog('Settings container rect:', { width: containerRect.width, height: containerRect.height, top: containerRect.top, left: containerRect.left });
+          }
+          
+          const rightControls = createdBtn.closest('.uvf-right-controls');
+          if (rightControls) {
+            const parentStyle = window.getComputedStyle(rightControls);
+            const parentRect = rightControls.getBoundingClientRect();
+            this.debugLog('Parent .uvf-right-controls display:', parentStyle.display);
+            this.debugLog('Parent .uvf-right-controls visibility:', parentStyle.visibility);
+            this.debugLog('Parent .uvf-right-controls rect:', { width: parentRect.width, height: parentRect.height, top: parentRect.top, left: parentRect.left });
+          }
+        } else {
+          this.debugError('Settings button NOT found after creation!');
+        }
+        
+        // Fallback: Force settings button visibility if it's not rendering properly
+        setTimeout(() => {
+          const btn = document.getElementById('uvf-settings-btn');
+          if (btn) {
+            const rect = btn.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) {
+              this.debugLog('Settings button has zero dimensions, applying fallback styles...');
+              btn.style.display = 'flex';
+              btn.style.width = '44px';
+              btn.style.height = '44px';
+              btn.style.minWidth = '44px';
+              btn.style.minHeight = '44px';
+              btn.style.backgroundColor = 'rgba(255,255,255,0.15)';
+              btn.style.borderRadius = '50%';
+              btn.style.alignItems = 'center';
+              btn.style.justifyContent = 'center';
+              btn.style.border = '1px solid rgba(255,255,255,0.1)';
+              btn.style.position = 'relative';
+              btn.style.zIndex = '10';
+              
+              // Also fix the container
+              const container = btn.parentElement;
+              if (container) {
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.justifyContent = 'center';
+                container.style.minWidth = '44px';
+                container.style.minHeight = '44px';
+              }
+              
+              this.debugLog('Fallback styles applied to settings button');
+            }
+          }
+        }, 500);
+      }, 100);
+    } else {
+      this.debugLog('Settings button NOT created - settings disabled');
+    }
     
     // EPG button (Electronic Program Guide)
     const epgBtn = document.createElement('button');
@@ -4329,6 +4853,7 @@ export class WebPlayer extends BasePlayer {
     controlsRow.appendChild(rightControls);
     
     // Assemble controls bar
+    controlsBar.appendChild(aboveSeekbarSection);
     controlsBar.appendChild(progressSection);
     controlsBar.appendChild(controlsRow);
     container.appendChild(controlsBar);
@@ -4645,11 +5170,51 @@ export class WebPlayer extends BasePlayer {
     
     // Settings menu - dynamically populated
     const settingsMenu = document.getElementById('uvf-settings-menu');
+    this.debugLog('Settings menu element found:', !!settingsMenu);
+    this.debugLog('Settings button found:', !!settingsBtn);
+    
     settingsBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
+      this.debugLog('Settings button clicked!');
+      this.debugLog('Settings menu before update:', settingsMenu?.innerHTML?.length || 0, 'characters');
+      
       // Update the menu content before showing it
       this.updateSettingsMenu();
+      
+      this.debugLog('Settings menu after update:', settingsMenu?.innerHTML?.length || 0, 'characters');
+      this.debugLog('Settings menu classes before toggle:', Array.from(settingsMenu?.classList || []).join(' '));
+      
       settingsMenu?.classList.toggle('active');
+      
+      // Force visibility if menu is active, hide if not active
+      if (settingsMenu) {
+        if (settingsMenu.classList.contains('active')) {
+          settingsMenu.style.display = 'block';
+          settingsMenu.style.visibility = 'visible';
+          settingsMenu.style.opacity = '1';
+          settingsMenu.style.transform = 'translateY(0)';
+          settingsMenu.style.zIndex = '9999';
+          settingsMenu.style.position = 'absolute';
+          settingsMenu.style.bottom = '50px';
+          settingsMenu.style.right = '0';
+          settingsMenu.style.background = 'rgba(0,0,0,0.9)';
+          settingsMenu.style.border = '1px solid rgba(255,255,255,0.2)';
+          settingsMenu.style.borderRadius = '8px';
+          settingsMenu.style.minWidth = '200px';
+          settingsMenu.style.padding = '10px 0';
+          this.debugLog('Applied fallback styles to show menu');
+        } else {
+          settingsMenu.style.display = 'none';
+          settingsMenu.style.visibility = 'hidden';
+          settingsMenu.style.opacity = '0';
+          this.debugLog('Applied fallback styles to hide menu');
+        }
+      }
+      
+      this.debugLog('Settings menu classes after toggle:', Array.from(settingsMenu?.classList || []).join(' '));
+      this.debugLog('Settings menu computed display:', window.getComputedStyle(settingsMenu || document.body).display);
+      this.debugLog('Settings menu computed visibility:', window.getComputedStyle(settingsMenu || document.body).visibility);
+      this.debugLog('Settings menu computed opacity:', window.getComputedStyle(settingsMenu || document.body).opacity);
     });
     
     // EPG button
@@ -4674,11 +5239,18 @@ export class WebPlayer extends BasePlayer {
     stopCastBtn?.addEventListener('click', () => this.stopCasting());
     shareBtn?.addEventListener('click', () => this.shareVideo());
     
-    // Hide settings menu when clicking outside
+    // Hide settings menu when clicking outside or pressing Escape
     document.addEventListener('click', (e) => {
       if (!(e.target as HTMLElement).closest('#uvf-settings-btn') && 
           !(e.target as HTMLElement).closest('#uvf-settings-menu')) {
-        settingsMenu?.classList.remove('active');
+        this.hideSettingsMenu();
+      }
+    });
+    
+    // Add Escape key handler for settings menu
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && settingsMenu?.classList.contains('active')) {
+        this.hideSettingsMenu();
       }
     });
   }
@@ -4866,8 +5438,41 @@ export class WebPlayer extends BasePlayer {
   protected setupWatermark(): void {
     if (!this.watermarkCanvas) return;
     
+    // Get watermark configuration
+    const watermarkConfig = (this.config as any).watermark;
+    
+    // Check if watermark is disabled or not configured
+    if (!watermarkConfig || watermarkConfig.enabled === false) {
+      this.debugLog('Watermark disabled or not configured');
+      return;
+    }
+    
+    // If watermark config exists but enabled is not explicitly set, default to disabled
+    if (watermarkConfig.enabled !== true) {
+      this.debugLog('Watermark not explicitly enabled');
+      return;
+    }
+    
     const ctx = this.watermarkCanvas.getContext('2d');
     if (!ctx) return;
+    
+    // Default configuration values
+    const config = {
+      text: watermarkConfig.text || 'PREMIUM',
+      showTime: watermarkConfig.showTime !== false, // default true
+      updateInterval: watermarkConfig.updateInterval || 5000,
+      randomPosition: watermarkConfig.randomPosition !== false, // default true
+      position: watermarkConfig.position || {},
+      style: {
+        fontSize: watermarkConfig.style?.fontSize || 14,
+        fontFamily: watermarkConfig.style?.fontFamily || 'Arial',
+        opacity: watermarkConfig.style?.opacity ?? 0.3,
+        color: watermarkConfig.style?.color,
+        gradientColors: watermarkConfig.style?.gradientColors || ['#ff0000', '#ff4d4f']
+      }
+    };
+    
+    this.debugLog('Watermark configuration:', config);
     
     const renderWatermark = () => {
       const container = this.watermarkCanvas!.parentElement;
@@ -4878,38 +5483,119 @@ export class WebPlayer extends BasePlayer {
       
       ctx.clearRect(0, 0, this.watermarkCanvas!.width, this.watermarkCanvas!.height);
       
-      // Gradient text effect using theme
-      const wrapper = this.playerWrapper as HTMLElement | null;
-      let c1 = '#ff0000';
-      let c2 = '#ff4d4f';
-      try {
-        if (wrapper) {
-          const styles = getComputedStyle(wrapper);
-          const v1 = styles.getPropertyValue('--uvf-accent-1').trim();
-          const v2 = styles.getPropertyValue('--uvf-accent-2').trim();
-          if (v1) c1 = v1;
-          if (v2) c2 = v2;
-        }
-      } catch (_) {}
-      const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-      gradient.addColorStop(0, c1);
-      gradient.addColorStop(1, c2);
+      // Build watermark text
+      let text = config.text;
+      if (config.showTime) {
+        const timeStr = new Date().toLocaleTimeString();
+        text += ` • ${timeStr}`;
+      }
+      
+      // Set up styling
       ctx.save();
-      ctx.globalAlpha = 0.3;
-      ctx.font = '14px Arial';
-      ctx.fillStyle = gradient;
+      ctx.globalAlpha = config.style.opacity;
+      ctx.font = `${config.style.fontSize}px ${config.style.fontFamily}`;
       ctx.textAlign = 'left';
       
-      const text = `PREMIUM • ${new Date().toLocaleTimeString()}`;
-      const x = 20 + Math.random() * (this.watermarkCanvas!.width - 200);
-      const y = 40 + Math.random() * (this.watermarkCanvas!.height - 80);
+      // Set fill style
+      if (config.style.color) {
+        // Use solid color
+        ctx.fillStyle = config.style.color;
+      } else {
+        // Use gradient (default or custom)
+        const wrapper = this.playerWrapper as HTMLElement | null;
+        let c1 = config.style.gradientColors[0];
+        let c2 = config.style.gradientColors[1];
+        
+        // Try to get theme colors if using defaults
+        if (!watermarkConfig.style?.gradientColors) {
+          try {
+            if (wrapper) {
+              const styles = getComputedStyle(wrapper);
+              const v1 = styles.getPropertyValue('--uvf-accent-1').trim();
+              const v2 = styles.getPropertyValue('--uvf-accent-2').trim();
+              if (v1) c1 = v1;
+              if (v2) c2 = v2;
+            }
+          } catch (_) {}
+        }
+        
+        const gradient = ctx.createLinearGradient(0, 0, 200, 0);
+        gradient.addColorStop(0, c1);
+        gradient.addColorStop(1, c2);
+        ctx.fillStyle = gradient;
+      }
       
+      // Calculate position
+      let x: number, y: number;
+      
+      if (config.randomPosition) {
+        // Random position (default behavior)
+        x = 20 + Math.random() * Math.max(0, this.watermarkCanvas!.width - 200);
+        y = 40 + Math.random() * Math.max(0, this.watermarkCanvas!.height - 80);
+      } else {
+        // Fixed or calculated position
+        const posX = config.position.x;
+        const posY = config.position.y;
+        
+        // Calculate X position
+        if (typeof posX === 'number') {
+          x = posX;
+        } else {
+          switch (posX) {
+            case 'left':
+              x = 20;
+              break;
+            case 'center':
+              x = this.watermarkCanvas!.width / 2;
+              ctx.textAlign = 'center';
+              break;
+            case 'right':
+              x = this.watermarkCanvas!.width - 20;
+              ctx.textAlign = 'right';
+              break;
+            case 'random':
+              x = 20 + Math.random() * Math.max(0, this.watermarkCanvas!.width - 200);
+              break;
+            default:
+              x = 20; // default left
+          }
+        }
+        
+        // Calculate Y position
+        if (typeof posY === 'number') {
+          y = posY;
+        } else {
+          switch (posY) {
+            case 'top':
+              y = 40;
+              break;
+            case 'center':
+              y = this.watermarkCanvas!.height / 2;
+              break;
+            case 'bottom':
+              y = this.watermarkCanvas!.height - 20;
+              break;
+            case 'random':
+              y = 40 + Math.random() * Math.max(0, this.watermarkCanvas!.height - 80);
+              break;
+            default:
+              y = 40; // default top
+          }
+        }
+      }
+      
+      // Render the watermark
       ctx.fillText(text, x, y);
       ctx.restore();
+      
+      this.debugLog('Watermark rendered:', { text, x, y });
     };
     
-    setInterval(renderWatermark, 5000);
-    renderWatermark();
+    // Set up interval with configured frequency
+    setInterval(renderWatermark, config.updateInterval);
+    renderWatermark(); // Render immediately
+    
+    this.debugLog('Watermark setup complete with update interval:', config.updateInterval + 'ms');
   }
 
   public setPaywallConfig(config: any) {
@@ -5790,60 +6476,141 @@ export class WebPlayer extends BasePlayer {
    * Dynamically populate settings menu based on video capabilities
    */
   private updateSettingsMenu(): void {
+    this.debugLog('updateSettingsMenu called');
     const settingsMenu = document.getElementById('uvf-settings-menu');
-    if (!settingsMenu) return;
+    if (!settingsMenu) {
+      this.debugError('Settings menu element not found!');
+      return;
+    }
 
+    this.debugLog('Settings menu element found, updating content...');
     // Detect available qualities from video
     this.detectAvailableQualities();
     // Detect available subtitles
     this.detectAvailableSubtitles();
 
-    let menuHTML = '';
+    this.debugLog('Available qualities:', this.availableQualities);
+    this.debugLog('Available subtitles:', this.availableSubtitles);
+    this.debugLog('Settings config:', this.settingsConfig);
 
-    // Playback Speed Section
-    menuHTML += `
-      <div class="uvf-settings-group">
-        <div class="uvf-settings-label">Playback Speed</div>
-        <div class="uvf-settings-option speed-option" data-speed="0.25">0.25x</div>
-        <div class="uvf-settings-option speed-option" data-speed="0.5">0.5x</div>
-        <div class="uvf-settings-option speed-option" data-speed="0.75">0.75x</div>
-        <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 1 ? 'active' : ''}" data-speed="1">Normal</div>
-        <div class="uvf-settings-option speed-option" data-speed="1.25">1.25x</div>
-        <div class="uvf-settings-option speed-option" data-speed="1.5">1.5x</div>
-        <div class="uvf-settings-option speed-option" data-speed="1.75">1.75x</div>
-        <div class="uvf-settings-option speed-option" data-speed="2">2x</div>
-      </div>`;
+    // Generate accordion-style menu
+    this.generateAccordionMenu();
+  }
+  
+  /**
+   * Generate accordion-style settings menu
+   */
+  private generateAccordionMenu(): void {
+    const settingsMenu = document.getElementById('uvf-settings-menu');
+    if (!settingsMenu) return;
 
-    // Quality Section (only if qualities detected)
-    if (this.availableQualities.length > 0) {
-      menuHTML += `<div class="uvf-settings-group">
-        <div class="uvf-settings-label">Quality</div>`;
+    let menuHTML = '<div class="uvf-settings-accordion">';
+
+    // Playback Speed Accordion Section (only if enabled in config)
+    if (this.settingsConfig.speed) {
+      const currentSpeedLabel = this.currentPlaybackRate === 1 ? 'Normal' : `${this.currentPlaybackRate}x`;
+      menuHTML += `
+        <div class="uvf-accordion-item">
+          <div class="uvf-accordion-header" data-section="speed">
+            <div class="uvf-accordion-title">
+              <span class="uvf-accordion-icon">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M13,24l11-12L13,0V7.5C5.7,7.5,0,13.2,0,20.5C0,22.4,0.6,24.2,1.6,25.7C4.8,21.8,8.7,19.5,13,19.5V24z"/>
+                </svg>
+              </span>
+              <span>Playback Speed</span>
+            </div>
+            <div class="uvf-accordion-current">${currentSpeedLabel}</div>
+            <div class="uvf-accordion-arrow">▼</div>
+          </div>
+          <div class="uvf-accordion-content" data-section="speed">
+            <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 0.25 ? 'active' : ''}" data-speed="0.25">0.25x</div>
+            <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 0.5 ? 'active' : ''}" data-speed="0.5">0.5x</div>
+            <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 0.75 ? 'active' : ''}" data-speed="0.75">0.75x</div>
+            <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 1 ? 'active' : ''}" data-speed="1">Normal</div>
+            <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 1.25 ? 'active' : ''}" data-speed="1.25">1.25x</div>
+            <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 1.5 ? 'active' : ''}" data-speed="1.5">1.5x</div>
+            <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 1.75 ? 'active' : ''}" data-speed="1.75">1.75x</div>
+            <div class="uvf-settings-option speed-option ${this.currentPlaybackRate === 2 ? 'active' : ''}" data-speed="2">2x</div>
+          </div>
+        </div>`;
+    }
+
+    // Quality Accordion Section (only if enabled in config and qualities detected)
+    if (this.settingsConfig.quality && this.availableQualities.length > 0) {
+      const currentQuality = this.availableQualities.find(q => q.value === this.currentQuality);
+      const currentQualityLabel = currentQuality ? currentQuality.label : 'Auto';
+      
+      menuHTML += `
+        <div class="uvf-accordion-item">
+          <div class="uvf-accordion-header" data-section="quality">
+            <div class="uvf-accordion-title">
+              <span class="uvf-accordion-icon">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M9,4v3h5V4h4V16H15v-3H9v3H5V4H9z M8,5H6v10h2V11h6v4h2V5h-2v4H8V5z"/>
+                </svg>
+              </span>
+              <span>Quality</span>
+            </div>
+            <div class="uvf-accordion-current">${currentQualityLabel}</div>
+            <div class="uvf-accordion-arrow">▼</div>
+          </div>
+          <div class="uvf-accordion-content" data-section="quality">`;
       
       this.availableQualities.forEach(quality => {
         const isActive = quality.value === this.currentQuality ? 'active' : '';
         menuHTML += `<div class="uvf-settings-option quality-option ${isActive}" data-quality="${quality.value}">${quality.label}</div>`;
       });
       
-      menuHTML += `</div>`;
+      menuHTML += `</div></div>`;
     }
 
-    // Subtitles Section (only if subtitles available)
-    if (this.availableSubtitles.length > 0) {
-      menuHTML += `<div class="uvf-settings-group">
-        <div class="uvf-settings-label">Subtitles/Captions</div>`;
+    // Subtitles Accordion Section (only if enabled in config and subtitles available)
+    if (this.settingsConfig.subtitles && this.availableSubtitles.length > 0) {
+      const currentSubtitle = this.availableSubtitles.find(s => s.value === this.currentSubtitle);
+      const currentSubtitleLabel = currentSubtitle ? currentSubtitle.label : 'Off';
+      
+      menuHTML += `
+        <div class="uvf-accordion-item">
+          <div class="uvf-accordion-header" data-section="subtitles">
+            <div class="uvf-accordion-title">
+              <span class="uvf-accordion-icon">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M20,4H4C2.89,4 2,4.89 2,6V18C2,19.11 2.89,20 4,20H20C21.11,20 22,19.11 22,18V6C22,4.89 21.11,4 20,4M20,18H4V6H20V18M6,10H8V12H6V10M6,14H14V16H6V14M16,14H18V16H16V14M10,10H18V12H10V10Z"/>
+                </svg>
+              </span>
+              <span>Subtitles</span>
+            </div>
+            <div class="uvf-accordion-current">${currentSubtitleLabel}</div>
+            <div class="uvf-accordion-arrow">▼</div>
+          </div>
+          <div class="uvf-accordion-content" data-section="subtitles">`;
       
       this.availableSubtitles.forEach(subtitle => {
         const isActive = subtitle.value === this.currentSubtitle ? 'active' : '';
         menuHTML += `<div class="uvf-settings-option subtitle-option ${isActive}" data-subtitle="${subtitle.value}">${subtitle.label}</div>`;
       });
       
-      menuHTML += `</div>`;
+      menuHTML += `</div></div>`;
+    }
+    
+    // Close accordion container
+    menuHTML += '</div>';
+    
+    // If no sections are enabled or available, show a message
+    if (menuHTML === '<div class="uvf-settings-accordion"></div>') {
+      menuHTML = '<div class="uvf-settings-accordion"><div class="uvf-settings-empty">No settings available</div></div>';
     }
 
+    this.debugLog('Generated menu HTML length:', menuHTML.length);
+    this.debugLog('Generated menu HTML content:', menuHTML.substring(0, 200) + (menuHTML.length > 200 ? '...' : ''));
+    
     settingsMenu.innerHTML = menuHTML;
+    this.debugLog('Settings menu HTML set successfully');
 
     // Add event listeners for settings options
     this.setupSettingsEventListeners();
+    this.debugLog('Settings event listeners setup complete');
   }
 
   /**
@@ -5923,18 +6690,33 @@ export class WebPlayer extends BasePlayer {
   }
 
   /**
-   * Setup event listeners for settings menu options
+   * Setup event listeners for accordion-style settings menu
    */
   private setupSettingsEventListeners(): void {
     const settingsMenu = document.getElementById('uvf-settings-menu');
     if (!settingsMenu) return;
+
+    // Accordion header click handlers
+    settingsMenu.querySelectorAll('.uvf-accordion-header').forEach(header => {
+      header.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const accordionItem = header.parentElement;
+        const section = header.getAttribute('data-section');
+        
+        if (accordionItem && section) {
+          this.toggleAccordionSection(accordionItem, section);
+        }
+      });
+    });
 
     // Speed options
     settingsMenu.querySelectorAll('.speed-option').forEach(option => {
       option.addEventListener('click', (e) => {
         const speed = parseFloat((e.target as HTMLElement).dataset.speed || '1');
         this.setPlaybackRateFromSettings(speed);
-        this.updateSettingsActiveStates('speed-option', e.target as HTMLElement);
+        this.updateAccordionAfterSelection('speed');
       });
     });
 
@@ -5943,7 +6725,7 @@ export class WebPlayer extends BasePlayer {
       option.addEventListener('click', (e) => {
         const quality = (e.target as HTMLElement).dataset.quality || 'auto';
         this.setQualityFromSettings(quality);
-        this.updateSettingsActiveStates('quality-option', e.target as HTMLElement);
+        this.updateAccordionAfterSelection('quality');
       });
     });
 
@@ -5952,9 +6734,68 @@ export class WebPlayer extends BasePlayer {
       option.addEventListener('click', (e) => {
         const subtitle = (e.target as HTMLElement).dataset.subtitle || 'off';
         this.setSubtitle(subtitle);
-        this.updateSettingsActiveStates('subtitle-option', e.target as HTMLElement);
+        this.updateAccordionAfterSelection('subtitles');
       });
     });
+  }
+  
+  /**
+   * Toggle accordion section
+   */
+  private toggleAccordionSection(accordionItem: Element, section: string): void {
+    const isExpanded = accordionItem.classList.contains('expanded');
+    
+    // If clicking the same section that's already expanded, just close it
+    if (isExpanded) {
+      accordionItem.classList.remove('expanded');
+      return;
+    }
+    
+    // Otherwise, close all sections and open the clicked one
+    const settingsMenu = document.getElementById('uvf-settings-menu');
+    if (settingsMenu) {
+      settingsMenu.querySelectorAll('.uvf-accordion-item.expanded').forEach(item => {
+        item.classList.remove('expanded');
+      });
+    }
+    
+    // Open the clicked section
+    accordionItem.classList.add('expanded');
+  }
+  
+  /**
+   * Hide settings menu with proper styling
+   */
+  private hideSettingsMenu(): void {
+    const settingsMenu = document.getElementById('uvf-settings-menu');
+    if (!settingsMenu) return;
+    
+    settingsMenu.classList.remove('active');
+    
+    // Apply fallback styles to ensure menu is hidden
+    settingsMenu.style.display = 'none';
+    settingsMenu.style.visibility = 'hidden';
+    settingsMenu.style.opacity = '0';
+    
+    // Also close any expanded accordions
+    settingsMenu.querySelectorAll('.uvf-accordion-item.expanded').forEach(item => {
+      item.classList.remove('expanded');
+    });
+    
+    this.debugLog('Settings menu hidden via hideSettingsMenu()');
+  }
+
+  /**
+   * Update accordion after user makes a selection
+   */
+  private updateAccordionAfterSelection(section: string): void {
+    // Just update the current values without closing
+    // User can manually close or it will close when they click outside
+    setTimeout(() => {
+      // Refresh the menu to update current values
+      this.generateAccordionMenu();
+      this.setupSettingsEventListeners();
+    }, 100);
   }
 
   /**

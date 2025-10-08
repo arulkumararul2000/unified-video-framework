@@ -278,13 +278,31 @@ export const WebPlayerView = (props) => {
                     },
                 };
             }
+            let watermarkConfig;
+            if (typeof props.watermark === 'boolean') {
+                watermarkConfig = { enabled: props.watermark };
+            }
+            else {
+                watermarkConfig = props.watermark;
+            }
             const config = {
                 autoPlay: props.autoPlay ?? false,
                 muted: props.muted ?? false,
+                volume: props.volume ?? 1.0,
+                controls: props.controls ?? true,
+                loop: props.loop ?? false,
+                preload: props.preload ?? 'metadata',
+                crossOrigin: props.crossOrigin,
+                playsInline: props.playsInline ?? true,
+                defaultQuality: props.defaultQuality,
                 enableAdaptiveBitrate: props.enableAdaptiveBitrate ?? true,
                 debug: props.debug ?? false,
                 freeDuration: props.freeDuration,
-                paywall: paywallCfg
+                paywall: paywallCfg,
+                customControls: props.customControls,
+                settings: props.settings,
+                showFrameworkBranding: props.showFrameworkBranding,
+                watermark: watermarkConfig
             };
             try {
                 await player.initialize(containerRef.current, config);
@@ -330,6 +348,13 @@ export const WebPlayerView = (props) => {
     }, [
         props.autoPlay,
         props.muted,
+        props.volume,
+        props.controls,
+        props.loop,
+        props.preload,
+        props.crossOrigin,
+        props.playsInline,
+        props.defaultQuality,
         props.enableAdaptiveBitrate,
         props.debug,
         props.url,
@@ -342,6 +367,10 @@ export const WebPlayerView = (props) => {
         JSON.stringify(props.paywall),
         JSON.stringify(props.emailAuth),
         props.paywallConfigUrl,
+        props.customControls,
+        JSON.stringify(props.settings),
+        props.showFrameworkBranding,
+        JSON.stringify(props.watermark),
     ]);
     useEffect(() => {
         const p = playerRef.current;

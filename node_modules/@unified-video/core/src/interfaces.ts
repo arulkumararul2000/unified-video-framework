@@ -110,6 +110,8 @@ export interface VideoPlayerConfig {
   crossOrigin?: 'anonymous' | 'use-credentials';
   playsInline?: boolean;
   pictureInPicture?: boolean;
+  showFrameworkBranding?: boolean; // Show/hide flicknexs framework branding (default: true)
+  watermark?: WatermarkConfig; // Watermark configuration
   adaptiveBitrate?: AdaptiveBitrateConfig;
   drm?: DRMConfig;
   analytics?: AnalyticsConfig;
@@ -153,6 +155,25 @@ export interface OfflineConfig {
   enabled: boolean;
   storageLimit?: number;
   downloadQuality?: 'auto' | 'high' | 'medium' | 'low';
+}
+
+export interface WatermarkConfig {
+  enabled?: boolean; // Enable/disable watermark (default: true)
+  text?: string; // Custom watermark text (default: "PREMIUM")
+  showTime?: boolean; // Show current time with watermark (default: true)
+  updateInterval?: number; // Update frequency in milliseconds (default: 5000)
+  randomPosition?: boolean; // Random position on each update (default: true)
+  position?: {
+    x?: number | 'left' | 'center' | 'right' | 'random';
+    y?: number | 'top' | 'center' | 'bottom' | 'random';
+  };
+  style?: {
+    fontSize?: number; // Font size in pixels (default: 14)
+    fontFamily?: string; // Font family (default: "Arial")
+    opacity?: number; // Opacity 0-1 (default: 0.3)
+    color?: string; // Custom color (overrides gradient)
+    gradientColors?: [string, string]; // Custom gradient colors
+  };
 }
 
 export interface PlayerMetrics {
