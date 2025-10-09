@@ -119,6 +119,9 @@ export interface ChapterPreferences {
   
   /** Remember user choices */
   rememberChoices?: boolean;
+  
+  /** Resume playback after skip (default: true for better UX) */
+  resumePlaybackAfterSkip?: boolean;
 }
 
 /**
@@ -209,7 +212,8 @@ export const DEFAULT_CHAPTER_CONFIG: ChapterConfig = {
     autoSkipCredits: false,
     showSkipButtons: true,
     skipButtonTimeout: 5000,
-    rememberChoices: true
+    rememberChoices: true,
+    resumePlaybackAfterSkip: true
   }
 };
 

@@ -319,6 +319,7 @@ export const WebPlayerView = (props) => {
                         showSkipButtons: props.chapters.userPreferences?.showSkipButtons ?? true,
                         skipButtonTimeout: props.chapters.userPreferences?.skipButtonTimeout ?? 5000,
                         rememberChoices: props.chapters.userPreferences?.rememberChoices ?? true,
+                        resumePlaybackAfterSkip: props.chapters.userPreferences?.resumePlaybackAfterSkip ?? true,
                     }
                 } : { enabled: false }
             };

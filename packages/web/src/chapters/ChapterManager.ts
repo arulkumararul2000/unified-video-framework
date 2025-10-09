@@ -130,6 +130,9 @@ export class ChapterManager {
     const nextSegment = this.getNextContentSegment(currentSegment);
     const targetTime = nextSegment ? nextSegment.startTime : currentSegment.endTime;
 
+    // Store current playback state
+    const wasPlaying = !this.videoElement.paused;
+
     // Emit skip event
     this.emit('segmentSkipped', {
       fromSegment: currentSegment,
@@ -140,6 +143,19 @@ export class ChapterManager {
 
     // Seek to target time
     this.videoElement.currentTime = targetTime;
+
+    // Resume playback if video was playing before skip (better UX)
+    const shouldResumePlayback = this.config.userPreferences?.resumePlaybackAfterSkip !== false;
+    if (shouldResumePlayback && wasPlaying && this.videoElement.paused) {
+      // Use a small delay to ensure seeking is complete
+      setTimeout(() => {
+        if (!this.videoElement.paused) return; // Don't play if already playing
+        this.videoElement.play().catch(() => {
+          // Handle autoplay restrictions gracefully
+          console.warn('[ChapterManager] Could not resume playback after skip - user interaction may be required');
+        });
+      }, 50);
+    }
   }
 
   /**
@@ -153,6 +169,9 @@ export class ChapterManager {
 
     const fromSegment = this.currentSegment;
     
+    // Store current playback state
+    const wasPlaying = !this.videoElement.paused;
+    
     // Emit skip event
     if (fromSegment) {
       this.emit('segmentSkipped', {
@@ -165,6 +184,19 @@ export class ChapterManager {
 
     // Seek to segment start
     this.videoElement.currentTime = segment.startTime;
+
+    // Resume playback if video was playing before skip (better UX)
+    const shouldResumePlayback = this.config.userPreferences?.resumePlaybackAfterSkip !== false;
+    if (shouldResumePlayback && wasPlaying && this.videoElement.paused) {
+      // Use a small delay to ensure seeking is complete
+      setTimeout(() => {
+        if (!this.videoElement.paused) return; // Don't play if already playing
+        this.videoElement.play().catch(() => {
+          // Handle autoplay restrictions gracefully
+          console.warn('[ChapterManager] Could not resume playback after skip - user interaction may be required');
+        });
+      }, 50);
+    }
   }
 
   /**

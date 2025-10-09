@@ -172,6 +172,7 @@ export type WebPlayerViewProps = {
             showSkipButtons?: boolean;
             skipButtonTimeout?: number;
             rememberChoices?: boolean;
+            resumePlaybackAfterSkip?: boolean;
         };
     };
     onChapterChange?: (chapter: any) => void;

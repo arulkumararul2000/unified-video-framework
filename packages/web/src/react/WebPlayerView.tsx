@@ -211,6 +211,7 @@ export type WebPlayerViewProps = {
       showSkipButtons?: boolean;        // Show skip buttons (default: true)
       skipButtonTimeout?: number;       // Button timeout in milliseconds (default: 5000)
       rememberChoices?: boolean;        // Remember user preferences (default: true)
+      resumePlaybackAfterSkip?: boolean; // Resume playback after skipping (default: true)
     };
   };
 
@@ -569,6 +570,7 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
             showSkipButtons: props.chapters.userPreferences?.showSkipButtons ?? true,
             skipButtonTimeout: props.chapters.userPreferences?.skipButtonTimeout ?? 5000,
             rememberChoices: props.chapters.userPreferences?.rememberChoices ?? true,
+            resumePlaybackAfterSkip: props.chapters.userPreferences?.resumePlaybackAfterSkip ?? true,
           }
         } : { enabled: false }
       };
