@@ -71,6 +71,16 @@ export interface PlayerEvents {
         url: string;
         userAgent: string;
     }) => void;
+    chapterchange?: (chapter: any) => void;
+    segmententered?: (segment: any) => void;
+    segmentexited?: (segment: any) => void;
+    segmentskipped?: (segment: any) => void;
+    chapterSegmentEntered?: (data: any) => void;
+    chapterSegmentSkipped?: (data: any) => void;
+    chapterSkipButtonShown?: (data: any) => void;
+    chapterSkipButtonHidden?: (data: any) => void;
+    chaptersLoaded?: (data: any) => void;
+    chaptersLoadError?: (data: any) => void;
 }
 export interface PlayerError {
     code: string;

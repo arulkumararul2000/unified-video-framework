@@ -16,5 +16,9 @@ export type { Platform } from './VideoPlayerFactory';
 // Export utilities
 export { EventEmitter } from './utils/EventEmitter';
 
+// Export chapter manager
+export { ChapterManager } from './chapter-manager';
+export type { ChapterManagerEvents } from './chapter-manager';
+
 // Export version
 export const VERSION = '1.0.0';

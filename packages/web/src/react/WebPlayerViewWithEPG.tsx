@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { CSSProperties } from 'react';
-import type { VideoSource, SubtitleTrack, VideoMetadata, PlayerConfig } from '@unified-video/core';
+import type { VideoSource, SubtitleTrack, VideoMetadata, PlayerConfig } from '../../core/dist';
 import { WebPlayer } from '../WebPlayer';
 import EPGOverlay from './components/EPGOverlay';
 import type { EPGData, EPGConfig, EPGProgram, EPGProgramRow, EPGAction } from './types/EPGTypes';
@@ -13,7 +13,7 @@ export interface WebPlayerViewWithEPGProps {
   enableAdaptiveBitrate?: boolean;
   debug?: boolean;
   freeDuration?: number;
-  paywall?: import('@unified-video/core').PaywallConfig;
+  paywall?: import('../../core/dist').PaywallConfig;
   paywallConfigUrl?: string;
   
   emailAuth?: {

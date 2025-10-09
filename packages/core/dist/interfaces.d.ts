@@ -138,6 +138,37 @@ export interface OfflineConfig {
     storageLimit?: number;
     downloadQuality?: 'auto' | 'high' | 'medium' | 'low';
 }
+export interface Chapter {
+    id: string;
+    title: string;
+    startTime: number;
+    endTime: number;
+    thumbnail?: string;
+    description?: string;
+    metadata?: Record<string, any>;
+}
+export interface ChapterSegment {
+    id: string;
+    startTime: number;
+    endTime: number;
+    category?: string;
+    action?: 'skip' | 'mute' | 'warn';
+    title?: string;
+    description?: string;
+}
+export interface ChapterConfig {
+    enabled?: boolean;
+    chapters?: Chapter[];
+    segments?: ChapterSegment[];
+    dataUrl?: string;
+    autoSkip?: boolean;
+    showSkipButton?: boolean;
+    skipButtonText?: string;
+    onChapterChange?: (chapter: Chapter | null) => void;
+    onSegmentEntered?: (segment: ChapterSegment) => void;
+    onSegmentExited?: (segment: ChapterSegment) => void;
+    onSegmentSkipped?: (segment: ChapterSegment) => void;
+}
 export interface WatermarkConfig {
     enabled?: boolean;
     text?: string;
@@ -201,7 +232,7 @@ export interface PlatformInfo {
         height: number;
     };
 }
-export type PlayerEvent = 'ready' | 'play' | 'pause' | 'ended' | 'error' | 'loadstart' | 'loadedmetadata' | 'timeupdate' | 'progress' | 'seeking' | 'seeked' | 'waiting' | 'canplay' | 'canplaythrough' | 'volumechange' | 'ratechange' | 'qualitychange' | 'subtitlechange' | 'audiotrackchange' | 'fullscreenchange' | 'pictureInPicturechange' | 'castStateChanged' | 'adstart' | 'adend' | 'aderror';
+export type PlayerEvent = 'ready' | 'play' | 'pause' | 'ended' | 'error' | 'loadstart' | 'loadedmetadata' | 'timeupdate' | 'progress' | 'seeking' | 'seeked' | 'waiting' | 'canplay' | 'canplaythrough' | 'volumechange' | 'ratechange' | 'qualitychange' | 'subtitlechange' | 'audiotrackchange' | 'fullscreenchange' | 'pictureInPicturechange' | 'castStateChanged' | 'adstart' | 'adend' | 'aderror' | 'chapterchange' | 'segmententered' | 'segmentexited' | 'segmentskipped' | 'chapterSegmentEntered' | 'chapterSegmentSkipped' | 'chapterSkipButtonShown' | 'chapterSkipButtonHidden' | 'chaptersLoaded' | 'chaptersLoadError';
 export type EventHandler = (data?: any) => void;
 export interface EventEmitter {
     on(event: PlayerEvent, handler: EventHandler): void;
@@ -383,5 +414,6 @@ export interface PlayerConfig extends VideoPlayerConfig {
     freeDuration?: number;
     paywall?: PaywallConfig;
     volume?: number;
+    chapters?: ChapterConfig;
 }
 //# sourceMappingURL=interfaces.d.ts.map

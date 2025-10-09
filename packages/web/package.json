@@ -15,9 +15,6 @@
     "test": "jest",
     "lint": "eslint src --ext .ts,.tsx,.js"
   },
-  "dependencies": {
-    "@unified-video/core": "file:../core"
-  },
   "peerDependencies": {
     "dashjs": "^4.0.0",
     "hls.js": "^1.0.0",

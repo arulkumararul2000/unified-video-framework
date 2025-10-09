@@ -4,7 +4,7 @@
  */
 
 // Re-export core interfaces for convenience
-export * from '@unified-video/core';
+export * from '../../core/dist/index';
 
 // Export web player implementation
 export { WebPlayer } from './WebPlayer';

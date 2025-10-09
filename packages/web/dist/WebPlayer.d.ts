@@ -1,4 +1,6 @@
-import { BasePlayer } from '@unified-video/core';
+import { BasePlayer } from '../../core/dist/BasePlayer';
+import { Chapter, ChapterSegment } from '../../core/dist/index';
+import { ChapterConfig, VideoChapters, VideoSegment } from './chapters/types/ChapterTypes';
 declare global {
     interface Window {
         Hls: any;
@@ -52,6 +54,9 @@ export declare class WebPlayer extends BasePlayer {
     private hasTriedButtonFallback;
     private lastUserInteraction;
     private showTimeTooltip;
+    private chapterManager;
+    private coreChapterManager;
+    private chapterConfig;
     private debugLog;
     private debugError;
     private debugWarn;
@@ -139,6 +144,24 @@ export declare class WebPlayer extends BasePlayer {
         intensity?: number;
     }): void;
     private applyScrollbarPreferencesFromDataset;
+    private setupChapterManager;
+    private convertToChapters;
+    private convertToChapterSegments;
+    private mapSegmentAction;
+    loadChapters(chapters: VideoChapters): Promise<void>;
+    loadChaptersFromUrl(url: string): Promise<void>;
+    getCurrentSegment(): VideoSegment | null;
+    skipToSegment(segmentId: string): void;
+    getSegments(): VideoSegment[];
+    updateChapterConfig(newConfig: Partial<ChapterConfig>): void;
+    hasChapters(): boolean;
+    getChapters(): VideoChapters | null;
+    getCoreChapters(): Chapter[];
+    getCoreSegments(): ChapterSegment[];
+    getCurrentChapterInfo(): Chapter | null;
+    seekToChapter(chapterId: string): void;
+    getNextChapter(): Chapter | null;
+    getPreviousChapter(): Chapter | null;
     setTheme(theme: any): void;
     private _parseRgb;
     private _rgbToString;

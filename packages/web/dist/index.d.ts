@@ -1,4 +1,4 @@
-export * from '@unified-video/core';
+export * from '../../core/dist/index';
 export { WebPlayer } from './WebPlayer';
 export { WebPlayerView } from './react/WebPlayerView';
 export { SecureVideoPlayer } from './SecureVideoPlayer';

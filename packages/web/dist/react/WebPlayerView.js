@@ -302,7 +302,25 @@ export const WebPlayerView = (props) => {
                 customControls: props.customControls,
                 settings: props.settings,
                 showFrameworkBranding: props.showFrameworkBranding,
-                watermark: watermarkConfig
+                watermark: watermarkConfig,
+                chapters: props.chapters ? {
+                    enabled: props.chapters.enabled ?? false,
+                    data: props.chapters.data,
+                    dataUrl: props.chapters.dataUrl,
+                    autoHide: props.chapters.autoHide ?? true,
+                    autoHideDelay: props.chapters.autoHideDelay ?? 5000,
+                    showChapterMarkers: props.chapters.showChapterMarkers ?? true,
+                    skipButtonPosition: props.chapters.skipButtonPosition ?? 'bottom-right',
+                    customStyles: props.chapters.customStyles,
+                    userPreferences: {
+                        autoSkipIntro: props.chapters.userPreferences?.autoSkipIntro ?? false,
+                        autoSkipRecap: props.chapters.userPreferences?.autoSkipRecap ?? false,
+                        autoSkipCredits: props.chapters.userPreferences?.autoSkipCredits ?? false,
+                        showSkipButtons: props.chapters.userPreferences?.showSkipButtons ?? true,
+                        skipButtonTimeout: props.chapters.userPreferences?.skipButtonTimeout ?? 5000,
+                        rememberChoices: props.chapters.userPreferences?.rememberChoices ?? true,
+                    }
+                } : { enabled: false }
             };
             try {
                 await player.initialize(containerRef.current, config);
@@ -328,6 +346,36 @@ export const WebPlayerView = (props) => {
                         player.on('epgToggle', () => {
                             handleToggleEPG(!epgVisible);
                         });
+                    }
+                    if (props.onChapterChange && typeof player.on === 'function') {
+                        player.on('chapterchange', props.onChapterChange);
+                    }
+                    if (props.onSegmentEntered && typeof player.on === 'function') {
+                        player.on('segmententered', props.onSegmentEntered);
+                    }
+                    if (props.onSegmentExited && typeof player.on === 'function') {
+                        player.on('segmentexited', props.onSegmentExited);
+                    }
+                    if (props.onSegmentSkipped && typeof player.on === 'function') {
+                        player.on('segmentskipped', props.onSegmentSkipped);
+                    }
+                    if (props.onChapterSegmentEntered && typeof player.on === 'function') {
+                        player.on('chapterSegmentEntered', props.onChapterSegmentEntered);
+                    }
+                    if (props.onChapterSegmentSkipped && typeof player.on === 'function') {
+                        player.on('chapterSegmentSkipped', props.onChapterSegmentSkipped);
+                    }
+                    if (props.onChapterSkipButtonShown && typeof player.on === 'function') {
+                        player.on('chapterSkipButtonShown', props.onChapterSkipButtonShown);
+                    }
+                    if (props.onChapterSkipButtonHidden && typeof player.on === 'function') {
+                        player.on('chapterSkipButtonHidden', props.onChapterSkipButtonHidden);
+                    }
+                    if (props.onChaptersLoaded && typeof player.on === 'function') {
+                        player.on('chaptersLoaded', props.onChaptersLoaded);
+                    }
+                    if (props.onChaptersLoadError && typeof player.on === 'function') {
+                        player.on('chaptersLoadError', props.onChaptersLoadError);
                     }
                     props.onReady?.(player);
                 }

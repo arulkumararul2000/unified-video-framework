@@ -1,6 +1,6 @@
 import React from 'react';
 import type { CSSProperties } from 'react';
-import type { SubtitleTrack, VideoMetadata } from '@unified-video/core';
+import type { SubtitleTrack, VideoMetadata } from '../../core/dist';
 import { WebPlayer } from '../WebPlayer';
 import type { EPGData, EPGConfig, EPGProgram, EPGProgramRow } from './types/EPGTypes';
 export type WebPlayerViewProps = {
@@ -42,7 +42,7 @@ export type WebPlayerViewProps = {
             gradientColors?: [string, string];
         };
     };
-    paywall?: import('@unified-video/core').PaywallConfig;
+    paywall?: import('../../core/dist').PaywallConfig;
     paywallConfigUrl?: string;
     emailAuth?: {
         enabled?: boolean;
@@ -124,6 +124,85 @@ export type WebPlayerViewProps = {
     onEPGCatchup?: (program: EPGProgram, channel: EPGProgramRow) => void | Promise<void>;
     onEPGProgramSelect?: (program: EPGProgram, channel: EPGProgramRow) => void;
     onEPGChannelSelect?: (channel: EPGProgramRow) => void;
+    chapters?: {
+        enabled?: boolean;
+        data?: {
+            videoId: string;
+            duration: number;
+            segments: Array<{
+                id: string;
+                type: 'intro' | 'recap' | 'content' | 'credits' | 'ad' | 'sponsor' | 'offensive';
+                startTime: number;
+                endTime: number;
+                title: string;
+                skipLabel?: string;
+                description?: string;
+                thumbnail?: string;
+                autoSkip?: boolean;
+                autoSkipDelay?: number;
+                metadata?: Record<string, any>;
+            }>;
+        };
+        dataUrl?: string;
+        autoHide?: boolean;
+        autoHideDelay?: number;
+        showChapterMarkers?: boolean;
+        skipButtonPosition?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+        customStyles?: {
+            skipButton?: {
+                backgroundColor?: string;
+                borderColor?: string;
+                textColor?: string;
+                fontSize?: string;
+                borderRadius?: string;
+                padding?: string;
+                fontWeight?: string;
+            };
+            progressMarkers?: {
+                intro?: string;
+                recap?: string;
+                credits?: string;
+                ad?: string;
+            };
+        };
+        userPreferences?: {
+            autoSkipIntro?: boolean;
+            autoSkipRecap?: boolean;
+            autoSkipCredits?: boolean;
+            showSkipButtons?: boolean;
+            skipButtonTimeout?: number;
+            rememberChoices?: boolean;
+        };
+    };
+    onChapterChange?: (chapter: any) => void;
+    onSegmentEntered?: (segment: any) => void;
+    onSegmentExited?: (segment: any) => void;
+    onSegmentSkipped?: (segment: any) => void;
+    onChapterSegmentEntered?: (data: {
+        segment: any;
+        timestamp: number;
+    }) => void;
+    onChapterSegmentSkipped?: (data: {
+        fromSegment: any;
+        toSegment?: any;
+        timestamp: number;
+    }) => void;
+    onChapterSkipButtonShown?: (data: {
+        segment: any;
+        position: string;
+    }) => void;
+    onChapterSkipButtonHidden?: (data: {
+        segment: any;
+        reason: string;
+    }) => void;
+    onChaptersLoaded?: (data: {
+        segmentCount: number;
+        chapters: any[];
+    }) => void;
+    onChaptersLoadError?: (data: {
+        error: Error;
+        url?: string;
+    }) => void;
 };
 export declare const WebPlayerView: React.FC<WebPlayerViewProps>;
 export default WebPlayerView;

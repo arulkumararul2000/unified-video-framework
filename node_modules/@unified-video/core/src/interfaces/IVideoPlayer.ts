@@ -80,6 +80,17 @@ export interface PlayerEvents {
   epgDataSet?: (data?: any) => void;
   // Framework branding events
   frameworkBrandingClick?: (data: { timestamp: number; url: string; userAgent: string }) => void;
+  // Chapter events
+  chapterchange?: (chapter: any) => void;
+  segmententered?: (segment: any) => void;
+  segmentexited?: (segment: any) => void;
+  segmentskipped?: (segment: any) => void;
+  chapterSegmentEntered?: (data: any) => void;
+  chapterSegmentSkipped?: (data: any) => void;
+  chapterSkipButtonShown?: (data: any) => void;
+  chapterSkipButtonHidden?: (data: any) => void;
+  chaptersLoaded?: (data: any) => void;
+  chaptersLoadError?: (data: any) => void;
 }
 
 export interface PlayerError {

@@ -2,14 +2,24 @@
  * Web implementation of the video player with HLS and DASH support
  */
 
-import { BasePlayer } from '@unified-video/core';
+import { BasePlayer } from '../../core/dist/BasePlayer';
 import { 
   VideoSource, 
   PlayerConfig, 
   Quality, 
   SubtitleTrack,
-  PlayerError 
-} from '@unified-video/core';
+  PlayerError,
+  ChapterManager as CoreChapterManager,
+  Chapter,
+  ChapterSegment
+} from '../../core/dist/index';
+import { ChapterManager } from './chapters/ChapterManager';
+import { 
+  ChapterConfig, 
+  VideoChapters,
+  VideoSegment,
+  ChapterEvents 
+} from './chapters/types/ChapterTypes';
 
 // Dynamic imports for streaming libraries
 declare global {
@@ -86,6 +96,11 @@ export class WebPlayer extends BasePlayer {
   
   // Progress bar tooltip state
   private showTimeTooltip: boolean = false;
+  
+  // Chapter management
+  private chapterManager: ChapterManager | null = null;
+  private coreChapterManager: CoreChapterManager | null = null;
+  private chapterConfig: ChapterConfig = { enabled: false };
 
   // Debug logging helper
   private debugLog(message: string, ...args: any[]): void {
@@ -129,6 +144,32 @@ export class WebPlayer extends BasePlayer {
       console.log('Settings config applied:', this.settingsConfig);
     } else {
       console.log('No settings config found, using defaults:', this.settingsConfig);
+    }
+    
+    // Configure chapters if provided
+    if (config && config.chapters) {
+      console.log('Chapter config found:', config.chapters);
+      this.chapterConfig = {
+        enabled: config.chapters.enabled || false,
+        data: config.chapters.data,
+        dataUrl: config.chapters.dataUrl,
+        autoHide: config.chapters.autoHide !== undefined ? config.chapters.autoHide : true,
+        autoHideDelay: config.chapters.autoHideDelay || 5000,
+        showChapterMarkers: config.chapters.showChapterMarkers !== undefined ? config.chapters.showChapterMarkers : true,
+        skipButtonPosition: config.chapters.skipButtonPosition || 'bottom-right',
+        customStyles: config.chapters.customStyles || {},
+        userPreferences: config.chapters.userPreferences || {
+          autoSkipIntro: false,
+          autoSkipRecap: false,
+          autoSkipCredits: false,
+          showSkipButtons: true,
+          skipButtonTimeout: 5000,
+          rememberChoices: true
+        }
+      };
+      console.log('Chapter config applied:', this.chapterConfig);
+    } else {
+      console.log('No chapter config found, chapters disabled');
     }
     
     // Call parent initialize
@@ -198,6 +239,11 @@ export class WebPlayer extends BasePlayer {
     this.setupWatermark();
     this.setupFullscreenListeners();
     this.setupUserInteractionTracking();
+    
+    // Initialize chapter manager if enabled
+    if (this.chapterConfig.enabled && this.video) {
+      this.setupChapterManager();
+    }
 
     // Initialize paywall controller if provided
     try {
@@ -326,6 +372,10 @@ export class WebPlayer extends BasePlayer {
       this.updateTime(t);
       // Enforce free preview gate on local playback
       this.enforceFreePreviewGate(t);
+      // Process chapter time updates
+      if (this.coreChapterManager) {
+        this.coreChapterManager.processTimeUpdate(t);
+      }
     });
 
     this.video.addEventListener('progress', () => {
@@ -2439,6 +2489,201 @@ export class WebPlayer extends BasePlayer {
         transform: translateX(-50%) translateY(0);
       }
       
+      /* Chapter Markers */
+      .uvf-chapter-marker {
+        position: absolute;
+        top: 0;
+        width: 2px;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.6);
+        z-index: 4;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      
+      .uvf-chapter-marker:hover {
+        width: 3px;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+      }
+      
+      .uvf-chapter-marker-intro {
+        background: var(--uvf-accent-1, #ff5722);
+      }
+      
+      .uvf-chapter-marker-recap {
+        background: #ffc107;
+      }
+      
+      .uvf-chapter-marker-credits {
+        background: #9c27b0;
+      }
+      
+      .uvf-chapter-marker-ad {
+        background: #f44336;
+      }
+      
+      /* Skip Button Styles */
+      .uvf-skip-button {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        z-index: 1000;
+        user-select: none;
+        
+        /* Default hidden state */
+        opacity: 0;
+        transform: translateX(100px) scale(0.9);
+        pointer-events: none;
+      }
+      
+      .uvf-skip-button.visible {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+        pointer-events: auto;
+      }
+      
+      .uvf-skip-button:hover {
+        background: var(--uvf-accent-1, #ff5722);
+        border-color: var(--uvf-accent-1, #ff5722);
+        transform: translateX(0) scale(1.05);
+        box-shadow: 0 4px 20px rgba(255, 87, 34, 0.4);
+      }
+      
+      .uvf-skip-button:active {
+        transform: translateX(0) scale(0.95);
+        transition: all 0.1s ease;
+      }
+      
+      /* Skip button positioning */
+      .uvf-skip-button-bottom-right {
+        bottom: 100px;
+        right: 30px;
+      }
+      
+      .uvf-skip-button-bottom-left {
+        bottom: 100px;
+        left: 30px;
+        transform: translateX(-100px) scale(0.9);
+      }
+      
+      .uvf-skip-button-bottom-left.visible {
+        transform: translateX(0) scale(1);
+      }
+      
+      .uvf-skip-button-bottom-left:hover {
+        transform: translateX(0) scale(1.05);
+      }
+      
+      .uvf-skip-button-bottom-left:active {
+        transform: translateX(0) scale(0.95);
+      }
+      
+      .uvf-skip-button-top-right {
+        top: 30px;
+        right: 30px;
+      }
+      
+      .uvf-skip-button-top-left {
+        top: 30px;
+        left: 30px;
+        transform: translateX(-100px) scale(0.9);
+      }
+      
+      .uvf-skip-button-top-left.visible {
+        transform: translateX(0) scale(1);
+      }
+      
+      .uvf-skip-button-top-left:hover {
+        transform: translateX(0) scale(1.05);
+      }
+      
+      .uvf-skip-button-top-left:active {
+        transform: translateX(0) scale(0.95);
+      }
+      
+      /* Skip button segment type styling */
+      .uvf-skip-intro {
+        border-color: var(--uvf-accent-1, #ff5722);
+      }
+      
+      .uvf-skip-intro:hover {
+        background: var(--uvf-accent-1, #ff5722);
+        border-color: var(--uvf-accent-1, #ff5722);
+      }
+      
+      .uvf-skip-recap {
+        border-color: #ffc107;
+      }
+      
+      .uvf-skip-recap:hover {
+        background: #ffc107;
+        border-color: #ffc107;
+        color: #000;
+      }
+      
+      .uvf-skip-credits {
+        border-color: #9c27b0;
+      }
+      
+      .uvf-skip-credits:hover {
+        background: #9c27b0;
+        border-color: #9c27b0;
+      }
+      
+      .uvf-skip-ad {
+        border-color: #f44336;
+      }
+      
+      .uvf-skip-ad:hover {
+        background: #f44336;
+        border-color: #f44336;
+      }
+      
+      /* Auto-skip countdown styling */
+      .uvf-skip-button.auto-skip {
+        position: relative;
+        overflow: hidden;
+        border-color: var(--uvf-accent-1, #ff5722);
+        animation: uvf-skip-pulse 2s infinite;
+      }
+      
+      .uvf-skip-button.auto-skip::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background: var(--uvf-accent-1, #ff5722);
+        width: 0%;
+        transition: none;
+        z-index: -1;
+      }
+      
+      .uvf-skip-button.auto-skip.countdown::before {
+        width: 100%;
+        transition: width linear;
+      }
+      
+      @keyframes uvf-skip-pulse {
+        0% { 
+          box-shadow: 0 0 0 0 rgba(255, 87, 34, 0.4);
+        }
+        50% { 
+          box-shadow: 0 0 0 8px rgba(255, 87, 34, 0.1);
+        }
+        100% { 
+          box-shadow: 0 0 0 0 rgba(255, 87, 34, 0);
+        }
+      }
+      
       
       
       /* Mobile responsive design with enhanced touch targets */
@@ -2461,6 +2706,42 @@ export class WebPlayer extends BasePlayer {
         
         .uvf-progress-bar-wrapper:hover .uvf-progress-handle {
           top: 2.5px; /* Center on the 5px mobile hover progress bar */
+        }
+        
+        /* Mobile skip button adjustments */
+        .uvf-skip-button {
+          padding: 10px 20px;
+          font-size: 14px;
+          border-radius: 6px;
+        }
+        
+        .uvf-skip-button-bottom-right {
+          bottom: 80px;
+          right: 20px;
+        }
+        
+        .uvf-skip-button-bottom-left {
+          bottom: 80px;
+          left: 20px;
+        }
+        
+        .uvf-skip-button-top-right {
+          top: 20px;
+          right: 20px;
+        }
+        
+        .uvf-skip-button-top-left {
+          top: 20px;
+          left: 20px;
+        }
+        
+        /* Mobile chapter markers */
+        .uvf-chapter-marker {
+          width: 3px; /* Thicker on mobile for better touch */
+        }
+        
+        .uvf-chapter-marker:hover {
+          width: 4px;
         }
         
       }
@@ -6619,6 +6900,299 @@ export class WebPlayer extends BasePlayer {
     }
   }
 
+  /**
+   * Setup chapter manager for skip functionality
+   */
+  private setupChapterManager(): void {
+    if (!this.video || !this.playerWrapper) {
+      this.debugWarn('Cannot setup chapter manager: video or wrapper not available');
+      return;
+    }
+
+    try {
+      // Initialize the web-specific chapter manager (for UI controls)
+      this.chapterManager = new ChapterManager(
+        this.playerWrapper,
+        this.video,
+        this.chapterConfig
+      );
+
+      // Initialize the core chapter manager (for basic chapter functionality)
+      const coreChapterConfig = {
+        enabled: this.chapterConfig.enabled,
+        chapters: this.convertToChapters(this.chapterConfig.data),
+        segments: this.convertToChapterSegments(this.chapterConfig.data),
+        dataUrl: this.chapterConfig.dataUrl,
+        autoSkip: this.chapterConfig.userPreferences?.autoSkipIntro || false,
+        onChapterChange: (chapter: Chapter | null) => {
+          this.debugLog('Core chapter changed:', chapter?.title || 'none');
+          this.emit('chapterchange', chapter);
+        },
+        onSegmentEntered: (segment: ChapterSegment) => {
+          this.debugLog('Core segment entered:', segment.title);
+          this.emit('segmententered', segment);
+        },
+        onSegmentExited: (segment: ChapterSegment) => {
+          this.debugLog('Core segment exited:', segment.title);
+          this.emit('segmentexited', segment);
+        },
+        onSegmentSkipped: (segment: ChapterSegment) => {
+          this.debugLog('Core segment skipped:', segment.title);
+          this.emit('segmentskipped', segment);
+        }
+      };
+
+      this.coreChapterManager = new CoreChapterManager(coreChapterConfig);
+      
+      // Initialize the core chapter manager
+      this.coreChapterManager.initialize();
+
+      // Set up event listeners for web chapter events
+      this.chapterManager.on('segmentEntered', (data) => {
+        this.debugLog('Entered segment:', data.segment.type, data.segment.title);
+        this.emit('chapterSegmentEntered', data);
+      });
+
+      this.chapterManager.on('segmentSkipped', (data) => {
+        this.debugLog('Skipped segment:', data.fromSegment.type, 'to', data.toSegment?.type || 'end');
+        this.emit('chapterSegmentSkipped', data);
+      });
+
+      this.chapterManager.on('skipButtonShown', (data) => {
+        this.debugLog('Skip button shown for:', data.segment.type);
+        this.emit('chapterSkipButtonShown', data);
+      });
+
+      this.chapterManager.on('skipButtonHidden', (data) => {
+        this.debugLog('Skip button hidden for:', data.segment.type, 'reason:', data.reason);
+        this.emit('chapterSkipButtonHidden', data);
+      });
+
+      this.chapterManager.on('chaptersLoaded', (data) => {
+        this.debugLog('Chapters loaded:', data.segmentCount, 'segments');
+        this.emit('chaptersLoaded', data);
+      });
+
+      this.chapterManager.on('chaptersLoadError', (data) => {
+        this.debugError('Failed to load chapters:', data.error.message);
+        this.emit('chaptersLoadError', data);
+      });
+
+      this.debugLog('Chapter managers initialized successfully');
+    } catch (error) {
+      this.debugError('Failed to initialize chapter managers:', error);
+    }
+  }
+
+  /**
+   * Convert web chapter data to core Chapter format
+   */
+  private convertToChapters(webChapterData: any): Chapter[] {
+    if (!webChapterData || !webChapterData.segments) {
+      return [];
+    }
+
+    return webChapterData.segments
+      .filter((segment: any) => segment.type === 'content')
+      .map((segment: any, index: number) => ({
+        id: segment.id || `chapter-${index}`,
+        title: segment.title || `Chapter ${index + 1}`,
+        startTime: segment.startTime,
+        endTime: segment.endTime,
+        thumbnail: segment.thumbnail,
+        description: segment.description,
+        metadata: segment.metadata || {}
+      }));
+  }
+
+  /**
+   * Convert web chapter data to core ChapterSegment format
+   */
+  private convertToChapterSegments(webChapterData: any): ChapterSegment[] {
+    if (!webChapterData || !webChapterData.segments) {
+      return [];
+    }
+
+    return webChapterData.segments
+      .filter((segment: any) => segment.type !== 'content')
+      .map((segment: any) => ({
+        id: segment.id,
+        startTime: segment.startTime,
+        endTime: segment.endTime,
+        category: segment.type,
+        action: this.mapSegmentAction(segment.type),
+        title: segment.title,
+        description: segment.description
+      }));
+  }
+
+  /**
+   * Map web segment types to core segment actions
+   */
+  private mapSegmentAction(segmentType: string): 'skip' | 'mute' | 'warn' {
+    switch (segmentType) {
+      case 'intro':
+      case 'recap':
+      case 'credits':
+      case 'sponsor':
+        return 'skip';
+      case 'offensive':
+        return 'mute';
+      default:
+        return 'warn';
+    }
+  }
+
+  /**
+   * Load chapters data
+   */
+  public async loadChapters(chapters: VideoChapters): Promise<void> {
+    if (!this.chapterManager) {
+      throw new Error('Chapter manager not initialized. Enable chapters in config first.');
+    }
+    
+    try {
+      await this.chapterManager.loadChapters(chapters);
+      this.debugLog('Chapters loaded successfully');
+    } catch (error) {
+      this.debugError('Failed to load chapters:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load chapters from URL
+   */
+  public async loadChaptersFromUrl(url: string): Promise<void> {
+    if (!this.chapterManager) {
+      throw new Error('Chapter manager not initialized. Enable chapters in config first.');
+    }
+    
+    try {
+      await this.chapterManager.loadChaptersFromUrl(url);
+      this.debugLog('Chapters loaded from URL successfully');
+    } catch (error) {
+      this.debugError('Failed to load chapters from URL:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current video segment
+   */
+  public getCurrentSegment(): VideoSegment | null {
+    if (!this.chapterManager || !this.video) {
+      return null;
+    }
+    
+    return this.chapterManager.getCurrentSegment(this.video.currentTime);
+  }
+
+  /**
+   * Skip to specific segment by ID
+   */
+  public skipToSegment(segmentId: string): void {
+    if (!this.chapterManager) {
+      this.debugWarn('Cannot skip segment: chapter manager not initialized');
+      return;
+    }
+    
+    this.chapterManager.skipToSegment(segmentId);
+  }
+
+  /**
+   * Get all video segments
+   */
+  public getSegments(): VideoSegment[] {
+    if (!this.chapterManager) {
+      return [];
+    }
+    
+    return this.chapterManager.getSegments();
+  }
+
+  /**
+   * Update chapter configuration
+   */
+  public updateChapterConfig(newConfig: Partial<ChapterConfig>): void {
+    this.chapterConfig = { ...this.chapterConfig, ...newConfig };
+    
+    if (this.chapterManager) {
+      this.chapterManager.updateConfig(this.chapterConfig);
+    }
+  }
+
+  /**
+   * Check if chapters are loaded
+   */
+  public hasChapters(): boolean {
+    return this.chapterManager?.hasChapters() || false;
+  }
+
+  /**
+   * Get chapter data
+   */
+  public getChapters(): VideoChapters | null {
+    return this.chapterManager?.getChapters() || null;
+  }
+
+  /**
+   * Get core chapters (Chapter format)
+   */
+  public getCoreChapters(): Chapter[] {
+    return this.coreChapterManager?.getChapters() || [];
+  }
+
+  /**
+   * Get core chapter segments (ChapterSegment format)
+   */
+  public getCoreSegments(): ChapterSegment[] {
+    return this.coreChapterManager?.getSegments() || [];
+  }
+
+  /**
+   * Get current chapter info from core manager
+   */
+  public getCurrentChapterInfo(): Chapter | null {
+    return this.coreChapterManager?.getCurrentChapterInfo() || null;
+  }
+
+  /**
+   * Seek to chapter by ID (core chapter functionality)
+   */
+  public seekToChapter(chapterId: string): void {
+    if (!this.coreChapterManager || !this.video) {
+      this.debugWarn('Cannot seek to chapter: core chapter manager or video not available');
+      return;
+    }
+
+    const chapter = this.coreChapterManager.seekToChapter(chapterId);
+    if (chapter) {
+      this.video.currentTime = chapter.startTime;
+      this.debugLog('Seeked to chapter:', chapter.title);
+    }
+  }
+
+  /**
+   * Get next chapter from current time
+   */
+  public getNextChapter(): Chapter | null {
+    if (!this.coreChapterManager || !this.video) {
+      return null;
+    }
+    return this.coreChapterManager.getNextChapter(this.video.currentTime);
+  }
+
+  /**
+   * Get previous chapter from current time
+   */
+  public getPreviousChapter(): Chapter | null {
+    if (!this.coreChapterManager || !this.video) {
+      return null;
+    }
+    return this.coreChapterManager.getPreviousChapter(this.video.currentTime);
+  }
+
   // Theme API: set CSS variables on the wrapper to apply dynamic colors
   public setTheme(theme: any): void {
     const wrapper = this.playerWrapper;
@@ -7971,6 +8545,16 @@ export class WebPlayer extends BasePlayer {
     if (this.paywallController && typeof this.paywallController.destroy === 'function') {
       this.paywallController.destroy();
       this.paywallController = null;
+    }
+
+    // Destroy chapter managers
+    if (this.chapterManager && typeof this.chapterManager.destroy === 'function') {
+      this.chapterManager.destroy();
+      this.chapterManager = null;
+    }
+    if (this.coreChapterManager) {
+      this.coreChapterManager.destroy();
+      this.coreChapterManager = null;
     }
 
     if (this.video) {

@@ -1,5 +1,5 @@
 import { WebPlayer } from '../WebPlayer';
-import { VideoSource } from '@unified-video/core';
+import { VideoSource } from '../../core/dist';
 
 describe('WebPlayer', () => {
   let player: WebPlayer;

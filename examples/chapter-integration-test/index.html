@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter Integration Test - Unified Video Framework</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .player-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto 30px;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #007acc;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .chapter-info, .event-log {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .event-log {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .event {
+            padding: 8px;
+            margin: 4px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .event.chapter { background: #1a5490; }
+        .event.segment { background: #905a1a; }
+        .event.skip { background: #901a5a; }
+        .info-section h3 {
+            margin-top: 0;
+            color: #007acc;
+        }
+        .chapter-list, .segment-list {
+            margin: 10px 0;
+        }
+        .chapter-item, .segment-item {
+            background: #333;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 4px solid #007acc;
+        }
+        .segment-item {
+            border-left-color: #cc7a00;
+        }
+        .time-info {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chapter Integration Test</h1>
+        
+        <div class="player-container" id="player-container"></div>
+        
+        <div class="controls">
+            <button onclick="loadVideo()">Load Video</button>
+            <button onclick="loadChapters()">Load Chapters</button>
+            <button onclick="seekToPrevious()">Previous Chapter</button>
+            <button onclick="seekToNext()">Next Chapter</button>
+            <button onclick="togglePlayPause()" id="playPauseBtn">Play</button>
+        </div>
+        
+        <div class="chapter-info">
+            <h3>Current Chapter</h3>
+            <div id="current-chapter">No chapter loaded</div>
+            
+            <h3>Available Chapters</h3>
+            <div id="chapters-list">No chapters available</div>
+            
+            <h3>Available Segments</h3>
+            <div id="segments-list">No segments available</div>
+        </div>
+        
+        <div class="event-log">
+            <h3>Event Log</h3>
+            <div id="event-log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { WebPlayer } from '../../packages/web/dist/WebPlayer.js';
+
+        let player;
+
+        // Sample chapter data
+        const sampleChapters = [
+            {
+                id: 'chapter-1',
+                title: 'Introduction',
+                startTime: 0,
+                endTime: 120,
+                description: 'Opening introduction'
+            },
+            {
+                id: 'chapter-2',
+                title: 'Main Content',
+                startTime: 120,
+                endTime: 300,
+                description: 'Main video content'
+            },
+            {
+                id: 'chapter-3',
+                title: 'Conclusion',
+                startTime: 300,
+                endTime: 400,
+                description: 'Concluding remarks'
+            }
+        ];
+
+        const sampleSegments = [
+            {
+                id: 'intro-segment',
+                startTime: 0,
+                endTime: 30,
+                category: 'intro',
+                action: 'skip',
+                title: 'Intro Sequence',
+                description: 'Skippable introduction'
+            },
+            {
+                id: 'sponsor-segment',
+                startTime: 150,
+                endTime: 180,
+                category: 'sponsor',
+                action: 'skip',
+                title: 'Sponsor Message',
+                description: 'Advertisement segment'
+            }
+        ];
+
+        // Initialize player
+        async function initPlayer() {
+            try {
+                player = new WebPlayer();
+                
+                const config = {
+                    autoPlay: false,
+                    muted: true,
+                    controls: true,
+                    debug: true,
+                    chapters: {
+                        enabled: true,
+                        chapters: sampleChapters,
+                        segments: sampleSegments,
+                        autoSkip: false,
+                        showSkipButton: true
+                    }
+                };
+
+                await player.initialize('player-container', config);
+                
+                // Set up event listeners
+                setupEventListeners();
+                
+                logEvent('Player initialized successfully', 'info');
+            } catch (error) {
+                console.error('Failed to initialize player:', error);
+                logEvent(`Failed to initialize player: ${error.message}`, 'error');
+            }
+        }
+
+        function setupEventListeners() {
+            // Core chapter events
+            player.on('chapterchange', (chapter) => {
+                logEvent(`Chapter changed: ${chapter ? chapter.title : 'None'}`, 'chapter');
+                updateChapterInfo();
+            });
+
+            player.on('segmententered', (segment) => {
+                logEvent(`Segment entered: ${segment.title} (${segment.category})`, 'segment');
+            });
+
+            player.on('segmentexited', (segment) => {
+                logEvent(`Segment exited: ${segment.title}`, 'segment');
+            });
+
+            player.on('segmentskipped', (segment) => {
+                logEvent(`Segment skipped: ${segment.title}`, 'skip');
+            });
+
+            // Playback events
+            player.on('onPlay', () => {
+                document.getElementById('playPauseBtn').textContent = 'Pause';
+            });
+
+            player.on('onPause', () => {
+                document.getElementById('playPauseBtn').textContent = 'Play';
+            });
+
+            player.on('onTimeUpdate', (currentTime) => {
+                updateChapterInfo();
+            });
+        }
+
+        function updateChapterInfo() {
+            if (!player) return;
+
+            const currentChapter = player.getCurrentChapterInfo();
+            const chapters = player.getCoreChapters();
+            const segments = player.getCoreSegments();
+
+            // Update current chapter display
+            const currentChapterEl = document.getElementById('current-chapter');
+            if (currentChapter) {
+                currentChapterEl.innerHTML = `
+                    <strong>${currentChapter.title}</strong>
+                    <div class="time-info">${formatTime(currentChapter.startTime)} - ${formatTime(currentChapter.endTime)}</div>
+                    <div>${currentChapter.description || ''}</div>
+                `;
+            } else {
+                currentChapterEl.textContent = 'No current chapter';
+            }
+
+            // Update chapters list
+            const chaptersListEl = document.getElementById('chapters-list');
+            if (chapters.length > 0) {
+                chaptersListEl.innerHTML = chapters.map(chapter => `
+                    <div class="chapter-item" onclick="seekToChapter('${chapter.id}')">
+                        <strong>${chapter.title}</strong>
+                        <div class="time-info">${formatTime(chapter.startTime)} - ${formatTime(chapter.endTime)}</div>
+                        <div>${chapter.description || ''}</div>
+                    </div>
+                `).join('');
+            } else {
+                chaptersListEl.textContent = 'No chapters available';
+            }
+
+            // Update segments list
+            const segmentsListEl = document.getElementById('segments-list');
+            if (segments.length > 0) {
+                segmentsListEl.innerHTML = segments.map(segment => `
+                    <div class="segment-item">
+                        <strong>${segment.title}</strong> (${segment.category})
+                        <div class="time-info">${formatTime(segment.startTime)} - ${formatTime(segment.endTime)}</div>
+                        <div>Action: ${segment.action}</div>
+                        <div>${segment.description || ''}</div>
+                    </div>
+                `).join('');
+            } else {
+                segmentsListEl.textContent = 'No segments available';
+            }
+        }
+
+        function logEvent(message, type = 'info') {
+            const logEl = document.getElementById('event-log');
+            const eventEl = document.createElement('div');
+            eventEl.className = `event ${type}`;
+            eventEl.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.appendChild(eventEl);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Control functions
+        window.loadVideo = async function() {
+            if (!player) return;
+            
+            try {
+                // Use a sample video URL - replace with actual video
+                const videoSource = {
+                    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+                    type: 'mp4',
+                    title: 'Sample Video',
+                    description: 'Test video for chapter functionality'
+                };
+
+                await player.load(videoSource);
+                logEvent('Video loaded successfully', 'info');
+                updateChapterInfo();
+            } catch (error) {
+                console.error('Failed to load video:', error);
+                logEvent(`Failed to load video: ${error.message}`, 'error');
+            }
+        };
+
+        window.loadChapters = async function() {
+            if (!player) return;
+            
+            try {
+                // Update chapter configuration
+                player.updateChapterConfig({
+                    chapters: sampleChapters,
+                    segments: sampleSegments
+                });
+                
+                logEvent('Chapters updated successfully', 'info');
+                updateChapterInfo();
+            } catch (error) {
+                console.error('Failed to load chapters:', error);
+                logEvent(`Failed to load chapters: ${error.message}`, 'error');
+            }
+        };
+
+        window.seekToPrevious = function() {
+            if (!player) return;
+            
+            const prevChapter = player.getPreviousChapter();
+            if (prevChapter) {
+                player.seekToChapter(prevChapter.id);
+                logEvent(`Seeking to previous chapter: ${prevChapter.title}`, 'chapter');
+            } else {
+                logEvent('No previous chapter available', 'info');
+            }
+        };
+
+        window.seekToNext = function() {
+            if (!player) return;
+            
+            const nextChapter = player.getNextChapter();
+            if (nextChapter) {
+                player.seekToChapter(nextChapter.id);
+                logEvent(`Seeking to next chapter: ${nextChapter.title}`, 'chapter');
+            } else {
+                logEvent('No next chapter available', 'info');
+            }
+        };
+
+        window.seekToChapter = function(chapterId) {
+            if (!player) return;
+            
+            player.seekToChapter(chapterId);
+            logEvent(`Seeking to chapter: ${chapterId}`, 'chapter');
+        };
+
+        window.togglePlayPause = function() {
+            if (!player) return;
+            
+            if (player.isPlaying()) {
+                player.pause();
+            } else {
+                player.play();
+            }
+        };
+
+        // Initialize when page loads
+        initPlayer();
+    </script>
+</body>
+</html>

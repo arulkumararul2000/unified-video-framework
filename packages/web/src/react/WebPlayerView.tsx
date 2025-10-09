@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { CSSProperties } from 'react';
-import type { VideoSource, SubtitleTrack, VideoMetadata, PlayerConfig } from '@unified-video/core';
+import type { VideoSource, SubtitleTrack, VideoMetadata, PlayerConfig } from '../../core/dist';
 import { WebPlayer } from '../WebPlayer';
 // EPG imports - conditionally loaded
 import type { EPGData, EPGConfig, EPGProgram, EPGProgramRow } from './types/EPGTypes';
@@ -67,7 +67,7 @@ export type WebPlayerViewProps = {
     };
   };
   // Paywall with Email Authentication
-  paywall?: import('@unified-video/core').PaywallConfig;
+  paywall?: import('../../core/dist').PaywallConfig;
   paywallConfigUrl?: string; // optional endpoint returning PaywallConfig JSON
   
   // Email Authentication (will be merged into paywall config)
@@ -161,6 +161,70 @@ export type WebPlayerViewProps = {
   onEPGCatchup?: (program: EPGProgram, channel: EPGProgramRow) => void | Promise<void>;
   onEPGProgramSelect?: (program: EPGProgram, channel: EPGProgramRow) => void;
   onEPGChannelSelect?: (channel: EPGProgramRow) => void;
+  
+  // Chapter & Skip Configuration
+  chapters?: {
+    enabled?: boolean;                    // Enable/disable chapters (default: false)
+    data?: {                             // Chapter data
+      videoId: string;
+      duration: number;
+      segments: Array<{
+        id: string;
+        type: 'intro' | 'recap' | 'content' | 'credits' | 'ad' | 'sponsor' | 'offensive';
+        startTime: number;
+        endTime: number;
+        title: string;
+        skipLabel?: string;               // Custom skip button text
+        description?: string;
+        thumbnail?: string;
+        autoSkip?: boolean;               // Enable auto-skip for this segment
+        autoSkipDelay?: number;           // Countdown delay in seconds
+        metadata?: Record<string, any>;
+      }>;
+    };
+    dataUrl?: string;                    // URL to fetch chapters from API
+    autoHide?: boolean;                  // Auto-hide skip button after showing (default: true)  
+    autoHideDelay?: number;             // Hide delay in milliseconds (default: 5000)
+    showChapterMarkers?: boolean;        // Show progress bar markers (default: true)
+    skipButtonPosition?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'; // Default: 'bottom-right'
+    customStyles?: {                     // Custom styling for skip elements
+      skipButton?: {
+        backgroundColor?: string;
+        borderColor?: string;
+        textColor?: string;
+        fontSize?: string;
+        borderRadius?: string;
+        padding?: string;
+        fontWeight?: string;
+      };
+      progressMarkers?: {
+        intro?: string;                  // Color for intro markers
+        recap?: string;                  // Color for recap markers  
+        credits?: string;                // Color for credits markers
+        ad?: string;                     // Color for ad markers
+      };
+    };
+    userPreferences?: {                  // User skip preferences
+      autoSkipIntro?: boolean;          // Auto-skip intro segments (default: false)
+      autoSkipRecap?: boolean;          // Auto-skip recap segments (default: false)  
+      autoSkipCredits?: boolean;        // Auto-skip credits segments (default: false)
+      showSkipButtons?: boolean;        // Show skip buttons (default: true)
+      skipButtonTimeout?: number;       // Button timeout in milliseconds (default: 5000)
+      rememberChoices?: boolean;        // Remember user preferences (default: true)
+    };
+  };
+
+  // Chapter Event Callbacks
+  onChapterChange?: (chapter: any) => void;                                    // Core chapter changed
+  onSegmentEntered?: (segment: any) => void;                                  // Segment entered  
+  onSegmentExited?: (segment: any) => void;                                   // Segment exited
+  onSegmentSkipped?: (segment: any) => void;                                  // Segment skipped
+  onChapterSegmentEntered?: (data: { segment: any; timestamp: number }) => void;  // Web-specific segment entered
+  onChapterSegmentSkipped?: (data: { fromSegment: any; toSegment?: any; timestamp: number }) => void; // Web-specific segment skipped
+  onChapterSkipButtonShown?: (data: { segment: any; position: string }) => void;   // Skip button shown
+  onChapterSkipButtonHidden?: (data: { segment: any; reason: string }) => void;    // Skip button hidden  
+  onChaptersLoaded?: (data: { segmentCount: number; chapters: any[] }) => void;    // Chapters loaded
+  onChaptersLoadError?: (data: { error: Error; url?: string }) => void;            // Chapters load error
 };
 
 export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
@@ -487,7 +551,26 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         customControls: props.customControls,
         settings: props.settings,
         showFrameworkBranding: props.showFrameworkBranding,
-        watermark: watermarkConfig
+        watermark: watermarkConfig,
+        // Chapter configuration
+        chapters: props.chapters ? {
+          enabled: props.chapters.enabled ?? false,
+          data: props.chapters.data,
+          dataUrl: props.chapters.dataUrl,
+          autoHide: props.chapters.autoHide ?? true,
+          autoHideDelay: props.chapters.autoHideDelay ?? 5000,
+          showChapterMarkers: props.chapters.showChapterMarkers ?? true,
+          skipButtonPosition: props.chapters.skipButtonPosition ?? 'bottom-right',
+          customStyles: props.chapters.customStyles,
+          userPreferences: {
+            autoSkipIntro: props.chapters.userPreferences?.autoSkipIntro ?? false,
+            autoSkipRecap: props.chapters.userPreferences?.autoSkipRecap ?? false,
+            autoSkipCredits: props.chapters.userPreferences?.autoSkipCredits ?? false,
+            showSkipButtons: props.chapters.userPreferences?.showSkipButtons ?? true,
+            skipButtonTimeout: props.chapters.userPreferences?.skipButtonTimeout ?? 5000,
+            rememberChoices: props.chapters.userPreferences?.rememberChoices ?? true,
+          }
+        } : { enabled: false }
       };
 
       try {
@@ -521,6 +604,38 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
             (player as any).on('epgToggle', () => {
               handleToggleEPG(!epgVisible);
             });
+          }
+          
+          // Chapter event listeners
+          if (props.onChapterChange && typeof (player as any).on === 'function') {
+            (player as any).on('chapterchange', props.onChapterChange);
+          }
+          if (props.onSegmentEntered && typeof (player as any).on === 'function') {
+            (player as any).on('segmententered', props.onSegmentEntered);
+          }
+          if (props.onSegmentExited && typeof (player as any).on === 'function') {
+            (player as any).on('segmentexited', props.onSegmentExited);
+          }
+          if (props.onSegmentSkipped && typeof (player as any).on === 'function') {
+            (player as any).on('segmentskipped', props.onSegmentSkipped);
+          }
+          if (props.onChapterSegmentEntered && typeof (player as any).on === 'function') {
+            (player as any).on('chapterSegmentEntered', props.onChapterSegmentEntered);
+          }
+          if (props.onChapterSegmentSkipped && typeof (player as any).on === 'function') {
+            (player as any).on('chapterSegmentSkipped', props.onChapterSegmentSkipped);
+          }
+          if (props.onChapterSkipButtonShown && typeof (player as any).on === 'function') {
+            (player as any).on('chapterSkipButtonShown', props.onChapterSkipButtonShown);
+          }
+          if (props.onChapterSkipButtonHidden && typeof (player as any).on === 'function') {
+            (player as any).on('chapterSkipButtonHidden', props.onChapterSkipButtonHidden);
+          }
+          if (props.onChaptersLoaded && typeof (player as any).on === 'function') {
+            (player as any).on('chaptersLoaded', props.onChaptersLoaded);
+          }
+          if (props.onChaptersLoadError && typeof (player as any).on === 'function') {
+            (player as any).on('chaptersLoadError', props.onChaptersLoadError);
           }
           
           props.onReady?.(player);

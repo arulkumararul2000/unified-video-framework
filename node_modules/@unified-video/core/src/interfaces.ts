@@ -157,6 +157,41 @@ export interface OfflineConfig {
   downloadQuality?: 'auto' | 'high' | 'medium' | 'low';
 }
 
+// Chapter-related interfaces
+export interface Chapter {
+  id: string;
+  title: string;
+  startTime: number; // in seconds
+  endTime: number;   // in seconds
+  thumbnail?: string;
+  description?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface ChapterSegment {
+  id: string;
+  startTime: number; // in seconds
+  endTime: number;   // in seconds
+  category?: string;
+  action?: 'skip' | 'mute' | 'warn';
+  title?: string;
+  description?: string;
+}
+
+export interface ChapterConfig {
+  enabled?: boolean;
+  chapters?: Chapter[];
+  segments?: ChapterSegment[];  // For sponsor segments, intros, etc.
+  dataUrl?: string; // URL to fetch chapter data from
+  autoSkip?: boolean; // Auto-skip segments with action: 'skip'
+  showSkipButton?: boolean; // Show skip button for segments
+  skipButtonText?: string;
+  onChapterChange?: (chapter: Chapter | null) => void;
+  onSegmentEntered?: (segment: ChapterSegment) => void;
+  onSegmentExited?: (segment: ChapterSegment) => void;
+  onSegmentSkipped?: (segment: ChapterSegment) => void;
+}
+
 export interface WatermarkConfig {
   enabled?: boolean; // Enable/disable watermark (default: true)
   text?: string; // Custom watermark text (default: "PREMIUM")
@@ -251,7 +286,17 @@ export type PlayerEvent =
   | 'castStateChanged'
   | 'adstart'
   | 'adend'
-  | 'aderror';
+  | 'aderror'
+  | 'chapterchange'
+  | 'segmententered'
+  | 'segmentexited'
+  | 'segmentskipped'
+  | 'chapterSegmentEntered'
+  | 'chapterSegmentSkipped'
+  | 'chapterSkipButtonShown'
+  | 'chapterSkipButtonHidden'
+  | 'chaptersLoaded'
+  | 'chaptersLoadError';
 
 export type EventHandler = (data?: any) => void;
 
@@ -446,4 +491,5 @@ export interface PlayerConfig extends VideoPlayerConfig {
   freeDuration?: number;
   paywall?: PaywallConfig;
   volume?: number;
+  chapters?: ChapterConfig;
 }

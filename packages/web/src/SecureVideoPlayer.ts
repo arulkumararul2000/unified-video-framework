@@ -8,7 +8,7 @@ import {
   PlayerConfig,
   PlayerError,
   Quality
-} from '@unified-video/core';
+} from '../../core/dist';
 
 // Extended configuration for secure player
 export interface SecurePlayerConfig {
