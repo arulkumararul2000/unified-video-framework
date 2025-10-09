@@ -153,8 +153,9 @@ export class WebPlayer extends BasePlayer {
     this.video = document.createElement('video');
     this.video.className = 'uvf-video';
     this.video.controls = false; // We'll use custom controls
+    // For autoplay to work, video must be muted in most browsers
     this.video.autoplay = this.config.autoPlay ?? false;
-    this.video.muted = this.config.muted ?? false;
+    this.video.muted = this.config.autoPlay ? true : (this.config.muted ?? false);
     this.video.loop = this.config.loop ?? false;
     this.video.playsInline = this.config.playsInline ?? true;
     this.video.preload = this.config.preload ?? 'metadata';
@@ -193,6 +194,7 @@ export class WebPlayer extends BasePlayer {
     this.setupKeyboardShortcuts();
     this.setupWatermark();
     this.setupFullscreenListeners();
+    this.setupUserInteractionTracking();
 
     // Initialize paywall controller if provided
     try {
@@ -518,7 +520,15 @@ export class WebPlayer extends BasePlayer {
 
         // Start playback if autoPlay is enabled
         if (this.config.autoPlay) {
-          this.play();
+          // Attempt autoplay, but handle gracefully if blocked
+          this.play().catch(error => {
+            if (this.isAutoplayRestrictionError(error)) {
+              this.debugWarn('HLS autoplay blocked, showing play overlay');
+              this.showPlayOverlay();
+            } else {
+              this.debugError('HLS autoplay failed:', error);
+            }
+          });
         }
       });
 
@@ -681,6 +691,167 @@ export class WebPlayer extends BasePlayer {
     );
   }
 
+  private isAutoplayRestrictionError(err: any): boolean {
+    if (!err) return false;
+    
+    const message = (err.message || '').toLowerCase();
+    const name = (err.name || '').toLowerCase();
+    
+    // Common autoplay restriction error patterns
+    return (
+      name === 'notallowederror' ||
+      message.includes('user didn\'t interact') ||
+      message.includes('autoplay') ||
+      message.includes('gesture') ||
+      message.includes('user activation') ||
+      message.includes('play() failed') ||
+      message.includes('user interaction')
+    );
+  }
+
+  private showPlayOverlay(): void {
+    // Remove existing overlay
+    this.hidePlayOverlay();
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'uvf-play-overlay';
+    overlay.className = 'uvf-play-overlay';
+    
+    const playButton = document.createElement('button');
+    playButton.className = 'uvf-play-button';
+    playButton.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+    `;
+    
+    const message = document.createElement('div');
+    message.className = 'uvf-play-message';
+    message.textContent = 'Click to play';
+    
+    overlay.appendChild(playButton);
+    overlay.appendChild(message);
+    
+    // Add click handler
+    playButton.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      this.lastUserInteraction = Date.now();
+      
+      try {
+        await this.play();
+      } catch (error) {
+        this.debugError('Failed to play after user interaction:', error);
+      }
+    });
+    
+    // Also allow clicking anywhere on overlay
+    overlay.addEventListener('click', async (e) => {
+      if (e.target === overlay) {
+        e.stopPropagation();
+        this.lastUserInteraction = Date.now();
+        
+        try {
+          await this.play();
+        } catch (error) {
+          this.debugError('Failed to play after user interaction:', error);
+        }
+      }
+    });
+    
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .uvf-play-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        cursor: pointer;
+      }
+      
+      .uvf-play-button {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        color: #000;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        margin-bottom: 16px;
+      }
+      
+      .uvf-play-button:hover {
+        background: #fff;
+        transform: scale(1.1);
+      }
+      
+      .uvf-play-button svg {
+        width: 32px;
+        height: 32px;
+        margin-left: 4px;
+      }
+      
+      .uvf-play-message {
+        color: white;
+        font-size: 16px;
+        font-weight: 500;
+        text-align: center;
+        opacity: 0.9;
+      }
+    `;
+    
+    // Add to page if not already added
+    if (!document.getElementById('uvf-play-overlay-styles')) {
+      style.id = 'uvf-play-overlay-styles';
+      document.head.appendChild(style);
+    }
+    
+    // Add to player
+    if (this.playerWrapper) {
+      this.playerWrapper.appendChild(overlay);
+    }
+  }
+
+  private hidePlayOverlay(): void {
+    const overlay = document.getElementById('uvf-play-overlay');
+    if (overlay) {
+      overlay.remove();
+    }
+  }
+
+  private setupUserInteractionTracking(): void {
+    // Track various user interactions to enable autoplay
+    const interactionEvents = ['click', 'mousedown', 'keydown', 'touchstart'];
+    
+    const updateLastInteraction = () => {
+      this.lastUserInteraction = Date.now();
+      this.debugLog('User interaction detected at:', this.lastUserInteraction);
+    };
+    
+    // Listen on document for global interactions
+    interactionEvents.forEach(eventType => {
+      document.addEventListener(eventType, updateLastInteraction, { passive: true });
+    });
+    
+    // Also listen on player wrapper for more specific interactions
+    if (this.playerWrapper) {
+      interactionEvents.forEach(eventType => {
+        this.playerWrapper!.addEventListener(eventType, updateLastInteraction, { passive: true });
+      });
+    }
+  }
+
   async play(): Promise<void> {
     if (!this.video) throw new Error('Video element not initialized');
 
@@ -710,6 +881,8 @@ export class WebPlayer extends BasePlayer {
         this.video.pause();
       }
 
+      // Hide the play overlay if it exists
+      this.hidePlayOverlay();
       await super.play();
     } catch (err) {
       this._playPromise = null;
@@ -717,6 +890,14 @@ export class WebPlayer extends BasePlayer {
         // Benign: pause() raced play(); ignore the error.
         return;
       }
+      
+      // Check if this is an autoplay restriction error
+      if (this.isAutoplayRestrictionError(err)) {
+        this.debugWarn('Autoplay blocked by browser policy - showing play overlay');
+        this.showPlayOverlay();
+        return; // Don't throw error for autoplay restrictions
+      }
+      
       this.handleError({
         code: 'PLAY_ERROR',
         message: `Failed to start playbook: ${err}`,
@@ -2031,8 +2212,20 @@ export class WebPlayer extends BasePlayer {
         width: 100%;
         position: relative;
         cursor: pointer;
-        padding: 16px 0;
+        padding: 6px 0;
         overflow: visible;
+      }
+      
+      /* Extended touch area for better mobile UX without affecting visual spacing */
+      .uvf-progress-bar-wrapper::before {
+        content: '';
+        position: absolute;
+        top: -8px;
+        bottom: -8px;
+        left: 0;
+        right: 0;
+        cursor: pointer;
+        z-index: 10;
       }
       
       .uvf-progress-bar {
@@ -2146,7 +2339,7 @@ export class WebPlayer extends BasePlayer {
       /* Mobile responsive design with enhanced touch targets */
       @media (max-width: 768px) {
         .uvf-progress-bar-wrapper {
-          padding: 20px 0; /* Larger touch area */
+          padding: 8px 0; /* Optimized touch area */
         }
         
         .uvf-progress-bar {

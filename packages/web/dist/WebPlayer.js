@@ -100,7 +100,7 @@ export class WebPlayer extends BasePlayer {
         this.video.className = 'uvf-video';
         this.video.controls = false;
         this.video.autoplay = this.config.autoPlay ?? false;
-        this.video.muted = this.config.muted ?? false;
+        this.video.muted = this.config.autoPlay ? true : (this.config.muted ?? false);
         this.video.loop = this.config.loop ?? false;
         this.video.playsInline = this.config.playsInline ?? true;
         this.video.preload = this.config.preload ?? 'metadata';
@@ -123,6 +123,7 @@ export class WebPlayer extends BasePlayer {
         this.setupKeyboardShortcuts();
         this.setupWatermark();
         this.setupFullscreenListeners();
+        this.setupUserInteractionTracking();
         try {
             const pw = this.config.paywall || null;
             if (pw && pw.enabled) {
@@ -395,7 +396,15 @@ export class WebPlayer extends BasePlayer {
                 }));
                 this.updateSettingsMenu();
                 if (this.config.autoPlay) {
-                    this.play();
+                    this.play().catch(error => {
+                        if (this.isAutoplayRestrictionError(error)) {
+                            this.debugWarn('HLS autoplay blocked, showing play overlay');
+                            this.showPlayOverlay();
+                        }
+                        else {
+                            this.debugError('HLS autoplay failed:', error);
+                        }
+                    });
                 }
             });
             this.hls.on(window.Hls.Events.LEVEL_SWITCHED, (event, data) => {
@@ -531,6 +540,138 @@ export class WebPlayer extends BasePlayer {
         return !!err && ((err.name === 'AbortError') ||
             (typeof err.message === 'string' && /interrupted by a call to pause\(\)/i.test(err.message)));
     }
+    isAutoplayRestrictionError(err) {
+        if (!err)
+            return false;
+        const message = (err.message || '').toLowerCase();
+        const name = (err.name || '').toLowerCase();
+        return (name === 'notallowederror' ||
+            message.includes('user didn\'t interact') ||
+            message.includes('autoplay') ||
+            message.includes('gesture') ||
+            message.includes('user activation') ||
+            message.includes('play() failed') ||
+            message.includes('user interaction'));
+    }
+    showPlayOverlay() {
+        this.hidePlayOverlay();
+        const overlay = document.createElement('div');
+        overlay.id = 'uvf-play-overlay';
+        overlay.className = 'uvf-play-overlay';
+        const playButton = document.createElement('button');
+        playButton.className = 'uvf-play-button';
+        playButton.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+    `;
+        const message = document.createElement('div');
+        message.className = 'uvf-play-message';
+        message.textContent = 'Click to play';
+        overlay.appendChild(playButton);
+        overlay.appendChild(message);
+        playButton.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            this.lastUserInteraction = Date.now();
+            try {
+                await this.play();
+            }
+            catch (error) {
+                this.debugError('Failed to play after user interaction:', error);
+            }
+        });
+        overlay.addEventListener('click', async (e) => {
+            if (e.target === overlay) {
+                e.stopPropagation();
+                this.lastUserInteraction = Date.now();
+                try {
+                    await this.play();
+                }
+                catch (error) {
+                    this.debugError('Failed to play after user interaction:', error);
+                }
+            }
+        });
+        const style = document.createElement('style');
+        style.textContent = `
+      .uvf-play-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        cursor: pointer;
+      }
+      
+      .uvf-play-button {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        color: #000;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        margin-bottom: 16px;
+      }
+      
+      .uvf-play-button:hover {
+        background: #fff;
+        transform: scale(1.1);
+      }
+      
+      .uvf-play-button svg {
+        width: 32px;
+        height: 32px;
+        margin-left: 4px;
+      }
+      
+      .uvf-play-message {
+        color: white;
+        font-size: 16px;
+        font-weight: 500;
+        text-align: center;
+        opacity: 0.9;
+      }
+    `;
+        if (!document.getElementById('uvf-play-overlay-styles')) {
+            style.id = 'uvf-play-overlay-styles';
+            document.head.appendChild(style);
+        }
+        if (this.playerWrapper) {
+            this.playerWrapper.appendChild(overlay);
+        }
+    }
+    hidePlayOverlay() {
+        const overlay = document.getElementById('uvf-play-overlay');
+        if (overlay) {
+            overlay.remove();
+        }
+    }
+    setupUserInteractionTracking() {
+        const interactionEvents = ['click', 'mousedown', 'keydown', 'touchstart'];
+        const updateLastInteraction = () => {
+            this.lastUserInteraction = Date.now();
+            this.debugLog('User interaction detected at:', this.lastUserInteraction);
+        };
+        interactionEvents.forEach(eventType => {
+            document.addEventListener(eventType, updateLastInteraction, { passive: true });
+        });
+        if (this.playerWrapper) {
+            interactionEvents.forEach(eventType => {
+                this.playerWrapper.addEventListener(eventType, updateLastInteraction, { passive: true });
+            });
+        }
+    }
     async play() {
         if (!this.video)
             throw new Error('Video element not initialized');
@@ -554,11 +695,17 @@ export class WebPlayer extends BasePlayer {
                 this._deferredPause = false;
                 this.video.pause();
             }
+            this.hidePlayOverlay();
             await super.play();
         }
         catch (err) {
             this._playPromise = null;
             if (this.isAbortPlayError(err)) {
+                return;
+            }
+            if (this.isAutoplayRestrictionError(err)) {
+                this.debugWarn('Autoplay blocked by browser policy - showing play overlay');
+                this.showPlayOverlay();
                 return;
             }
             this.handleError({
@@ -1690,8 +1837,20 @@ export class WebPlayer extends BasePlayer {
         width: 100%;
         position: relative;
         cursor: pointer;
-        padding: 16px 0;
+        padding: 6px 0;
         overflow: visible;
+      }
+      
+      /* Extended touch area for better mobile UX without affecting visual spacing */
+      .uvf-progress-bar-wrapper::before {
+        content: '';
+        position: absolute;
+        top: -8px;
+        bottom: -8px;
+        left: 0;
+        right: 0;
+        cursor: pointer;
+        z-index: 10;
       }
       
       .uvf-progress-bar {
@@ -1805,7 +1964,7 @@ export class WebPlayer extends BasePlayer {
       /* Mobile responsive design with enhanced touch targets */
       @media (max-width: 768px) {
         .uvf-progress-bar-wrapper {
-          padding: 20px 0; /* Larger touch area */
+          padding: 8px 0; /* Optimized touch area */
         }
         
         .uvf-progress-bar {

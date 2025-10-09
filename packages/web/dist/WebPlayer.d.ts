@@ -69,6 +69,10 @@ export declare class WebPlayer extends BasePlayer {
     protected loadScript(src: string): Promise<void>;
     private loadSubtitles;
     private isAbortPlayError;
+    private isAutoplayRestrictionError;
+    private showPlayOverlay;
+    private hidePlayOverlay;
+    private setupUserInteractionTracking;
     play(): Promise<void>;
     pause(): void;
     requestPause(): void;
