@@ -52,6 +52,15 @@ export class WebPlayer extends BasePlayer {
         this.hasTriedButtonFallback = false;
         this.lastUserInteraction = 0;
         this.showTimeTooltip = false;
+        this.autoplayCapabilities = {
+            canAutoplay: false,
+            canAutoplayMuted: false,
+            canAutoplayUnmuted: false,
+            lastCheck: 0
+        };
+        this.autoplayRetryPending = false;
+        this.autoplayRetryAttempts = 0;
+        this.maxAutoplayRetries = 3;
         this.chapterManager = null;
         this.coreChapterManager = null;
         this.chapterConfig = { enabled: false };
@@ -130,8 +139,8 @@ export class WebPlayer extends BasePlayer {
         this.video = document.createElement('video');
         this.video.className = 'uvf-video';
         this.video.controls = false;
-        this.video.autoplay = this.config.autoPlay ?? false;
-        this.video.muted = this.config.autoPlay ? true : (this.config.muted ?? false);
+        this.video.autoplay = false;
+        this.video.muted = this.config.muted ?? false;
         this.video.loop = this.config.loop ?? false;
         this.video.playsInline = this.config.playsInline ?? true;
         this.video.preload = this.config.preload ?? 'metadata';
@@ -240,6 +249,7 @@ export class WebPlayer extends BasePlayer {
             this.state.isPlaying = true;
             this.state.isPaused = false;
             this.emit('onPlay');
+            this.hidePlayOverlay();
         });
         this.video.addEventListener('playing', () => {
             if (this._deferredPause) {
@@ -249,6 +259,8 @@ export class WebPlayer extends BasePlayer {
                 }
                 catch (_) { }
             }
+            this.hidePlayOverlay();
+            this.setBuffering(false);
         });
         this.video.addEventListener('pause', () => {
             this.state.isPlaying = false;
@@ -433,14 +445,19 @@ export class WebPlayer extends BasePlayer {
                 }));
                 this.updateSettingsMenu();
                 if (this.config.autoPlay) {
-                    this.play().catch(error => {
-                        if (this.isAutoplayRestrictionError(error)) {
-                            this.debugWarn('HLS autoplay blocked, showing play overlay');
+                    this.attemptIntelligentAutoplay().then(success => {
+                        if (!success) {
+                            this.debugWarn('❌ Intelligent autoplay failed, showing play overlay');
                             this.showPlayOverlay();
+                            this.setupAutoplayRetry();
                         }
                         else {
-                            this.debugError('HLS autoplay failed:', error);
+                            this.debugLog('✅ Intelligent autoplay succeeded');
                         }
+                    }).catch(error => {
+                        this.debugError('HLS autoplay failed:', error);
+                        this.showPlayOverlay();
+                        this.setupAutoplayRetry();
                     });
                 }
             });
@@ -590,13 +607,148 @@ export class WebPlayer extends BasePlayer {
             message.includes('play() failed') ||
             message.includes('user interaction'));
     }
+    async detectAutoplayCapabilities() {
+        const now = Date.now();
+        if (this.autoplayCapabilities.lastCheck && (now - this.autoplayCapabilities.lastCheck) < 300000) {
+            return;
+        }
+        try {
+            const testVideo = document.createElement('video');
+            testVideo.muted = true;
+            testVideo.playsInline = true;
+            testVideo.style.position = 'absolute';
+            testVideo.style.opacity = '0';
+            testVideo.style.pointerEvents = 'none';
+            testVideo.style.width = '1px';
+            testVideo.style.height = '1px';
+            testVideo.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAA70D=';
+            document.body.appendChild(testVideo);
+            try {
+                await testVideo.play();
+                this.autoplayCapabilities.canAutoplayMuted = true;
+                this.autoplayCapabilities.canAutoplay = true;
+                this.debugLog('✅ Muted autoplay is supported');
+                testVideo.pause();
+                testVideo.currentTime = 0;
+                testVideo.muted = false;
+                testVideo.volume = 0.5;
+                try {
+                    await testVideo.play();
+                    this.autoplayCapabilities.canAutoplayUnmuted = true;
+                    this.debugLog('✅ Unmuted autoplay is supported');
+                }
+                catch (unmutedError) {
+                    this.autoplayCapabilities.canAutoplayUnmuted = false;
+                    this.debugLog('⚠️ Unmuted autoplay is blocked');
+                }
+                testVideo.pause();
+            }
+            catch (error) {
+                this.autoplayCapabilities.canAutoplay = false;
+                this.autoplayCapabilities.canAutoplayMuted = false;
+                this.autoplayCapabilities.canAutoplayUnmuted = false;
+                this.debugLog('❌ All autoplay is blocked');
+            }
+            finally {
+                document.body.removeChild(testVideo);
+            }
+            this.autoplayCapabilities.lastCheck = now;
+        }
+        catch (error) {
+            this.debugError('Failed to detect autoplay capabilities:', error);
+            this.autoplayCapabilities.canAutoplayMuted = true;
+            this.autoplayCapabilities.canAutoplay = true;
+        }
+    }
+    hasUserActivation() {
+        if (typeof navigator !== 'undefined' && navigator.userActivation) {
+            const hasActivation = navigator.userActivation.hasBeenActive;
+            this.debugLog(`🎯 User activation detected: ${hasActivation}`);
+            return hasActivation;
+        }
+        const hasInteracted = this.lastUserInteraction > 0 &&
+            (Date.now() - this.lastUserInteraction) < 5000;
+        this.debugLog(`🎯 Recent user interaction: ${hasInteracted}`);
+        return hasInteracted;
+    }
+    async attemptIntelligentAutoplay() {
+        if (!this.config.autoPlay || !this.video)
+            return false;
+        await this.detectAutoplayCapabilities();
+        const hasActivation = this.hasUserActivation();
+        const shouldTryUnmuted = (this.autoplayCapabilities.canAutoplayUnmuted || hasActivation)
+            && this.config.muted !== true;
+        if (shouldTryUnmuted) {
+            this.video.muted = false;
+            this.video.volume = this.config.volume ?? 1.0;
+            this.debugLog(`🔊 Attempting unmuted autoplay (activation: ${hasActivation})`);
+            try {
+                await this.play();
+                this.debugLog('✅ Unmuted autoplay successful');
+                return true;
+            }
+            catch (error) {
+                this.debugLog('⚠️ Unmuted autoplay failed, trying muted');
+            }
+        }
+        if (this.autoplayCapabilities.canAutoplayMuted || hasActivation) {
+            this.video.muted = true;
+            this.debugLog('🔇 Attempting muted autoplay');
+            try {
+                await this.play();
+                this.debugLog('✅ Muted autoplay successful');
+                return true;
+            }
+            catch (error) {
+                this.debugLog('❌ Muted autoplay failed');
+            }
+        }
+        return false;
+    }
+    setupAutoplayRetry() {
+        if (!this.config.autoPlay || this.autoplayRetryAttempts >= this.maxAutoplayRetries) {
+            return;
+        }
+        const interactionEvents = ['click', 'mousedown', 'keydown', 'touchstart'];
+        const retryAutoplay = async () => {
+            if (this.autoplayRetryPending || this.state.isPlaying) {
+                return;
+            }
+            this.autoplayRetryPending = true;
+            this.autoplayRetryAttempts++;
+            this.debugLog(`🔄 Attempting autoplay retry #${this.autoplayRetryAttempts}`);
+            try {
+                const success = await this.attemptIntelligentAutoplay();
+                if (success) {
+                    this.debugLog('✅ Autoplay retry successful');
+                    this.autoplayRetryPending = false;
+                    interactionEvents.forEach(eventType => {
+                        document.removeEventListener(eventType, retryAutoplay);
+                    });
+                }
+                else {
+                    this.autoplayRetryPending = false;
+                }
+            }
+            catch (error) {
+                this.autoplayRetryPending = false;
+                this.debugError('Autoplay retry failed:', error);
+            }
+        };
+        interactionEvents.forEach(eventType => {
+            document.addEventListener(eventType, retryAutoplay, { once: true, passive: true });
+        });
+        this.debugLog('🎯 Autoplay retry armed - waiting for user interaction');
+    }
     showPlayOverlay() {
         this.hidePlayOverlay();
+        this.debugLog('📺 Showing play overlay due to autoplay restriction');
         const overlay = document.createElement('div');
         overlay.id = 'uvf-play-overlay';
         overlay.className = 'uvf-play-overlay';
         const playButton = document.createElement('button');
         playButton.className = 'uvf-play-button';
+        playButton.setAttribute('aria-label', 'Play video');
         playButton.innerHTML = `
       <svg viewBox="0 0 24 24" fill="currentColor">
         <path d="M8 5v14l11-7z"/>
@@ -607,77 +759,85 @@ export class WebPlayer extends BasePlayer {
         message.textContent = 'Click to play';
         overlay.appendChild(playButton);
         overlay.appendChild(message);
-        playButton.addEventListener('click', async (e) => {
+        const handlePlayClick = async (e) => {
+            e.preventDefault();
             e.stopPropagation();
             this.lastUserInteraction = Date.now();
+            this.debugLog('▶️ User clicked play overlay');
             try {
+                if (!this.video) {
+                    this.debugError('Video element not available');
+                    return;
+                }
                 await this.play();
+                this.debugLog('✅ Play successful after user click');
             }
             catch (error) {
-                this.debugError('Failed to play after user interaction:', error);
+                this.debugError('❌ Failed to play after user interaction:', error);
+                message.textContent = 'Unable to play. Please try again.';
+                message.style.color = '#ff6b6b';
             }
-        });
+        };
+        playButton.addEventListener('click', handlePlayClick);
         overlay.addEventListener('click', async (e) => {
             if (e.target === overlay) {
-                e.stopPropagation();
-                this.lastUserInteraction = Date.now();
-                try {
-                    await this.play();
-                }
-                catch (error) {
-                    this.debugError('Failed to play after user interaction:', error);
-                }
+                await handlePlayClick(e);
             }
         });
         const style = document.createElement('style');
         style.textContent = `
       .uvf-play-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-        cursor: pointer;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.85) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        z-index: 999999 !important;
+        cursor: pointer !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
       }
-      
+
       .uvf-play-button {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.9);
-        border: none;
-        color: #000;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
-        margin-bottom: 16px;
+        width: 96px !important;
+        height: 96px !important;
+        border-radius: 50% !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 3px solid rgba(255, 255, 255, 0.3) !important;
+        color: #000 !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: all 0.3s ease !important;
+        margin-bottom: 20px !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
       }
-      
+
       .uvf-play-button:hover {
-        background: #fff;
-        transform: scale(1.1);
+        background: #fff !important;
+        transform: scale(1.15) !important;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4) !important;
       }
-      
+
       .uvf-play-button svg {
-        width: 32px;
-        height: 32px;
-        margin-left: 4px;
+        width: 40px !important;
+        height: 40px !important;
+        margin-left: 4px !important;
       }
-      
+
       .uvf-play-message {
-        color: white;
-        font-size: 16px;
-        font-weight: 500;
-        text-align: center;
-        opacity: 0.9;
+        color: white !important;
+        font-size: 18px !important;
+        font-weight: 600 !important;
+        text-align: center !important;
+        opacity: 0.95 !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
       }
     `;
         if (!document.getElementById('uvf-play-overlay-styles')) {
@@ -686,9 +846,14 @@ export class WebPlayer extends BasePlayer {
         }
         if (this.playerWrapper) {
             this.playerWrapper.appendChild(overlay);
+            this.debugLog('✅ Play overlay added to player wrapper');
+        }
+        else {
+            this.debugError('❌ Cannot show play overlay - playerWrapper not found');
         }
     }
     hidePlayOverlay() {
+        this.debugLog('🔇 Hiding play overlay');
         const overlay = document.getElementById('uvf-play-overlay');
         if (overlay) {
             overlay.remove();

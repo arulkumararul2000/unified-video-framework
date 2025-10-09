@@ -54,6 +54,10 @@ export declare class WebPlayer extends BasePlayer {
     private hasTriedButtonFallback;
     private lastUserInteraction;
     private showTimeTooltip;
+    private autoplayCapabilities;
+    private autoplayRetryPending;
+    private autoplayRetryAttempts;
+    private maxAutoplayRetries;
     private chapterManager;
     private coreChapterManager;
     private chapterConfig;
@@ -76,6 +80,10 @@ export declare class WebPlayer extends BasePlayer {
     private loadSubtitles;
     private isAbortPlayError;
     private isAutoplayRestrictionError;
+    private detectAutoplayCapabilities;
+    private hasUserActivation;
+    private attemptIntelligentAutoplay;
+    private setupAutoplayRetry;
     private showPlayOverlay;
     private hidePlayOverlay;
     private updateTimeTooltip;
