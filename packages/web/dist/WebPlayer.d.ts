@@ -51,6 +51,7 @@ export declare class WebPlayer extends BasePlayer {
     private _TOGGLE_DEBOUNCE_MS;
     private hasTriedButtonFallback;
     private lastUserInteraction;
+    private showTimeTooltip;
     private debugLog;
     private debugError;
     private debugWarn;
@@ -72,6 +73,8 @@ export declare class WebPlayer extends BasePlayer {
     private isAutoplayRestrictionError;
     private showPlayOverlay;
     private hidePlayOverlay;
+    private updateTimeTooltip;
+    private hideTimeTooltip;
     private setupUserInteractionTracking;
     play(): Promise<void>;
     pause(): void;

@@ -83,6 +83,9 @@ export class WebPlayer extends BasePlayer {
   // Fullscreen fallback tracking
   private hasTriedButtonFallback: boolean = false;
   private lastUserInteraction: number = 0;
+  
+  // Progress bar tooltip state
+  private showTimeTooltip: boolean = false;
 
   // Debug logging helper
   private debugLog(message: string, ...args: any[]): void {
@@ -827,6 +830,29 @@ export class WebPlayer extends BasePlayer {
     const overlay = document.getElementById('uvf-play-overlay');
     if (overlay) {
       overlay.remove();
+    }
+  }
+  
+  private updateTimeTooltip(e: MouseEvent): void {
+    const progressBar = document.getElementById('uvf-progress-bar');
+    const tooltip = document.getElementById('uvf-time-tooltip');
+    if (!progressBar || !tooltip || !this.video) return;
+    
+    const rect = progressBar.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const percent = (x / rect.width);
+    const time = percent * this.video.duration;
+    
+    // Update tooltip content and position
+    tooltip.textContent = this.formatTime(time);
+    tooltip.style.left = `${x}px`;
+    tooltip.classList.add('visible');
+  }
+  
+  private hideTimeTooltip(): void {
+    const tooltip = document.getElementById('uvf-time-tooltip');
+    if (tooltip) {
+      tooltip.classList.remove('visible');
     }
   }
 
@@ -2308,30 +2334,109 @@ export class WebPlayer extends BasePlayer {
         left: 0;
         height: 100%;
         background: linear-gradient(90deg, 
-          #ff4500 0%,
-          #ff5722 25%,
-          #ff6b35 50%,
-          #ff7043 75%,
-          #ff8c69 100%
+          var(--uvf-accent-1, #ff4500) 0%,
+          var(--uvf-accent-1, #ff5722) 25%,
+          var(--uvf-accent-2, #ff6b35) 50%,
+          var(--uvf-accent-2, #ff7043) 75%,
+          var(--uvf-accent-2, #ff8c69) 100%
         );
         border-radius: 4px;
         pointer-events: none;
         transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         z-index: 2;
-        box-shadow: 0 0 12px rgba(255, 87, 34, 0.3);
+        box-shadow: 0 0 12px var(--uvf-accent-1-20, rgba(255, 87, 34, 0.3));
       }
       
       .uvf-progress-bar-wrapper:hover .uvf-progress-filled {
         border-radius: 6px;
         background: linear-gradient(90deg, 
-          #ff4500 0%,
-          #ff5722 20%,
-          #ff6b35 40%,
-          #ff7043 60%,
-          #ff8c69 80%,
-          #ffa500 100%
+          var(--uvf-accent-1, #ff4500) 0%,
+          var(--uvf-accent-1, #ff5722) 20%,
+          var(--uvf-accent-2, #ff6b35) 40%,
+          var(--uvf-accent-2, #ff7043) 60%,
+          var(--uvf-accent-2, #ff8c69) 80%,
+          var(--uvf-accent-2, #ffa500) 100%
         );
-        box-shadow: 0 0 20px rgba(255, 87, 34, 0.5);
+        box-shadow: 0 0 20px var(--uvf-accent-1-20, rgba(255, 87, 34, 0.5));
+      }
+      
+      /* Progress Bar Handle/Thumb */
+      .uvf-progress-handle {
+        position: absolute;
+        top: 1px; /* Center on the 2px progress bar (1px from top) */
+        left: 0;
+        width: 14px;
+        height: 14px;
+        background: #fff;
+        border: 2px solid var(--uvf-accent-1, #ff5722);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        cursor: grab;
+        opacity: 0;
+        transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+        z-index: 3;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+      
+      .uvf-progress-bar-wrapper:hover .uvf-progress-handle {
+        opacity: 1;
+        top: 2px; /* Center on the 4px hover progress bar (2px from top) */
+        transform: translate(-50%, -50%) scale(1);
+      }
+      
+      .uvf-progress-handle:hover {
+        transform: translate(-50%, -50%) scale(1.2);
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+      }
+      
+      .uvf-progress-handle:active,
+      .uvf-progress-handle.dragging {
+        cursor: grabbing;
+        transform: translate(-50%, -50%) scale(1.3);
+        box-shadow: 0 4px 16px rgba(255, 87, 34, 0.4);
+      }
+      
+      /* Time Tooltip */
+      .uvf-time-tooltip {
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        margin-bottom: 8px;
+        padding: 4px 8px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 4px;
+        white-space: nowrap;
+        opacity: 0;
+        transform: translateX(-50%) translateY(4px);
+        transition: all 0.2s ease;
+        pointer-events: none;
+        z-index: 20;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      
+      .uvf-time-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: rgba(0, 0, 0, 0.8);
+      }
+      
+      .uvf-time-tooltip.visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      
+      /* Show tooltip when dragging */
+      .uvf-progress-handle.dragging + .uvf-time-tooltip {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
       }
       
       
@@ -2348,6 +2453,14 @@ export class WebPlayer extends BasePlayer {
         
         .uvf-progress-bar-wrapper:hover .uvf-progress-bar {
           height: 5px;
+        }
+        
+        .uvf-progress-handle {
+          top: 1.5px; /* Center on the 3px mobile progress bar */
+        }
+        
+        .uvf-progress-bar-wrapper:hover .uvf-progress-handle {
+          top: 2.5px; /* Center on the 5px mobile hover progress bar */
         }
         
       }
@@ -4484,11 +4597,6 @@ export class WebPlayer extends BasePlayer {
           animation: uvf-pulse 2s ease-in-out infinite;
         }
         
-        /* Enhanced progress bar for desktop */
-        .uvf-progress-bar-wrapper:hover .uvf-progress-handle {
-          transform: scale(1.2);
-        }
-        
         .uvf-progress-bar-wrapper:hover .uvf-progress-bar {
           height: 6px;
         }
@@ -4981,7 +5089,9 @@ export class WebPlayer extends BasePlayer {
       <div class="uvf-progress-bar">
         <div class="uvf-progress-buffered" id="uvf-progress-buffered"></div>
         <div class="uvf-progress-filled" id="uvf-progress-filled"></div>
+        <div class="uvf-progress-handle" id="uvf-progress-handle"></div>
       </div>
+      <div class="uvf-time-tooltip" id="uvf-time-tooltip">00:00</div>
     `;
     progressSection.appendChild(progressBar);
     
@@ -5338,25 +5448,63 @@ export class WebPlayer extends BasePlayer {
     });
     
     
-    // Progress bar click
+    // Progress bar interactions
     progressBar?.addEventListener('click', (e) => {
       this.handleProgressChange(e as MouseEvent);
     });
     
     progressBar?.addEventListener('mousedown', (e) => {
       this.isDragging = true;
+      this.showTimeTooltip = true;
       this.handleProgressChange(e as MouseEvent);
+      this.updateTimeTooltip(e as MouseEvent);
     });
     
-    // Global mouse events for enhanced dragging
+    // Hover tooltip functionality
+    progressBar?.addEventListener('mouseenter', () => {
+      this.showTimeTooltip = true;
+    });
+    
+    progressBar?.addEventListener('mouseleave', () => {
+      if (!this.isDragging) {
+        this.showTimeTooltip = false;
+        this.hideTimeTooltip();
+      }
+    });
+    
+    progressBar?.addEventListener('mousemove', (e) => {
+      if (this.showTimeTooltip) {
+        this.updateTimeTooltip(e as MouseEvent);
+      }
+    });
+    
+    // Touch support for mobile devices
+    progressBar?.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // Prevent scrolling
+      this.isDragging = true;
+      const touch = e.touches[0];
+      this.handleProgressChange(touch);
+    }, { passive: false });
+    
+    // Global mouse and touch events for enhanced dragging
     document.addEventListener('mousemove', (e) => {
       if (this.isVolumeSliding) {
         this.handleVolumeChange(e);
       }
       if (this.isDragging && progressBar) {
         this.handleProgressChange(e);
+        // Update tooltip position during dragging
+        this.updateTimeTooltip(e);
       }
     });
+    
+    document.addEventListener('touchmove', (e) => {
+      if (this.isDragging && progressBar) {
+        e.preventDefault(); // Prevent scrolling
+        const touch = e.touches[0];
+        this.handleProgressChange(touch);
+      }
+    }, { passive: false });
     
     document.addEventListener('mouseup', () => {
       if (this.isVolumeSliding) {
@@ -5370,16 +5518,42 @@ export class WebPlayer extends BasePlayer {
       
       if (this.isDragging) {
         this.isDragging = false;
+        // Remove dragging class from handle
+        const handle = document.getElementById('uvf-progress-handle');
+        handle?.classList.remove('dragging');
+        // Hide tooltip if mouse is not over progress bar
+        if (progressBar && !progressBar.matches(':hover')) {
+          this.showTimeTooltip = false;
+          this.hideTimeTooltip();
+        }
+      }
+    });
+    
+    document.addEventListener('touchend', () => {
+      if (this.isDragging) {
+        this.isDragging = false;
+        // Remove dragging class from handle
+        const handle = document.getElementById('uvf-progress-handle');
+        handle?.classList.remove('dragging');
+        // Hide tooltip on touch end
+        this.showTimeTooltip = false;
+        this.hideTimeTooltip();
       }
     });
     
     // Update progress bar
     this.video.addEventListener('timeupdate', () => {
       const progressFilled = document.getElementById('uvf-progress-filled') as HTMLElement;
+      const progressHandle = document.getElementById('uvf-progress-handle') as HTMLElement;
       
       if (this.video && progressFilled) {
         const percent = (this.video.currentTime / this.video.duration) * 100;
         progressFilled.style.width = percent + '%';
+        
+        // Update handle position (only when not dragging)
+        if (progressHandle && !this.isDragging) {
+          progressHandle.style.left = percent + '%';
+        }
       }
       
       // Update time display using the dedicated method
@@ -6126,7 +6300,7 @@ export class WebPlayer extends BasePlayer {
     }
   }
 
-  private handleProgressChange(e: MouseEvent): void {
+  private handleProgressChange(e: MouseEvent | Touch): void {
     const progressBar = document.getElementById('uvf-progress-bar');
     const progressFilled = document.getElementById('uvf-progress-filled') as HTMLElement;
     const progressHandle = document.getElementById('uvf-progress-handle') as HTMLElement;
@@ -6143,6 +6317,12 @@ export class WebPlayer extends BasePlayer {
     }
     if (progressHandle) {
       progressHandle.style.left = percent + '%';
+      // Add dragging class for visual feedback
+      if (this.isDragging) {
+        progressHandle.classList.add('dragging');
+      } else {
+        progressHandle.classList.remove('dragging');
+      }
     }
     
     this.seek(time);
