@@ -20,5 +20,8 @@ export { EventEmitter } from './utils/EventEmitter';
 export { ChapterManager } from './chapter-manager';
 export type { ChapterManagerEvents } from './chapter-manager';
 
+// Export analytics (with namespace to avoid conflicts)
+export * as Analytics from './analytics';
+
 // Export version
 export const VERSION = '1.0.0';

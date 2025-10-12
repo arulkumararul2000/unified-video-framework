@@ -1341,20 +1341,41 @@ export class WebPlayer extends BasePlayer {
     if (!this.playerWrapper) return;
 
     try {
-      // Check if fullscreen is supported
-      if (!document.fullscreenEnabled && 
-          !(document as any).webkitFullscreenEnabled && 
-          !(document as any).mozFullScreenEnabled && 
-          !(document as any).msFullscreenEnabled) {
+      // iOS Safari special handling - use video element fullscreen
+      if (this.isIOSDevice() && this.video) {
+        this.debugLog('iOS device detected - using video element fullscreen');
+        
+        try {
+          // iOS Safari supports video fullscreen but not element fullscreen
+          if ((this.video as any).webkitEnterFullscreen) {
+            await (this.video as any).webkitEnterFullscreen();
+            this.playerWrapper.classList.add('uvf-fullscreen');
+            this.emit('onFullscreenChanged', true);
+            return;
+          } else if ((this.video as any).webkitRequestFullscreen) {
+            await (this.video as any).webkitRequestFullscreen();
+            this.playerWrapper.classList.add('uvf-fullscreen');
+            this.emit('onFullscreenChanged', true);
+            return;
+          }
+        } catch (iosError) {
+          this.debugWarn('iOS video fullscreen failed:', (iosError as Error).message);
+          // Fall through to try standard fullscreen
+        }
+      }
+      
+      // Check if fullscreen is supported for non-iOS devices
+      if (!this.isFullscreenSupported()) {
         this.debugWarn('Fullscreen not supported by browser');
+        // On mobile devices that don't support fullscreen, show a helpful message
+        if (this.isMobileDevice()) {
+          this.showShortcutIndicator('Rotate device for fullscreen experience');
+        }
         return;
       }
       
       // Check if already in fullscreen
-      if (document.fullscreenElement || 
-          (document as any).webkitFullscreenElement || 
-          (document as any).mozFullScreenElement || 
-          (document as any).msFullscreenElement) {
+      if (this.isFullscreen()) {
         this.debugLog('Already in fullscreen mode');
         return;
       }
@@ -1362,31 +1383,63 @@ export class WebPlayer extends BasePlayer {
       // Target the player wrapper to maintain custom controls
       const element = this.playerWrapper;
       
+      // Try different fullscreen APIs with better error handling
+      let fullscreenSuccess = false;
+      
       if (element.requestFullscreen) {
-        await element.requestFullscreen().catch(err => {
-          this.debugWarn('Fullscreen request failed:', err.message);
-          // Don't throw, just log the error
-        });
+        try {
+          await element.requestFullscreen();
+          fullscreenSuccess = true;
+        } catch (err) {
+          this.debugWarn('Standard fullscreen request failed:', (err as Error).message);
+        }
       } else if ((element as any).webkitRequestFullscreen) {
-        await (element as any).webkitRequestFullscreen().catch((err: any) => {
-          this.debugWarn('WebKit fullscreen request failed:', err.message);
-        });
+        try {
+          await (element as any).webkitRequestFullscreen();
+          fullscreenSuccess = true;
+        } catch (err) {
+          this.debugWarn('WebKit fullscreen request failed:', (err as Error).message);
+        }
       } else if ((element as any).mozRequestFullScreen) {
-        await (element as any).mozRequestFullScreen().catch((err: any) => {
-          this.debugWarn('Mozilla fullscreen request failed:', err.message);
-        });
+        try {
+          await (element as any).mozRequestFullScreen();
+          fullscreenSuccess = true;
+        } catch (err) {
+          this.debugWarn('Mozilla fullscreen request failed:', (err as Error).message);
+        }
       } else if ((element as any).msRequestFullscreen) {
-        await (element as any).msRequestFullscreen().catch((err: any) => {
-          this.debugWarn('MS fullscreen request failed:', err.message);
-        });
-      } else {
-        this.debugWarn('Fullscreen API not supported by this browser');
-        return;
+        try {
+          await (element as any).msRequestFullscreen();
+          fullscreenSuccess = true;
+        } catch (err) {
+          this.debugWarn('MS fullscreen request failed:', (err as Error).message);
+        }
       }
       
-      // Add fullscreen class for styling
-      this.playerWrapper.classList.add('uvf-fullscreen');
-      this.emit('onFullscreenChanged', true);
+      if (fullscreenSuccess) {
+        // Add fullscreen class for styling
+        this.playerWrapper.classList.add('uvf-fullscreen');
+        this.emit('onFullscreenChanged', true);
+        
+        // On Android, suggest orientation for better experience
+        if (this.isAndroidDevice()) {
+          setTimeout(() => {
+            this.showShortcutIndicator('Rotate device to landscape for best experience');
+          }, 1000);
+        }
+      } else {
+        this.debugWarn('All fullscreen methods failed');
+        
+        // Provide helpful feedback based on device
+        if (this.isIOSDevice()) {
+          this.showShortcutIndicator('Fullscreen not available - use device controls');
+        } else if (this.isAndroidDevice()) {
+          this.showShortcutIndicator('Try rotating device to landscape');
+        } else {
+          this.showShortcutIndicator('Fullscreen not supported in this browser');
+        }
+      }
+      
     } catch (error) {
       this.debugWarn('Failed to enter fullscreen:', (error as Error).message);
       // Don't re-throw the error to prevent breaking the user experience
@@ -1395,38 +1448,76 @@ export class WebPlayer extends BasePlayer {
 
   async exitFullscreen(): Promise<void> {
     try {
+      // iOS Safari special handling
+      if (this.isIOSDevice() && this.video) {
+        try {
+          if ((this.video as any).webkitExitFullscreen) {
+            await (this.video as any).webkitExitFullscreen();
+            if (this.playerWrapper) {
+              this.playerWrapper.classList.remove('uvf-fullscreen');
+            }
+            this.emit('onFullscreenChanged', false);
+            return;
+          }
+        } catch (iosError) {
+          this.debugWarn('iOS video exit fullscreen failed:', (iosError as Error).message);
+          // Fall through to try standard methods
+        }
+      }
+      
       // Check if we're actually in fullscreen
-      if (!document.fullscreenElement && 
-          !(document as any).webkitFullscreenElement && 
-          !(document as any).mozFullScreenElement && 
-          !(document as any).msFullscreenElement) {
+      if (!this.isFullscreen()) {
         this.debugLog('Not in fullscreen mode');
         return;
       }
       
+      // Try different exit fullscreen methods
+      let exitSuccess = false;
+      
       if (document.exitFullscreen) {
-        await document.exitFullscreen().catch(err => {
-          this.debugWarn('Exit fullscreen failed:', err.message);
-        });
+        try {
+          await document.exitFullscreen();
+          exitSuccess = true;
+        } catch (err) {
+          this.debugWarn('Standard exit fullscreen failed:', (err as Error).message);
+        }
       } else if ((document as any).webkitExitFullscreen) {
-        await (document as any).webkitExitFullscreen().catch((err: any) => {
-          this.debugWarn('WebKit exit fullscreen failed:', err.message);
-        });
+        try {
+          await (document as any).webkitExitFullscreen();
+          exitSuccess = true;
+        } catch (err) {
+          this.debugWarn('WebKit exit fullscreen failed:', (err as Error).message);
+        }
       } else if ((document as any).mozCancelFullScreen) {
-        await (document as any).mozCancelFullScreen().catch((err: any) => {
-          this.debugWarn('Mozilla exit fullscreen failed:', err.message);
-        });
+        try {
+          await (document as any).mozCancelFullScreen();
+          exitSuccess = true;
+        } catch (err) {
+          this.debugWarn('Mozilla exit fullscreen failed:', (err as Error).message);
+        }
       } else if ((document as any).msExitFullscreen) {
-        await (document as any).msExitFullscreen().catch((err: any) => {
-          this.debugWarn('MS exit fullscreen failed:', err.message);
-        });
+        try {
+          await (document as any).msExitFullscreen();
+          exitSuccess = true;
+        } catch (err) {
+          this.debugWarn('MS exit fullscreen failed:', (err as Error).message);
+        }
       }
       
-      // Remove fullscreen class
-      if (this.playerWrapper) {
-        this.playerWrapper.classList.remove('uvf-fullscreen');
+      if (exitSuccess || !this.isFullscreen()) {
+        // Remove fullscreen class
+        if (this.playerWrapper) {
+          this.playerWrapper.classList.remove('uvf-fullscreen');
+        }
+        this.emit('onFullscreenChanged', false);
+      } else {
+        this.debugWarn('All exit fullscreen methods failed');
+        // Still remove the class to keep UI consistent
+        if (this.playerWrapper) {
+          this.playerWrapper.classList.remove('uvf-fullscreen');
+        }
       }
-      this.emit('onFullscreenChanged', false);
+      
     } catch (error) {
       this.debugWarn('Failed to exit fullscreen:', (error as Error).message);
       // Don't re-throw the error to prevent breaking the user experience
@@ -4160,7 +4251,7 @@ export class WebPlayer extends BasePlayer {
         }
       }
       
-      /* iOS Safari specific fixes - address bar handling */
+      /* iOS Safari specific fixes - address bar handling and control positioning */
       @supports (-webkit-appearance: none) {
         .uvf-player-wrapper.uvf-fullscreen,
         .uvf-video-container.uvf-fullscreen {
@@ -4178,6 +4269,31 @@ export class WebPlayer extends BasePlayer {
           .uvf-player-wrapper {
             height: -webkit-fill-available;
             min-height: 100vh;
+            /* Fix for iOS Safari control overlay positioning */
+            position: relative;
+            overflow: hidden;
+          }
+          
+          /* iOS Safari specific fixes for control positioning */
+          .uvf-controls-bar {
+            position: absolute !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            /* Ensure hardware acceleration */
+            -webkit-transform: translate3d(0,0,0);
+            transform: translate3d(0,0,0);
+            /* Prevent any webkit transforms that could cause positioning issues */
+            -webkit-perspective: 1000;
+            perspective: 1000;
+          }
+          
+          /* Ensure all control elements use hardware acceleration */
+          .uvf-control-btn,
+          .uvf-progress-bar,
+          .uvf-progress-section {
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
           }
         }
       }
@@ -4238,14 +4354,45 @@ export class WebPlayer extends BasePlayer {
         
         /* Fix for controls being cut off by virtual keyboard */
         .uvf-controls-bar {
-          position: fixed !important;
-          bottom: var(--uvf-safe-area-bottom, 0) !important;
+          position: absolute !important;
+          bottom: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          /* Remove fixed positioning that causes issues on iOS Safari */
+          z-index: 1000 !important;
+          transform: translateZ(0); /* Force hardware acceleration */
         }
         
         /* Ensure controls stay above virtual keyboards */
         @supports (bottom: env(keyboard-inset-height)) {
           .uvf-controls-bar {
-            bottom: max(var(--uvf-safe-area-bottom, 0), env(keyboard-inset-height, 0)) !important;
+            bottom: max(0px, env(keyboard-inset-height, 0)) !important;
+            padding-bottom: calc(16px + max(var(--uvf-safe-area-bottom, 0), env(keyboard-inset-height, 0))) !important;
+          }
+        }
+        
+        /* Hide PiP button on mobile - not supported on most mobile browsers */
+        #uvf-pip-btn {
+          display: none !important;
+        }
+        
+        /* Mobile fullscreen enhancements */
+        .uvf-player-wrapper.uvf-fullscreen {
+          /* Ensure fullscreen covers entire viewport on mobile */
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          z-index: 2147483647 !important;
+          background: #000 !important;
+        }
+        
+        /* iOS Safari specific fullscreen fixes */
+        @supports (-webkit-appearance: none) {
+          .uvf-player-wrapper.uvf-fullscreen {
+            /* Use viewport units that work better with iOS Safari */
+            height: -webkit-fill-available !important;
           }
         }
       }
@@ -4287,19 +4434,25 @@ export class WebPlayer extends BasePlayer {
           min-height: inherit;
         }
         
-        /* Enhanced mobile controls bar with safe area padding */
+        /* Enhanced mobile controls bar with safe area padding - iOS Safari specific fixes */
         .uvf-controls-bar {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
+          position: absolute !important;
+          bottom: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
           padding: 16px 12px;
-          padding-bottom: calc(16px + var(--uvf-safe-area-bottom));
-          padding-left: calc(12px + var(--uvf-safe-area-left));
-          padding-right: calc(12px + var(--uvf-safe-area-right));
+          padding-bottom: calc(16px + var(--uvf-safe-area-bottom, 0px));
+          padding-left: calc(12px + var(--uvf-safe-area-left, 0px));
+          padding-right: calc(12px + var(--uvf-safe-area-right, 0px));
           background: linear-gradient(to top, var(--uvf-overlay-strong) 0%, var(--uvf-overlay-medium) 80%, var(--uvf-overlay-transparent) 100%);
           box-sizing: border-box;
-          z-index: 1000;
+          z-index: 1000 !important;
+          /* iOS Safari specific fixes */
+          transform: translateZ(0);
+          -webkit-transform: translateZ(0);
+          will-change: transform;
+          /* Ensure proper stacking */
+          isolation: isolate;
         }
         
         .uvf-progress-section {
@@ -5802,12 +5955,18 @@ export class WebPlayer extends BasePlayer {
     epgBtn.style.display = 'none'; // Initially hidden, will be shown when EPG data is available
     rightControls.appendChild(epgBtn);
     
-    // PiP button
+    // PiP button - only show on desktop/supported browsers
     const pipBtn = document.createElement('button');
     pipBtn.className = 'uvf-control-btn';
     pipBtn.id = 'uvf-pip-btn';
     pipBtn.title = 'Picture-in-Picture';
     pipBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/></svg>';
+    
+    // Hide PiP button on mobile devices and browsers that don't support it
+    if (this.isMobileDevice() || !this.isPipSupported()) {
+      pipBtn.style.display = 'none';
+    }
+    
     rightControls.appendChild(pipBtn);
     
     // Fullscreen button
@@ -6107,19 +6266,26 @@ export class WebPlayer extends BasePlayer {
       }
     });
     
-    // Fullscreen button with enhanced Brave support
+    // Fullscreen button with enhanced cross-platform support
     fullscreenBtn?.addEventListener('click', (event) => {
-      // Enhanced debugging for Brave browser
+      // Enhanced debugging for all platforms
       const isBrave = this.isBraveBrowser();
       const isPrivate = this.isPrivateWindow();
+      const isIOS = this.isIOSDevice();
+      const isAndroid = this.isAndroidDevice();
+      const isMobile = this.isMobileDevice();
       
       this.debugLog('Fullscreen button clicked:', {
         isBrave,
         isPrivate,
+        isIOS,
+        isAndroid,
+        isMobile,
         isFullscreen: this.isFullscreen(),
         eventTrusted: event.isTrusted,
         eventType: event.type,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        fullscreenSupported: this.isFullscreenSupported()
       });
       
       // Update user interaction timestamp
@@ -6136,22 +6302,28 @@ export class WebPlayer extends BasePlayer {
       } else {
         this.debugLog('Entering fullscreen via button');
         
-        // Special handling for Brave browser
-        if (isBrave && !isPrivate) {
-          // For Brave normal tabs, try direct API call first
-          this.enterFullscreenWithBraveSupport().catch(err => {
-            this.debugWarn('Brave fullscreen button failed:', err.message);
-            this.showTemporaryMessage('Brave Browser: Please allow fullscreen in site settings');
-          });
-        } else {
-          this.enterFullscreen().catch(err => {
-            this.debugWarn('Fullscreen button failed:', err.message);
-            
-            if (isBrave) {
-              this.showTemporaryMessage('Try refreshing the page or check Brave shields settings');
-            }
-          });
+        // iOS Safari special message
+        if (isIOS) {
+          this.showShortcutIndicator('Using iOS video fullscreen');
+        } else if (isAndroid) {
+          this.showShortcutIndicator('Entering fullscreen - rotate to landscape');
         }
+        
+        // Use enhanced cross-platform fullscreen method
+        this.enterFullscreen().catch(err => {
+          this.debugWarn('Fullscreen button failed:', err.message);
+          
+          // Platform-specific error messages
+          if (isIOS) {
+            this.showTemporaryMessage('iOS: Use device rotation or video controls for fullscreen');
+          } else if (isAndroid) {
+            this.showTemporaryMessage('Android: Try rotating device to landscape mode');
+          } else if (isBrave) {
+            this.showTemporaryMessage('Brave Browser: Please allow fullscreen in site settings');
+          } else {
+            this.showTemporaryMessage('Fullscreen not supported in this browser');
+          }
+        });
       }
     });
     
@@ -6787,6 +6959,58 @@ export class WebPlayer extends BasePlayer {
     } else {
       this.mute();
     }
+  }
+
+  /**
+   * Detect if user is on a mobile device
+   */
+  private isMobileDevice(): boolean {
+    const userAgent = navigator.userAgent.toLowerCase();
+    const mobileKeywords = ['android', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone', 'mobile'];
+    const isMobileUserAgent = mobileKeywords.some(keyword => userAgent.includes(keyword));
+    const isSmallScreen = window.innerWidth <= 768;
+    const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    
+    return isMobileUserAgent || (isSmallScreen && hasTouchScreen);
+  }
+
+  /**
+   * Check if Picture-in-Picture is supported by the browser
+   */
+  private isPipSupported(): boolean {
+    return !!(
+      document.pictureInPictureEnabled &&
+      HTMLVideoElement.prototype.requestPictureInPicture &&
+      typeof HTMLVideoElement.prototype.requestPictureInPicture === 'function'
+    );
+  }
+
+  /**
+   * Detect if user is on iOS device
+   */
+  private isIOSDevice(): boolean {
+    const userAgent = navigator.userAgent.toLowerCase();
+    return /iphone|ipad|ipod/.test(userAgent);
+  }
+
+  /**
+   * Detect if user is on Android device
+   */
+  private isAndroidDevice(): boolean {
+    const userAgent = navigator.userAgent.toLowerCase();
+    return /android/.test(userAgent);
+  }
+
+  /**
+   * Check if fullscreen is supported on current platform
+   */
+  private isFullscreenSupported(): boolean {
+    return !!(
+      document.fullscreenEnabled ||
+      (document as any).webkitFullscreenEnabled ||
+      (document as any).mozFullScreenEnabled ||
+      (document as any).msFullscreenEnabled
+    );
   }
 
   private handleVolumeChange(e: MouseEvent): void {

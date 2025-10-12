@@ -1,6 +1,6 @@
 {
   "name": "unified-video-framework",
-  "version": "1.4.158",
+  "version": "1.4.160",
   "description": "Cross-platform video player framework supporting iOS, Android, Web, Smart TVs (Samsung/LG), Roku, and more",
   "main": "packages/core/dist/index.js",
   "types": "packages/core/dist/index.d.ts",
@@ -34,6 +34,11 @@
       "require": "./packages/core/dist/index.js",
       "import": "./packages/core/dist/index.js",
       "types": "./packages/core/dist/index.d.ts"
+    },
+    "./analytics": {
+      "require": "./packages/core/dist/analytics/index.js",
+      "import": "./packages/core/dist/analytics/index.js",
+      "types": "./packages/core/dist/analytics/index.d.ts"
     }
   },
   "files": [
@@ -116,7 +121,11 @@
     "accessibility",
     "drm",
     "hls",
-    "dash"
+    "dash",
+    "analytics",
+    "tracking",
+    "metrics",
+    "engagement"
   ],
   "author": "flicknexs",
   "license": "MIT",

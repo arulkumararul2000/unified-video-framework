@@ -136,6 +136,11 @@ export declare class WebPlayer extends BasePlayer {
     resetFreePreviewGate(): void;
     resetPaymentStatus(): void;
     private toggleMuteAction;
+    private isMobileDevice;
+    private isPipSupported;
+    private isIOSDevice;
+    private isAndroidDevice;
+    private isFullscreenSupported;
     private handleVolumeChange;
     private handleProgressChange;
     private formatTime;
