@@ -4058,168 +4058,118 @@ export class WebPlayer extends BasePlayer {
         pointer-events: none;
       }
       
-      /* Fullscreen specific styles */
-      .uvf-player-wrapper.uvf-fullscreen {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        z-index: 2147483647;
-        background: #000;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-video-container {
-        width: 100vw !important;
-        height: 100vh !important;
-        max-width: none !important;
-        max-height: none !important;
-        aspect-ratio: unset !important;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-video {
-        width: 100vw !important;
-        height: 100vh !important;
-      }
-      
-      /* Maintain consistent control sizing in fullscreen */
-      .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn {
-        width: 40px;
-        height: 40px;
-        min-width: 40px;
-        min-height: 40px;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn.play-pause {
-        width: 50px;
-        height: 50px;
-        min-width: 50px;
-        min-height: 50px;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn svg {
-        width: 20px;
-        height: 20px;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn.play-pause svg {
-        width: 24px;
-        height: 24px;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-top-btn {
-        width: 40px;
-        height: 40px;
-        min-width: 40px;
-        min-height: 40px;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-top-btn svg {
-        width: 20px;
-        height: 20px;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-time-display {
-        font-size: 14px;
-        padding: 0 10px;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-center-play-btn {
-        width: 64px;
-        height: 64px;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-center-play-btn svg {
-        width: 28px;
-        height: 28px;
-      }
-      
-      /* Ensure overlays remain visible in fullscreen with consistent spacing */
-      .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar,
-      .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls,
-      .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar,
-      .uvf-player-wrapper.uvf-fullscreen .uvf-top-gradient,
-      .uvf-player-wrapper.uvf-fullscreen .uvf-controls-gradient {
-        z-index: 2147483647; /* Maximum z-index value */
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar {
-        padding: 20px 30px; /* More generous padding in fullscreen */
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-controls-row {
-        gap: 15px; /* Consistent gap in fullscreen */
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar {
-        padding: 20px 30px;
-      }
-      
-      .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls {
-        top: 20px;
-        right: 30px;
-        gap: 10px;
-      }
-      
-      /* Fullscreen hover and visibility states */
-      .uvf-player-wrapper.uvf-fullscreen:hover .uvf-title-bar,
-      .uvf-player-wrapper.uvf-fullscreen:hover .uvf-top-controls,
-      .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-title-bar,
-      .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-top-controls {
-        opacity: 1;
-        transform: translateY(0);
-      }
-      
-      /* Fullscreen mobile responsive adjustments */
-      @media screen and (max-width: 767px) {
-        .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar {
-          padding: 15px 20px;
+      /* Fullscreen specific styles - DESKTOP AND LANDSCAPE ONLY */
+      /* Mobile portrait uses Material You layout in fullscreen */
+      @media not all and (max-width: 767px) and (orientation: portrait) {
+        .uvf-player-wrapper.uvf-fullscreen {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          z-index: 2147483647;
+          background: #000;
         }
         
-        .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar {
-          padding: 15px 20px;
+        .uvf-player-wrapper.uvf-fullscreen .uvf-video-container {
+          width: 100vw !important;
+          height: 100vh !important;
+          max-width: none !important;
+          max-height: none !important;
+          aspect-ratio: unset !important;
         }
         
-        .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls {
-          top: 15px;
-          right: 20px;
+        .uvf-player-wrapper.uvf-fullscreen .uvf-video {
+          width: 100vw !important;
+          height: 100vh !important;
         }
         
-        /* Mobile controls in fullscreen - slightly larger than normal mobile */
+        /* Maintain consistent control sizing in fullscreen - DESKTOP/LANDSCAPE ONLY */
         .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn {
-          width: 36px;
-          height: 36px;
-          min-width: 36px;
-          min-height: 36px;
+          width: 40px;
+          height: 40px;
+          min-width: 40px;
+          min-height: 40px;
         }
         
         .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn.play-pause {
-          width: 44px;
-          height: 44px;
-          min-width: 44px;
-          min-height: 44px;
+          width: 50px;
+          height: 50px;
+          min-width: 50px;
+          min-height: 50px;
         }
         
         .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn svg {
-          width: 18px;
-          height: 18px;
+          width: 20px;
+          height: 20px;
         }
         
         .uvf-player-wrapper.uvf-fullscreen .uvf-control-btn.play-pause svg {
-          width: 22px;
-          height: 22px;
+          width: 24px;
+          height: 24px;
         }
         
         .uvf-player-wrapper.uvf-fullscreen .uvf-top-btn {
-          width: 36px;
-          height: 36px;
-          min-width: 36px;
-          min-height: 36px;
+          width: 40px;
+          height: 40px;
+          min-width: 40px;
+          min-height: 40px;
         }
         
         .uvf-player-wrapper.uvf-fullscreen .uvf-top-btn svg {
-          width: 18px;
-          height: 18px;
+          width: 20px;
+          height: 20px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-time-display {
+          font-size: 14px;
+          padding: 0 10px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-center-play-btn {
+          width: 64px;
+          height: 64px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-center-play-btn svg {
+          width: 28px;
+          height: 28px;
+        }
+        
+        /* Ensure overlays remain visible in fullscreen with consistent spacing */
+        .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar,
+        .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls,
+        .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar,
+        .uvf-player-wrapper.uvf-fullscreen .uvf-top-gradient,
+        .uvf-player-wrapper.uvf-fullscreen .uvf-controls-gradient {
+          z-index: 2147483647; /* Maximum z-index value */
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar {
+          padding: 20px 30px; /* More generous padding in fullscreen */
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-controls-row {
+          gap: 15px; /* Consistent gap in fullscreen */
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar {
+          padding: 20px 30px;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls {
+          top: 20px;
+          right: 30px;
+          gap: 10px;
+        }
+        
+        /* Fullscreen hover and visibility states */
+        .uvf-player-wrapper.uvf-fullscreen:hover .uvf-title-bar,
+        .uvf-player-wrapper.uvf-fullscreen:hover .uvf-top-controls,
+        .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-title-bar,
+        .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-top-controls {
+          opacity: 1;
+          transform: translateY(0);
         }
       }
       
@@ -4251,282 +4201,222 @@ export class WebPlayer extends BasePlayer {
         }
       }
       
-      /* iOS Safari specific fixes - address bar handling and control positioning */
+      /* iOS Safari specific fixes - fullscreen only */
       @supports (-webkit-appearance: none) {
         .uvf-player-wrapper.uvf-fullscreen,
         .uvf-video-container.uvf-fullscreen {
           height: -webkit-fill-available;
           min-height: -webkit-fill-available;
         }
-        
-        /* Handle iOS Safari's dynamic address bar */
-        @media screen and (max-width: 767px) {
-          .uvf-responsive-container {
-            height: -webkit-fill-available;
-            min-height: 100vh;
-          }
-          
-          .uvf-player-wrapper {
-            height: -webkit-fill-available;
-            min-height: 100vh;
-            /* Fix for iOS Safari control overlay positioning */
-            position: relative;
-            overflow: hidden;
-          }
-          
-          /* iOS Safari specific fixes for control positioning */
-          .uvf-controls-bar {
-            position: absolute !important;
-            bottom: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            /* Ensure hardware acceleration */
-            -webkit-transform: translate3d(0,0,0);
-            transform: translate3d(0,0,0);
-            /* Prevent any webkit transforms that could cause positioning issues */
-            -webkit-perspective: 1000;
-            perspective: 1000;
-          }
-          
-          /* Ensure all control elements use hardware acceleration */
-          .uvf-control-btn,
-          .uvf-progress-bar,
-          .uvf-progress-section {
-            -webkit-transform: translateZ(0);
-            transform: translateZ(0);
-          }
-        }
       }
       
-      /* Android Chrome specific fixes */
-      @supports (display: -webkit-box) {
-        .uvf-responsive-container {
-          min-height: 100vh;
-        }
-        
-        /* Fix for Android Chrome's address bar behavior */
-        @media screen and (max-width: 767px) {
-          .uvf-video-container {
-            min-height: calc(100vh - 56px); /* Chrome mobile address bar height */
-          }
-        }
-      }
-      
-      /* Samsung Internet Browser fixes */
-      @media screen and (-webkit-min-device-pixel-ratio: 1) {
-        @media screen and (max-width: 767px) {
-          .uvf-responsive-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-          }
-        }
-      }
-      
-      /* Universal mobile fixes for all browsers */
-      @media screen and (max-width: 767px) {
-        html, body {
-          overflow-x: hidden;
-        }
-        
-        .uvf-player-wrapper {
-          /* Prevent scroll bounce on iOS */
-          -webkit-overflow-scrolling: touch;
-          overflow: hidden;
-          
-          /* Prevent zoom on double tap */
-          touch-action: manipulation;
-        }
-        
-        .uvf-video {
-          /* Prevent video from being selectable */
-          -webkit-user-select: none;
-          -moz-user-select: none;
-          -ms-user-select: none;
-          user-select: none;
-          
-          /* Ensure hardware acceleration */
-          -webkit-transform: translateZ(0);
-          transform: translateZ(0);
-        }
-        
-        /* Fix for controls being cut off by virtual keyboard */
-        .uvf-controls-bar {
-          position: absolute !important;
-          bottom: 0 !important;
-          left: 0 !important;
-          right: 0 !important;
-          /* Remove fixed positioning that causes issues on iOS Safari */
-          z-index: 1000 !important;
-          transform: translateZ(0); /* Force hardware acceleration */
-        }
-        
-        /* Ensure controls stay above virtual keyboards */
-        @supports (bottom: env(keyboard-inset-height)) {
-          .uvf-controls-bar {
-            bottom: max(0px, env(keyboard-inset-height, 0)) !important;
-            padding-bottom: calc(16px + max(var(--uvf-safe-area-bottom, 0), env(keyboard-inset-height, 0))) !important;
-          }
-        }
-        
-        /* Hide PiP button on mobile - not supported on most mobile browsers */
-        #uvf-pip-btn {
-          display: none !important;
-        }
-        
-        /* Mobile fullscreen enhancements */
-        .uvf-player-wrapper.uvf-fullscreen {
-          /* Ensure fullscreen covers entire viewport on mobile */
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100vw !important;
-          height: 100vh !important;
-          z-index: 2147483647 !important;
-          background: #000 !important;
-        }
-        
-        /* iOS Safari specific fullscreen fixes */
-        @supports (-webkit-appearance: none) {
-          .uvf-player-wrapper.uvf-fullscreen {
-            /* Use viewport units that work better with iOS Safari */
-            height: -webkit-fill-available !important;
-          }
-        }
-      }
       
       /* Enhanced Responsive Media Queries with UX Best Practices */
-      /* Mobile devices (portrait) - Enhanced UX with Safe Areas */
+      /* Mobile devices (portrait) - Material You Design (25-50-25 Layout) */
       @media screen and (max-width: 767px) and (orientation: portrait) {
         .uvf-responsive-container {
           padding: 0;
           width: 100vw !important;
-          height: calc(100vh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
+          height: 100vh;
+          height: 100dvh;
           margin: 0;
-          position: relative;
+          position: fixed;
+          top: 0;
+          left: 0;
           overflow: hidden;
-        }
-        
-        @supports (height: 100dvh) {
-          .uvf-responsive-container {
-            height: calc(100dvh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
-          }
         }
         
         .uvf-responsive-container .uvf-player-wrapper {
           width: 100vw !important;
-          height: 100% !important;
-          min-height: calc(100vh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
+          height: 100vh;
+          height: 100dvh;
+          position: fixed;
+          top: 0;
+          left: 0;
+          display: flex;
+          flex-direction: column;
+          background: #000;
+          overflow: hidden;
         }
         
-        @supports (height: 100dvh) {
-          .uvf-responsive-container .uvf-player-wrapper {
-            min-height: calc(100dvh - var(--uvf-safe-area-top) - var(--uvf-safe-area-bottom));
-          }
-        }
-        
+        /* Video container occupies middle 50% */
         .uvf-responsive-container .uvf-video-container {
-          width: 100vw !important;
-          height: 100% !important;
-          aspect-ratio: unset !important;
-          min-height: inherit;
-        }
-        
-        /* Enhanced mobile controls bar with safe area padding - iOS Safari specific fixes */
-        .uvf-controls-bar {
-          position: absolute !important;
-          bottom: 0 !important;
-          left: 0 !important;
-          right: 0 !important;
-          padding: 16px 12px;
-          padding-bottom: calc(16px + var(--uvf-safe-area-bottom, 0px));
-          padding-left: calc(12px + var(--uvf-safe-area-left, 0px));
-          padding-right: calc(12px + var(--uvf-safe-area-right, 0px));
-          background: linear-gradient(to top, var(--uvf-overlay-strong) 0%, var(--uvf-overlay-medium) 80%, var(--uvf-overlay-transparent) 100%);
-          box-sizing: border-box;
-          z-index: 1000 !important;
-          /* iOS Safari specific fixes */
-          transform: translateZ(0);
-          -webkit-transform: translateZ(0);
-          will-change: transform;
-          /* Ensure proper stacking */
-          isolation: isolate;
-        }
-        
-        .uvf-progress-section {
-          margin-bottom: 16px;
-        }
-        
-        /* Mobile-first responsive controls layout */
-        .uvf-controls-row {
-          gap: 8px;
-          flex-wrap: nowrap;
-          align-items: center;
-          justify-content: space-between;
+          height: 50vh;
+          height: 50dvh;
+          width: 100vw;
           position: relative;
+          margin-top: 25vh;
+          margin-top: 25dvh;
+          aspect-ratio: unset !important;
+          background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 100%);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+                      0 4px 16px rgba(0, 0, 0, 0.3),
+                      0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .uvf-video {
           width: 100%;
+          height: 100%;
+          object-fit: contain;
         }
         
-        /* Left side controls group */
-        .uvf-left-controls {
+        /* Top black section (25%) - Tap zone */
+        .uvf-player-wrapper::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 25vh;
+          height: 25dvh;
+          background: #000;
+          z-index: 1;
+          pointer-events: all;
+          touch-action: manipulation;
+        }
+        
+        /* Bottom black section (25%) - Controls area */
+        .uvf-player-wrapper::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100vw;
+          height: 25vh;
+          height: 25dvh;
+          background: linear-gradient(to top, 
+            #000 0%, 
+            rgba(0, 0, 0, 0.98) 20%,
+            rgba(0, 0, 0, 0.95) 100%);
+          z-index: 1;
+          pointer-events: none;
+        }
+        
+        /* Material surface container for controls */
+        .uvf-controls-bar {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: auto;
+          max-height: 25vh;
+          max-height: 25dvh;
+          padding: 16px 20px;
+          padding-bottom: calc(16px + var(--uvf-safe-area-bottom, 0px));
+          background: transparent;
+          z-index: 2;
           display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-shrink: 0;
+          flex-direction: column;
+          justify-content: flex-end;
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
         }
         
-        /* Center controls group */
-        .uvf-center-controls {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex: 1;
-          justify-content: center;
+        /* Material surface tint overlay */
+        .uvf-controls-bar::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: var(--uvf-surface-tint, rgba(255, 0, 0, 0.08));
+          border-radius: 28px 28px 0 0;
+          pointer-events: none;
+          z-index: -1;
         }
         
-        /* Mobile control groups reordering */
-        .uvf-controls-row .uvf-control-btn.play-pause,
-        .uvf-controls-row #uvf-skip-back,
-        .uvf-controls-row #uvf-skip-forward {
-          order: 1;
+        /* Progress bar with chapter markers */
+        .uvf-progress-section {
+          margin-bottom: 12px;
+          position: relative;
         }
         
-        .uvf-controls-row .uvf-volume-control {
-          order: 2;
+        .uvf-progress-bar-wrapper {
+          padding: 12px 0;
+          position: relative;
         }
         
-        .uvf-controls-row .uvf-time-display:not(.uvf-above-seekbar) {
-          order: 3;
-          margin-left: auto;
-          margin-right: 8px;
+        .uvf-progress-bar {
+          height: 4px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+          position: relative;
+          overflow: visible;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         }
         
-        .uvf-controls-row .uvf-right-controls {
-          order: 4;
-          margin-left: 0;
+        .uvf-progress-filled {
+          background: var(--uvf-accent-1, #ff0000);
+          box-shadow: 0 0 8px var(--uvf-accent-1, #ff0000);
         }
         
-        /* Touch-friendly control sizing (minimum 44px touch target) */
+        .uvf-progress-handle {
+          width: 20px;
+          height: 20px;
+          background: var(--uvf-accent-1, #ff0000);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3),
+                      0 0 0 0 var(--uvf-accent-1, #ff0000);
+          transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .uvf-progress-handle:active {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4),
+                      0 0 0 12px rgba(255, 0, 0, 0.15);
+          transform: translate(-50%, -50%) scale(1.2);
+        }
+        
+        /* Material Design control buttons */
         .uvf-control-btn {
-          width: 44px;
-          height: 44px;
-          min-width: 44px;
-          min-height: 44px;
-          border-radius: 22px;
-          background: rgba(255,255,255,0.15);
-          backdrop-filter: blur(8px);
+          width: 48px;
+          height: 48px;
+          min-width: 48px;
+          min-height: 48px;
+          background: rgba(255, 255, 255, 0.12);
+          border-radius: 24px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12),
+                      0 1px 2px rgba(0, 0, 0, 0.24);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          overflow: hidden;
+        }
+        
+        /* Material ripple effect */
+        .uvf-control-btn::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: inherit;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+        
+        .uvf-control-btn:active::before {
+          opacity: 1;
+        }
+        
+        .uvf-control-btn:active {
+          box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16),
+                      0 3px 6px rgba(0, 0, 0, 0.23);
+          transform: scale(0.95);
         }
         
         .uvf-control-btn.play-pause {
-          width: 52px;
-          height: 52px;
-          min-width: 52px;
-          min-height: 52px;
-          border-radius: 26px;
-          background: linear-gradient(135deg, var(--uvf-accent-1), var(--uvf-accent-2));
-          box-shadow: 0 4px 12px rgba(var(--uvf-accent-1), 0.3);
+          width: 56px;
+          height: 56px;
+          min-width: 56px;
+          min-height: 56px;
+          border-radius: 28px;
+          background: linear-gradient(135deg, 
+            var(--uvf-accent-1, #ff0000), 
+            var(--uvf-accent-2, #ff4d4f));
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2),
+                      0 2px 4px rgba(0, 0, 0, 0.15),
+                      0 0 0 0 var(--uvf-accent-1, #ff0000);
+        }
+        
+        .uvf-control-btn.play-pause:active {
+          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25),
+                      0 4px 8px rgba(0, 0, 0, 0.20),
+                      0 0 0 8px rgba(255, 0, 0, 0.12);
         }
         
         .uvf-control-btn svg {
@@ -4539,263 +4429,91 @@ export class WebPlayer extends BasePlayer {
           height: 24px;
         }
         
-        /* Skip buttons with clear visual hierarchy */
+        /* Controls row with Material spacing */
+        .uvf-controls-row {
+          gap: 16px;
+          padding: 0;
+          align-items: center;
+        }
+        
+        /* Time display with Material surface */
+        .uvf-time-display {
+          background: rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(8px);
+          border-radius: 16px;
+          padding: 6px 12px;
+          font-size: 13px;
+          font-weight: 500;
+          font-feature-settings: 'tnum';
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Hide desktop elements */
+        .uvf-top-controls,
+        .uvf-title-bar,
+        .uvf-volume-control,
         #uvf-skip-back,
         #uvf-skip-forward {
-          background: rgba(255,255,255,0.12);
-        }
-        
-        #uvf-skip-back svg,
-        #uvf-skip-forward svg {
-          width: 22px;
-          height: 22px;
-        }
-        
-        /* Mobile time display - compact but readable */
-        .uvf-time-display:not(.uvf-above-seekbar) {
-          font-size: 12px;
-          font-weight: 600;
-          padding: 0 6px;
-          text-align: center;
-          background: rgba(0,0,0,0.3);
-          border-radius: 12px;
-          text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-          flex-shrink: 0;
-        }
-        
-        /* Above-seekbar time display for mobile */
-        .uvf-time-display.uvf-above-seekbar {
-          font-size: 12px !important;
-          font-weight: 500 !important;
-          padding: 3px 6px !important;
-          background: rgba(0,0,0,0.4) !important;
-          border-radius: 10px !important;
-          text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
-          backdrop-filter: blur(4px) !important;
-          border: 1px solid rgba(255,255,255,0.1) !important;
-        }
-        
-        /* Simplified volume control for mobile */
-        .uvf-volume-control {
-          order: 3;
-          position: relative;
-        }
-        
-        /* Hide volume panel on mobile - use device controls */
-        .uvf-volume-panel {
-          display: none;
-        }
-        
-        /* Mobile volume button as simple mute toggle */
-        .uvf-volume-control .uvf-control-btn {
-          width: 44px;
-          height: 44px;
-        }
-        
-        /* Compact right controls for mobile */
-        .uvf-right-controls {
-          gap: 6px;
-          display: flex;
-          align-items: center;
-          flex-shrink: 0;
-          position: relative;
-          z-index: 10;
-        }
-        
-        /* Ensure settings container is visible */
-        .uvf-right-controls > div[style*="position: relative"],
-        .uvf-settings-container {
-          display: flex !important;
-          position: relative !important;
-          align-items: center !important;
-          justify-content: center !important;
-          min-width: 44px !important;
-          min-height: 44px !important;
-        }
-        
-        /* Remove quality badge completely - not essential */
-        .uvf-quality-badge {
           display: none !important;
         }
         
-        /* Settings menu - hidden by default, accessible via menu */
-        .uvf-settings-menu {
-          min-width: 160px;
-          bottom: 60px;
-          right: 12px;
-          font-size: 14px;
-          max-height: 50vh;
-        }
-        
-        .uvf-settings-option {
-          padding: 12px 16px;
-          font-size: 14px;
-          min-height: 44px;
-          display: flex;
-          align-items: center;
-        }
-        
-        .uvf-settings-option:hover {
-          background: rgba(255,255,255,0.15);
-          padding-left: 20px;
-        }
-        
-        /* Simplified settings - hide complex options */
-        .uvf-settings-group:first-child .uvf-settings-option[data-speed="0.5"],
-        .uvf-settings-group:first-child .uvf-settings-option[data-speed="0.75"],
-        .uvf-settings-group:first-child .uvf-settings-option[data-speed="2"] {
-          display: none;
-        }
-        }
-        
-      /* Enhanced top controls for mobile with safe area support */
-      .uvf-top-controls {
-        position: absolute;
-        top: calc(12px + var(--uvf-safe-area-top));
-        right: calc(12px + var(--uvf-safe-area-right));
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        z-index: 10;
-      }
-        
-        /* Touch-friendly top buttons */
-        .uvf-top-btn {
-          width: 44px;
-          height: 44px;
-          min-width: 44px;
-          min-height: 44px;
-          background: rgba(0,0,0,0.7);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255,255,255,0.2);
-        }
-        
-        .uvf-top-btn svg {
-          width: 20px;
-          height: 20px;
-        }
-        
-        /* Share button - keep visible on all devices */
-        #uvf-share-btn {
-          display: flex;
-        }
-        
-        /* Enhanced title bar for mobile with safe area support */
-        .uvf-title-bar {
-          padding: 12px;
-          padding-top: calc(12px + var(--uvf-safe-area-top));
-          padding-left: calc(12px + var(--uvf-safe-area-left));
-          padding-right: calc(12px + var(--uvf-safe-area-right));
-        }
-        
-        .uvf-video-title {
-          font-size: 16px;
-          font-weight: 700;
-          line-height: 1.2;
-        }
-        
-        .uvf-video-subtitle {
-          font-size: 12px;
-          margin-top: 4px;
-          opacity: 0.8;
-        }
-        
-        .uvf-video-thumb {
-          width: 48px;
-          height: 48px;
-          border-radius: 6px;
-        }
-        
-        /* Touch-optimized center play button - uses same themed style as desktop */
-        .uvf-center-play-btn {
-          width: clamp(72px, 18vw, 96px);
-          height: clamp(72px, 18vw, 96px);
-          background: linear-gradient(135deg, var(--uvf-accent-1), var(--uvf-accent-2));
-          border: 0;
-          box-shadow: 0 10px 30px var(--uvf-accent-1-20);
-        }
-        
-        .uvf-center-play-btn:hover {
-          transform: scale(1.06);
-          filter: saturate(1.08) brightness(1.05);
-          box-shadow: 0 14px 36px var(--uvf-accent-1-20);
-        }
-        
-        .uvf-center-play-btn svg {
-          width: clamp(28px, 5.2vw, 38px);
-          height: clamp(28px, 5.2vw, 38px);
-          margin-left: 4px;
-        }
-        
-        /* Enhanced progress bar for touch */
-        .uvf-progress-bar {
-          height: 3px;
-          margin-bottom: 12px;
-          border-radius: 4px;
-          background: rgba(255,255,255,0.15);
-          position: relative;
-        }
-        
-        /* Larger touch target for progress bar */
-        .uvf-progress-bar-wrapper::before {
-          content: '';
-          position: absolute;
-          top: -10px;
-          left: 0;
-          right: 0;
-          bottom: -10px;
-          z-index: 1;
-        }
-        
-        .uvf-progress-handle {
-          width: 18px;
-          height: 18px;
-          background: #fff;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-        
-        .uvf-progress-bar-wrapper:active .uvf-progress-handle {
-          transform: translate(-50%, -50%) scale(1.2);
-        }
-        
-        /* Mobile accessibility improvements */
-        .uvf-control-btn,
-        .uvf-top-btn {
-          position: relative;
-          overflow: visible;
-        }
-        
-        /* Enhanced focus states for mobile */
-        .uvf-control-btn:focus,
-        .uvf-top-btn:focus {
-          outline: 2px solid var(--uvf-accent-1);
-          outline-offset: 2px;
-        }
-        
-        
-        /* Show PiP on all devices - modern mobile browsers support it well */
-        #uvf-pip-btn {
-          display: block;
-          background: rgba(255,255,255,0.12);
-          border: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        /* Essential controls in right section - Settings, PiP, and Fullscreen only */
-        .uvf-right-controls > *:not(#uvf-settings-btn):not(#uvf-fullscreen-btn):not(#uvf-pip-btn) {
-          display: none;
-        }
-        
-        /* Ensure settings button is always visible and properly sized on mobile */
+        /* Optimize settings button for Material You */
         #uvf-settings-btn {
+          width: 48px !important;
+          height: 48px !important;
+          min-width: 48px !important;
+          min-height: 48px !important;
+          border-radius: 24px !important;
+        }
+        
+        /* Fullscreen on mobile portrait - maintain Material You layout */
+        .uvf-player-wrapper.uvf-fullscreen,
+        .uvf-responsive-container .uvf-player-wrapper.uvf-fullscreen {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          height: 100dvh !important;
+          z-index: 2147483647 !important;
           display: flex !important;
-          width: 44px !important;
-          height: 44px !important;
-          min-width: 44px !important;
-          min-height: 44px !important;
-          backdrop-filter: blur(8px) !important;
-          border-radius: 22px !important;
-          align-items: center !important;
-          justify-content: center !important;
+          flex-direction: column !important;
+          background: #000 !important;
+        }
+        
+        /* Video container in fullscreen - keep 50% middle */
+        .uvf-player-wrapper.uvf-fullscreen .uvf-video-container,
+        .uvf-responsive-container .uvf-player-wrapper.uvf-fullscreen .uvf-video-container {
+          height: 50vh !important;
+          height: 50dvh !important;
+          width: 100vw !important;
+          margin-top: 25vh !important;
+          margin-top: 25dvh !important;
+          position: relative !important;
+        }
+        
+        /* Top and bottom black sections in fullscreen */
+        .uvf-player-wrapper.uvf-fullscreen::before {
+          height: 25vh !important;
+          height: 25dvh !important;
+        }
+        
+        .uvf-player-wrapper.uvf-fullscreen::after {
+          height: 25vh !important;
+          height: 25dvh !important;
+        }
+        
+        /* Controls stay in bottom 25% in fullscreen */
+        .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar,
+        .uvf-responsive-container .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar {
+          position: absolute !important;
+          bottom: 0 !important;
+          max-height: 25vh !important;
+          max-height: 25dvh !important;
+          padding: 16px 20px !important;
+          padding-bottom: calc(16px + var(--uvf-safe-area-bottom, 0px)) !important;
+        }
+      }
         }
         
         #uvf-settings-btn svg {
