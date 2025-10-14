@@ -1,6 +1,6 @@
-import { BasePlayer } from "../../core/dist/BasePlayer.js";
-import { ChapterManager as CoreChapterManager } from "../../core/dist/index.js";
-import { ChapterManager } from "./chapters/ChapterManager.js";
+import { BasePlayer } from '../../core/dist/BasePlayer';
+import { ChapterManager as CoreChapterManager } from '../../core/dist/index';
+import { ChapterManager } from './chapters/ChapterManager';
 export class WebPlayer extends BasePlayer {
     constructor() {
         super(...arguments);
@@ -52,6 +52,21 @@ export class WebPlayer extends BasePlayer {
         this.hasTriedButtonFallback = false;
         this.lastUserInteraction = 0;
         this.showTimeTooltip = false;
+        this.tapStartTime = 0;
+        this.tapStartX = 0;
+        this.tapStartY = 0;
+        this.lastTapTime = 0;
+        this.lastTapX = 0;
+        this.tapCount = 0;
+        this.longPressTimer = null;
+        this.isLongPressing = false;
+        this.longPressPlaybackRate = 1;
+        this.tapResetTimer = null;
+        this.fastBackwardInterval = null;
+        this.handleSingleTap = () => { };
+        this.handleDoubleTap = () => { };
+        this.handleLongPress = () => { };
+        this.handleLongPressEnd = () => { };
         this.autoplayCapabilities = {
             canAutoplay: false,
             canAutoplayMuted: false,
@@ -4037,6 +4052,13 @@ export class WebPlayer extends BasePlayer {
           transform: translateY(0) !important;
         }
         
+        /* Hide title bar when controls are hidden (no-cursor class) */
+        .uvf-player-wrapper.no-cursor .uvf-title-bar {
+          opacity: 0 !important;
+          transform: translateY(-10px) !important;
+          pointer-events: none !important;
+        }
+        
         /* Title content layout */
         .uvf-title-bar .uvf-title-content {
           display: flex !important;
@@ -4117,6 +4139,14 @@ export class WebPlayer extends BasePlayer {
         .uvf-player-wrapper.uvf-casting .uvf-top-controls {
           opacity: 1 !important;
           transform: translateY(0) !important;
+        }
+        
+        /* Hide top controls when controls are hidden (no-cursor class) */
+        /* Exception: Keep visible when casting */
+        .uvf-player-wrapper.no-cursor:not(.uvf-casting) .uvf-top-controls {
+          opacity: 0 !important;
+          transform: translateY(-10px) !important;
+          pointer-events: none !important;
         }
         
         /* Material You top buttons (cast & share) */
@@ -4351,10 +4381,14 @@ export class WebPlayer extends BasePlayer {
         }
         
         /* Compact top controls with safe area padding */
-        .uvf-top-controls {
-          top: calc(8px + var(--uvf-safe-area-top));
-          right: calc(12px + var(--uvf-safe-area-right));
-          gap: 6px;
+        .uvf-top-controls,
+        .uvf-video-container .uvf-top-controls,
+        .uvf-responsive-container .uvf-video-container .uvf-top-controls {
+          position: absolute !important;
+          top: calc(8px + var(--uvf-safe-area-top)) !important;
+          right: calc(12px + var(--uvf-safe-area-right)) !important;
+          left: auto !important;
+          gap: 6px !important;
         }
         
         .uvf-title-bar {
@@ -5357,24 +5391,11 @@ export class WebPlayer extends BasePlayer {
         });
         centerPlay?.addEventListener('click', () => this.togglePlayPause());
         playPauseBtn?.addEventListener('click', () => this.togglePlayPause());
-        this.video.addEventListener('click', (e) => {
-            if (this.isMobileDevice()) {
-                e.stopPropagation();
-                const wrapper = this.container?.querySelector('.uvf-player-wrapper');
-                if (wrapper?.classList.contains('controls-visible')) {
-                    this.hideControls();
-                }
-                else {
-                    this.showControls();
-                    if (this.state.isPlaying) {
-                        this.scheduleHideControls();
-                    }
-                }
-            }
-            else {
+        if (!this.isMobileDevice()) {
+            this.video.addEventListener('click', (e) => {
                 this.togglePlayPause();
-            }
-        });
+            });
+        }
         this.video.addEventListener('play', () => {
             const playIcon = document.getElementById('uvf-play-icon');
             const pauseIcon = document.getElementById('uvf-pause-icon');
@@ -5851,19 +5872,7 @@ export class WebPlayer extends BasePlayer {
                 this.playerWrapper?.focus();
                 this.lastUserInteraction = Date.now();
             });
-            this.playerWrapper.addEventListener('dblclick', (e) => {
-                const target = e.target;
-                if (!target.closest('.uvf-controls')) {
-                    e.preventDefault();
-                    this.debugLog('Double-click detected - attempting fullscreen');
-                    if (!document.fullscreenElement) {
-                        this.triggerFullscreenButton();
-                    }
-                    else {
-                        this.exitFullscreen();
-                    }
-                }
-            });
+            this.setupAdvancedTapHandling();
         }
         if (this.video) {
             this.video.addEventListener('keydown', handleKeydown);
@@ -6336,6 +6345,184 @@ export class WebPlayer extends BasePlayer {
             }
         }, timeout);
     }
+    setupAdvancedTapHandling() {
+        if (!this.video || !this.playerWrapper)
+            return;
+        const DOUBLE_TAP_DELAY = 300;
+        const LONG_PRESS_DELAY = 500;
+        const TAP_MOVEMENT_THRESHOLD = 10;
+        const SKIP_SECONDS = 10;
+        const FAST_PLAYBACK_RATE = 2;
+        let inDoubleTapWindow = false;
+        const videoElement = this.video;
+        const wrapper = this.playerWrapper;
+        const handleTouchStart = (e) => {
+            const target = e.target;
+            if (target.closest('.uvf-controls')) {
+                return;
+            }
+            const touch = e.touches[0];
+            this.tapStartTime = Date.now();
+            this.tapStartX = touch.clientX;
+            this.tapStartY = touch.clientY;
+            this.longPressTimer = setTimeout(() => {
+                this.isLongPressing = true;
+                this.handleLongPress(this.tapStartX);
+            }, LONG_PRESS_DELAY);
+        };
+        const handleTouchMove = (e) => {
+            const touch = e.touches[0];
+            const deltaX = Math.abs(touch.clientX - this.tapStartX);
+            const deltaY = Math.abs(touch.clientY - this.tapStartY);
+            if (deltaX > TAP_MOVEMENT_THRESHOLD || deltaY > TAP_MOVEMENT_THRESHOLD) {
+                if (this.longPressTimer) {
+                    clearTimeout(this.longPressTimer);
+                    this.longPressTimer = null;
+                }
+            }
+        };
+        const handleTouchEnd = (e) => {
+            if (this.longPressTimer) {
+                clearTimeout(this.longPressTimer);
+                this.longPressTimer = null;
+            }
+            if (this.isLongPressing) {
+                this.handleLongPressEnd();
+                this.isLongPressing = false;
+                return;
+            }
+            const target = e.target;
+            if (target.closest('.uvf-controls')) {
+                return;
+            }
+            const touch = e.changedTouches[0];
+            const touchEndX = touch.clientX;
+            const touchEndY = touch.clientY;
+            const tapDuration = Date.now() - this.tapStartTime;
+            const deltaX = Math.abs(touchEndX - this.tapStartX);
+            const deltaY = Math.abs(touchEndY - this.tapStartY);
+            if (deltaX > TAP_MOVEMENT_THRESHOLD || deltaY > TAP_MOVEMENT_THRESHOLD) {
+                return;
+            }
+            if (tapDuration > LONG_PRESS_DELAY) {
+                return;
+            }
+            const now = Date.now();
+            const timeSinceLastTap = now - this.lastTapTime;
+            if (timeSinceLastTap < DOUBLE_TAP_DELAY && Math.abs(touchEndX - this.lastTapX) < 100) {
+                this.tapCount = 2;
+                if (this.tapResetTimer) {
+                    clearTimeout(this.tapResetTimer);
+                    this.tapResetTimer = null;
+                }
+                inDoubleTapWindow = false;
+                this.handleDoubleTap(touchEndX);
+            }
+            else {
+                this.tapCount = 1;
+                this.lastTapTime = now;
+                this.lastTapX = touchEndX;
+                inDoubleTapWindow = true;
+                this.handleSingleTap();
+                if (this.tapResetTimer) {
+                    clearTimeout(this.tapResetTimer);
+                }
+                this.tapResetTimer = setTimeout(() => {
+                    this.tapCount = 0;
+                    inDoubleTapWindow = false;
+                }, DOUBLE_TAP_DELAY);
+            }
+        };
+        const handleSingleTap = () => {
+            this.debugLog('Single tap detected - toggling controls');
+            const wrapper = this.container?.querySelector('.uvf-player-wrapper');
+            const areControlsVisible = wrapper?.classList.contains('controls-visible');
+            if (areControlsVisible) {
+                this.hideControls();
+                this.debugLog('Single tap: hiding controls');
+            }
+            else {
+                this.showControls();
+                this.debugLog('Single tap: showing controls');
+                if (this.state.isPlaying) {
+                    this.scheduleHideControls();
+                    this.debugLog('Single tap: scheduled auto-hide');
+                }
+            }
+        };
+        const handleDoubleTap = (tapX) => {
+            if (!this.video || !wrapper)
+                return;
+            const wrapperRect = wrapper.getBoundingClientRect();
+            const tapPosition = tapX - wrapperRect.left;
+            const wrapperWidth = wrapperRect.width;
+            const isLeftSide = tapPosition < wrapperWidth / 2;
+            if (isLeftSide) {
+                const newTime = Math.max(0, this.video.currentTime - SKIP_SECONDS);
+                this.seek(newTime);
+                this.showShortcutIndicator(`-${SKIP_SECONDS}s`);
+                this.debugLog('Double tap left - skip backward');
+            }
+            else {
+                const newTime = Math.min(this.video.duration, this.video.currentTime + SKIP_SECONDS);
+                this.seek(newTime);
+                this.showShortcutIndicator(`+${SKIP_SECONDS}s`);
+                this.debugLog('Double tap right - skip forward');
+            }
+        };
+        const handleLongPress = (tapX) => {
+            if (!this.video || !wrapper)
+                return;
+            const wrapperRect = wrapper.getBoundingClientRect();
+            const tapPosition = tapX - wrapperRect.left;
+            const wrapperWidth = wrapperRect.width;
+            const isLeftSide = tapPosition < wrapperWidth / 2;
+            this.longPressPlaybackRate = this.video.playbackRate;
+            if (isLeftSide) {
+                const skipIcon = `<svg viewBox="0 0 24 24" style="width:32px;height:32px;display:inline-block;vertical-align:middle;margin-right:8px"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/></svg>`;
+                this.showShortcutIndicator(skipIcon + ' 2x');
+                this.debugLog('Long press left - fast backward');
+                this.startFastBackward();
+            }
+            else {
+                this.video.playbackRate = FAST_PLAYBACK_RATE;
+                const skipIcon = `<svg viewBox="0 0 24 24" style="width:32px;height:32px;display:inline-block;vertical-align:middle;margin-right:8px;transform:scaleX(-1)"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/></svg>`;
+                this.showShortcutIndicator(skipIcon + ' 2x');
+                this.debugLog('Long press right - fast forward');
+            }
+        };
+        const handleLongPressEnd = () => {
+            if (!this.video)
+                return;
+            this.stopFastBackward();
+            this.video.playbackRate = this.longPressPlaybackRate || 1;
+            this.debugLog('Long press ended - restored playback rate');
+        };
+        this.handleSingleTap = handleSingleTap.bind(this);
+        this.handleDoubleTap = handleDoubleTap.bind(this);
+        this.handleLongPress = handleLongPress.bind(this);
+        this.handleLongPressEnd = handleLongPressEnd.bind(this);
+        videoElement.addEventListener('touchstart', handleTouchStart, { passive: true });
+        videoElement.addEventListener('touchmove', handleTouchMove, { passive: true });
+        videoElement.addEventListener('touchend', handleTouchEnd, { passive: true });
+        this.debugLog('Advanced tap handling initialized');
+    }
+    startFastBackward() {
+        if (!this.video || this.fastBackwardInterval)
+            return;
+        this.fastBackwardInterval = setInterval(() => {
+            if (this.video) {
+                const newTime = Math.max(0, this.video.currentTime - 0.1);
+                this.video.currentTime = newTime;
+            }
+        }, 50);
+    }
+    stopFastBackward() {
+        if (this.fastBackwardInterval) {
+            clearInterval(this.fastBackwardInterval);
+            this.fastBackwardInterval = null;
+        }
+    }
     isFullscreen() {
         return !!(document.fullscreenElement ||
             document.webkitFullscreenElement ||
@@ -6389,7 +6576,6 @@ export class WebPlayer extends BasePlayer {
         if (this.playerWrapper) {
             this.playerWrapper.addEventListener('mousemove', handleMouseMovement, { passive: true });
             this.playerWrapper.addEventListener('mouseenter', () => this.showControls());
-            this.playerWrapper.addEventListener('touchstart', handleTouchMovement, { passive: true });
             this.playerWrapper.addEventListener('touchmove', handleTouchMovement, { passive: true });
         }
     }

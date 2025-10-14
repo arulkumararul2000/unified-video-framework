@@ -96,6 +96,23 @@ export class WebPlayer extends BasePlayer {
   
   // Progress bar tooltip state
   private showTimeTooltip: boolean = false;
+  
+  // Advanced tap handling state
+  private tapStartTime: number = 0;
+  private tapStartX: number = 0;
+  private tapStartY: number = 0;
+  private lastTapTime: number = 0;
+  private lastTapX: number = 0;
+  private tapCount: number = 0;
+  private longPressTimer: NodeJS.Timeout | null = null;
+  private isLongPressing: boolean = false;
+  private longPressPlaybackRate: number = 1;
+  private tapResetTimer: NodeJS.Timeout | null = null;
+  private fastBackwardInterval: NodeJS.Timeout | null = null;
+  private handleSingleTap: () => void = () => {};
+  private handleDoubleTap: (tapX: number) => void = () => {};
+  private handleLongPress: (tapX: number) => void = () => {};
+  private handleLongPressEnd: () => void = () => {};
 
   // Autoplay enhancement state
   private autoplayCapabilities: {
@@ -4509,6 +4526,13 @@ export class WebPlayer extends BasePlayer {
           transform: translateY(0) !important;
         }
         
+        /* Hide title bar when controls are hidden (no-cursor class) */
+        .uvf-player-wrapper.no-cursor .uvf-title-bar {
+          opacity: 0 !important;
+          transform: translateY(-10px) !important;
+          pointer-events: none !important;
+        }
+        
         /* Title content layout */
         .uvf-title-bar .uvf-title-content {
           display: flex !important;
@@ -4589,6 +4613,14 @@ export class WebPlayer extends BasePlayer {
         .uvf-player-wrapper.uvf-casting .uvf-top-controls {
           opacity: 1 !important;
           transform: translateY(0) !important;
+        }
+        
+        /* Hide top controls when controls are hidden (no-cursor class) */
+        /* Exception: Keep visible when casting */
+        .uvf-player-wrapper.no-cursor:not(.uvf-casting) .uvf-top-controls {
+          opacity: 0 !important;
+          transform: translateY(-10px) !important;
+          pointer-events: none !important;
         }
         
         /* Material You top buttons (cast & share) */
@@ -4823,10 +4855,14 @@ export class WebPlayer extends BasePlayer {
         }
         
         /* Compact top controls with safe area padding */
-        .uvf-top-controls {
-          top: calc(8px + var(--uvf-safe-area-top));
-          right: calc(12px + var(--uvf-safe-area-right));
-          gap: 6px;
+        .uvf-top-controls,
+        .uvf-video-container .uvf-top-controls,
+        .uvf-responsive-container .uvf-video-container .uvf-top-controls {
+          position: absolute !important;
+          top: calc(8px + var(--uvf-safe-area-top)) !important;
+          right: calc(12px + var(--uvf-safe-area-right)) !important;
+          left: auto !important;
+          gap: 6px !important;
         }
         
         .uvf-title-bar {
@@ -5922,25 +5958,13 @@ export class WebPlayer extends BasePlayer {
     centerPlay?.addEventListener('click', () => this.togglePlayPause());
     playPauseBtn?.addEventListener('click', () => this.togglePlayPause());
     
-    // Video click behavior - toggle controls on mobile, play/pause on desktop
-    this.video.addEventListener('click', (e) => {
-      if (this.isMobileDevice()) {
-        // Mobile: toggle controls visibility
-        e.stopPropagation();
-        const wrapper = this.container?.querySelector('.uvf-player-wrapper');
-        if (wrapper?.classList.contains('controls-visible')) {
-          this.hideControls();
-        } else {
-          this.showControls();
-          if (this.state.isPlaying) {
-            this.scheduleHideControls();
-          }
-        }
-      } else {
-        // Desktop: toggle play/pause
+    // Video click behavior will be handled by the comprehensive tap system below
+    // Desktop click for play/pause
+    if (!this.isMobileDevice()) {
+      this.video.addEventListener('click', (e) => {
         this.togglePlayPause();
-      }
-    });
+      });
+    }
     
     // Update play/pause icons
     this.video.addEventListener('play', () => {
@@ -6538,22 +6562,8 @@ export class WebPlayer extends BasePlayer {
         this.lastUserInteraction = Date.now();
       });
       
-      // Add double-click to fullscreen support
-      this.playerWrapper.addEventListener('dblclick', (e) => {
-        // Don't trigger if double-clicking on controls
-        const target = e.target as HTMLElement;
-        if (!target.closest('.uvf-controls')) {
-          e.preventDefault();
-          this.debugLog('Double-click detected - attempting fullscreen');
-          
-          if (!document.fullscreenElement) {
-            // Always use the fullscreen button for maximum reliability
-            this.triggerFullscreenButton();
-          } else {
-            this.exitFullscreen();
-          }
-        }
-      });
+      // Advanced tap handling system for mobile
+      this.setupAdvancedTapHandling();
     }
     
     // Add to the video element
@@ -7106,6 +7116,257 @@ export class WebPlayer extends BasePlayer {
       }
     }, timeout);
   }
+
+  /**
+   * Setup advanced tap handling for mobile with:
+   * - Single tap: toggle controls (immediate response)
+   * - Double tap left: skip backward 10s
+   * - Double tap right: skip forward 10s
+   * - Long press left: 2x speed backward
+   * - Long press right: 2x speed forward
+   */
+  private setupAdvancedTapHandling(): void {
+    if (!this.video || !this.playerWrapper) return;
+
+    const DOUBLE_TAP_DELAY = 300; // ms
+    const LONG_PRESS_DELAY = 500; // ms
+    const TAP_MOVEMENT_THRESHOLD = 10; // pixels
+    const SKIP_SECONDS = 10;
+    const FAST_PLAYBACK_RATE = 2;
+    
+    // Track if we're currently in a double-tap window
+    let inDoubleTapWindow = false;
+
+    const videoElement = this.video;
+    const wrapper = this.playerWrapper;
+
+    // Touch start handler
+    const handleTouchStart = (e: TouchEvent) => {
+      // Ignore if touching controls
+      const target = e.target as HTMLElement;
+      if (target.closest('.uvf-controls')) {
+        return;
+      }
+
+      const touch = e.touches[0];
+      this.tapStartTime = Date.now();
+      this.tapStartX = touch.clientX;
+      this.tapStartY = touch.clientY;
+
+      // Start long press timer
+      this.longPressTimer = setTimeout(() => {
+        this.isLongPressing = true;
+        this.handleLongPress(this.tapStartX);
+      }, LONG_PRESS_DELAY);
+    };
+
+    // Touch move handler
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      const deltaX = Math.abs(touch.clientX - this.tapStartX);
+      const deltaY = Math.abs(touch.clientY - this.tapStartY);
+
+      // Cancel long press if moved too much
+      if (deltaX > TAP_MOVEMENT_THRESHOLD || deltaY > TAP_MOVEMENT_THRESHOLD) {
+        if (this.longPressTimer) {
+          clearTimeout(this.longPressTimer);
+          this.longPressTimer = null;
+        }
+      }
+    };
+
+    // Touch end handler
+    const handleTouchEnd = (e: TouchEvent) => {
+      // Clear long press timer
+      if (this.longPressTimer) {
+        clearTimeout(this.longPressTimer);
+        this.longPressTimer = null;
+      }
+
+      // Handle long press end
+      if (this.isLongPressing) {
+        this.handleLongPressEnd();
+        this.isLongPressing = false;
+        return;
+      }
+
+      // Ignore if touching controls
+      const target = e.target as HTMLElement;
+      if (target.closest('.uvf-controls')) {
+        return;
+      }
+
+      const touch = e.changedTouches[0];
+      const touchEndX = touch.clientX;
+      const touchEndY = touch.clientY;
+      const tapDuration = Date.now() - this.tapStartTime;
+
+      // Check if it was a tap (not a drag)
+      const deltaX = Math.abs(touchEndX - this.tapStartX);
+      const deltaY = Math.abs(touchEndY - this.tapStartY);
+
+      if (deltaX > TAP_MOVEMENT_THRESHOLD || deltaY > TAP_MOVEMENT_THRESHOLD) {
+        // It was a drag, not a tap
+        return;
+      }
+
+      // Check if it was a quick tap (not a long press)
+      if (tapDuration > LONG_PRESS_DELAY) {
+        return;
+      }
+
+      // Determine if this is a double tap
+      const now = Date.now();
+      const timeSinceLastTap = now - this.lastTapTime;
+
+      if (timeSinceLastTap < DOUBLE_TAP_DELAY && Math.abs(touchEndX - this.lastTapX) < 100) {
+        // Double tap detected
+        this.tapCount = 2;
+        if (this.tapResetTimer) {
+          clearTimeout(this.tapResetTimer);
+          this.tapResetTimer = null;
+        }
+        inDoubleTapWindow = false;
+        this.handleDoubleTap(touchEndX);
+      } else {
+        // First tap - execute immediately for responsive feel
+        this.tapCount = 1;
+        this.lastTapTime = now;
+        this.lastTapX = touchEndX;
+        inDoubleTapWindow = true;
+
+        // Execute single tap immediately
+        this.handleSingleTap();
+
+        // Wait to see if there's a second tap
+        if (this.tapResetTimer) {
+          clearTimeout(this.tapResetTimer);
+        }
+        this.tapResetTimer = setTimeout(() => {
+          this.tapCount = 0;
+          inDoubleTapWindow = false;
+        }, DOUBLE_TAP_DELAY);
+      }
+    };
+
+    // Single tap: toggle controls
+    const handleSingleTap = () => {
+      this.debugLog('Single tap detected - toggling controls');
+      const wrapper = this.container?.querySelector('.uvf-player-wrapper');
+      const areControlsVisible = wrapper?.classList.contains('controls-visible');
+      
+      if (areControlsVisible) {
+        // Hide controls and top UI elements
+        this.hideControls();
+        this.debugLog('Single tap: hiding controls');
+      } else {
+        // Show controls and top UI elements
+        this.showControls();
+        this.debugLog('Single tap: showing controls');
+        
+        // Schedule auto-hide if video is playing
+        if (this.state.isPlaying) {
+          this.scheduleHideControls();
+          this.debugLog('Single tap: scheduled auto-hide');
+        }
+      }
+    };
+
+    // Double tap: skip backward/forward based on screen side
+    const handleDoubleTap = (tapX: number) => {
+      if (!this.video || !wrapper) return;
+
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const tapPosition = tapX - wrapperRect.left;
+      const wrapperWidth = wrapperRect.width;
+      const isLeftSide = tapPosition < wrapperWidth / 2;
+
+      if (isLeftSide) {
+        // Skip backward
+        const newTime = Math.max(0, this.video.currentTime - SKIP_SECONDS);
+        this.seek(newTime);
+        this.showShortcutIndicator(`-${SKIP_SECONDS}s`);
+        this.debugLog('Double tap left - skip backward');
+      } else {
+        // Skip forward
+        const newTime = Math.min(this.video.duration, this.video.currentTime + SKIP_SECONDS);
+        this.seek(newTime);
+        this.showShortcutIndicator(`+${SKIP_SECONDS}s`);
+        this.debugLog('Double tap right - skip forward');
+      }
+    };
+
+    // Long press: fast forward/rewind based on screen side
+    const handleLongPress = (tapX: number) => {
+      if (!this.video || !wrapper) return;
+
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const tapPosition = tapX - wrapperRect.left;
+      const wrapperWidth = wrapperRect.width;
+      const isLeftSide = tapPosition < wrapperWidth / 2;
+
+      // Save original playback rate
+      this.longPressPlaybackRate = this.video.playbackRate;
+
+      if (isLeftSide) {
+        // Fast backward by setting negative time interval
+        const skipIcon = `<svg viewBox="0 0 24 24" style="width:32px;height:32px;display:inline-block;vertical-align:middle;margin-right:8px"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/></svg>`;
+        this.showShortcutIndicator(skipIcon + ' 2x');
+        this.debugLog('Long press left - fast backward');
+        this.startFastBackward();
+      } else {
+        // Fast forward
+        this.video.playbackRate = FAST_PLAYBACK_RATE;
+        const skipIcon = `<svg viewBox="0 0 24 24" style="width:32px;height:32px;display:inline-block;vertical-align:middle;margin-right:8px;transform:scaleX(-1)"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" stroke="currentColor" stroke-width="0.5" fill="currentColor"/></svg>`;
+        this.showShortcutIndicator(skipIcon + ' 2x');
+        this.debugLog('Long press right - fast forward');
+      }
+    };
+
+    // Long press end: restore normal playback
+    const handleLongPressEnd = () => {
+      if (!this.video) return;
+
+      // Stop fast backward if active
+      this.stopFastBackward();
+
+      // Restore original playback rate
+      this.video.playbackRate = this.longPressPlaybackRate || 1;
+      this.debugLog('Long press ended - restored playback rate');
+    };
+
+    // Bind handlers
+    this.handleSingleTap = handleSingleTap.bind(this);
+    this.handleDoubleTap = handleDoubleTap.bind(this);
+    this.handleLongPress = handleLongPress.bind(this);
+    this.handleLongPressEnd = handleLongPressEnd.bind(this);
+
+    // Attach event listeners
+    videoElement.addEventListener('touchstart', handleTouchStart, { passive: true });
+    videoElement.addEventListener('touchmove', handleTouchMove, { passive: true });
+    videoElement.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    this.debugLog('Advanced tap handling initialized');
+  }
+
+  // Fast backward using interval-based seeking
+  private startFastBackward(): void {
+    if (!this.video || this.fastBackwardInterval) return;
+
+    this.fastBackwardInterval = setInterval(() => {
+      if (this.video) {
+        const newTime = Math.max(0, this.video.currentTime - 0.1); // Go back 0.1s every frame
+        this.video.currentTime = newTime;
+      }
+    }, 50); // Update every 50ms for smooth backward motion
+  }
+
+  private stopFastBackward(): void {
+    if (this.fastBackwardInterval) {
+      clearInterval(this.fastBackwardInterval);
+      this.fastBackwardInterval = null;
+    }
+  }
   
   private isFullscreen(): boolean {
     return !!(document.fullscreenElement ||
@@ -7168,8 +7429,10 @@ export class WebPlayer extends BasePlayer {
       }
     };
     
-    // Touch movement detection for mobile
+    // Touch movement detection for mobile - only for actual dragging/scrolling
+    // Note: Don't handle touchstart here as it conflicts with advanced tap handling
     const handleTouchMovement = () => {
+      // Only show controls on actual touch movement, not touchstart
       this.showControls();
       if (this.state.isPlaying) {
         this.scheduleHideControls();
@@ -7180,7 +7443,8 @@ export class WebPlayer extends BasePlayer {
     if (this.playerWrapper) {
       this.playerWrapper.addEventListener('mousemove', handleMouseMovement, { passive: true });
       this.playerWrapper.addEventListener('mouseenter', () => this.showControls());
-      this.playerWrapper.addEventListener('touchstart', handleTouchMovement, { passive: true });
+      // Only listen to touchmove (actual dragging), not touchstart
+      // touchstart is handled by advanced tap handling system on video element
       this.playerWrapper.addEventListener('touchmove', handleTouchMovement, { passive: true });
     }
   }
