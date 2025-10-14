@@ -141,6 +141,8 @@ export declare class WebPlayer extends BasePlayer {
     private isIOSDevice;
     private isAndroidDevice;
     private isFullscreenSupported;
+    private lockOrientationLandscape;
+    private unlockOrientation;
     private handleVolumeChange;
     private handleProgressChange;
     private formatTime;

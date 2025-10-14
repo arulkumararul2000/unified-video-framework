@@ -1,136 +1,136 @@
 {
-  "name": "unified-video-framework",
-  "version": "1.4.169",
-  "description": "Cross-platform video player framework supporting iOS, Android, Web, Smart TVs (Samsung/LG), Roku, and more",
-  "main": "packages/core/dist/index.js",
-  "types": "packages/core/dist/index.d.ts",
-  "exports": {
-    ".": {
-      "require": "./packages/core/dist/index.js",
-      "import": "./packages/core/dist/index.js",
-      "types": "./packages/core/dist/index.d.ts"
-    },
-    "./core": {
-      "require": "./packages/core/dist/index.js",
-      "import": "./packages/core/dist/index.js",
-      "types": "./packages/core/dist/index.d.ts"
-    },
-    "./web": {
-      "require": "./packages/web/dist/index.js",
-      "import": "./packages/web/dist/index.js",
-      "types": "./packages/web/dist/index.d.ts"
-    },
-    "./react-native": {
-      "require": "./packages/react-native/dist/index.js",
-      "import": "./packages/react-native/dist/index.js",
-      "types": "./packages/react-native/dist/index.d.ts"
-    },
-    "./packages/web/dist": {
-      "require": "./packages/web/dist/index.js",
-      "import": "./packages/web/dist/index.js",
-      "types": "./packages/web/dist/index.d.ts"
-    },
-    "./packages/core/dist": {
-      "require": "./packages/core/dist/index.js",
-      "import": "./packages/core/dist/index.js",
-      "types": "./packages/core/dist/index.d.ts"
-    },
-    "./analytics": {
-      "require": "./packages/core/dist/analytics/index.js",
-      "import": "./packages/core/dist/analytics/index.js",
-      "types": "./packages/core/dist/analytics/index.d.ts"
-    }
-  },
-  "files": [
-    "index.js",
-    "index.d.ts",
-    "unified-video-framework.d.ts",
-    "packages/*/dist/**/*",
-    "packages/*/src/**/*",
-    "packages/*/package.json",
-    "scripts/fix-imports.js",
-    "README.md",
-    "LICENSE",
-    "INSTALLATION.md",
-    "CHANGELOG.md"
-  ],
-  "private": false,
-  "workspaces": [
-    "packages/*",
-    "apps/*",
-    "tools/*"
-  ],
-  "scripts": {
-    "bootstrap": "lerna bootstrap --legacy-peer-deps",
-    "build": "npm run build:core && npm run build:web && npm run build:react-native && npm run fix-imports",
-    "build:core": "cd packages/core && npm run build",
-    "build:web": "cd packages/web && npm run build",
-    "build:rental-api": "cd apps/rental-api && npm run build",
-    "start:rental-api": "cd apps/rental-api && npm start",
-    "dev:rental-api": "cd apps/rental-api && npm run dev",
-    "build:react-native": "cd packages/react-native && npm run build",
-    "build:enact": "cd packages/enact && npm run build",
-    "build:all": "lerna run build --stream && npm run fix-imports",
-    "clean": "lerna clean",
-    "test": "jest",
-    "test:coverage": "jest --coverage",
-    "test:watch": "jest --watch",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
-    "type-check": "tsc --noEmit",
-    "prepublishOnly": "npm run build:publish",
-    "dev": "lerna run dev --parallel",
-    "serve:demo": "node server.js",
-    "docs": "typedoc --out docs packages/core/src",
-    "fix-imports": "node scripts/fix-imports.js",
-    "build:publish": "npm run build:core && npm run build:web && npm run fix-imports"
-  },
-  "devDependencies": {
-    "@types/node": "^18.0.0",
-    "@types/react": "^18.0.0",
-    "@types/react-native": "^0.70.0",
-    "@typescript-eslint/eslint-plugin": "^5.0.0",
-    "@typescript-eslint/parser": "^5.0.0",
-    "eslint": "^8.0.0",
-    "lerna": "^6.0.0",
-    "prettier": "^2.8.0",
-    "typescript": "^4.9.0",
-    "typedoc": "^0.23.0",
-    "webpack": "^5.75.0",
-    "webpack-cli": "^5.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/flicknexs/unified-video-framework.git"
-  },
-  "homepage": "https://github.com/flicknexs/unified-video-framework#readme",
-  "bugs": {
-    "url": "https://github.com/flicknexs/unified-video-framework/issues"
-  },
-  "keywords": [
-    "video",
-    "player",
-    "streaming",
-    "cross-platform",
-    "react",
-    "react-native",
-    "enact",
-    "smart-tv",
-    "tizen",
-    "webos",
-    "roku",
-    "accessibility",
-    "drm",
-    "hls",
-    "dash",
-    "analytics",
-    "tracking",
-    "metrics",
-    "engagement"
-  ],
-  "author": "flicknexs",
-  "license": "MIT",
-  "engines": {
-    "node": ">=14.0.0",
-    "npm": ">=6.0.0"
-  }
+    "name":  "unified-video-framework",
+    "version":  "1.4.176",
+    "description":  "Cross-platform video player framework supporting iOS, Android, Web, Smart TVs (Samsung/LG), Roku, and more",
+    "main":  "packages/core/dist/index.js",
+    "types":  "packages/core/dist/index.d.ts",
+    "exports":  {
+                    ".":  {
+                              "require":  "./packages/core/dist/index.js",
+                              "import":  "./packages/core/dist/index.js",
+                              "types":  "./packages/core/dist/index.d.ts"
+                          },
+                    "./core":  {
+                                   "require":  "./packages/core/dist/index.js",
+                                   "import":  "./packages/core/dist/index.js",
+                                   "types":  "./packages/core/dist/index.d.ts"
+                               },
+                    "./web":  {
+                                  "require":  "./packages/web/dist/index.js",
+                                  "import":  "./packages/web/dist/index.js",
+                                  "types":  "./packages/web/dist/index.d.ts"
+                              },
+                    "./react-native":  {
+                                           "require":  "./packages/react-native/dist/index.js",
+                                           "import":  "./packages/react-native/dist/index.js",
+                                           "types":  "./packages/react-native/dist/index.d.ts"
+                                       },
+                    "./packages/web/dist":  {
+                                                "require":  "./packages/web/dist/index.js",
+                                                "import":  "./packages/web/dist/index.js",
+                                                "types":  "./packages/web/dist/index.d.ts"
+                                            },
+                    "./packages/core/dist":  {
+                                                 "require":  "./packages/core/dist/index.js",
+                                                 "import":  "./packages/core/dist/index.js",
+                                                 "types":  "./packages/core/dist/index.d.ts"
+                                             },
+                    "./analytics":  {
+                                        "require":  "./packages/core/dist/analytics/index.js",
+                                        "import":  "./packages/core/dist/analytics/index.js",
+                                        "types":  "./packages/core/dist/analytics/index.d.ts"
+                                    }
+                },
+    "files":  [
+                  "index.js",
+                  "index.d.ts",
+                  "unified-video-framework.d.ts",
+                  "packages/*/dist/**/*",
+                  "packages/*/src/**/*",
+                  "packages/*/package.json",
+                  "scripts/fix-imports.js",
+                  "README.md",
+                  "LICENSE",
+                  "INSTALLATION.md",
+                  "CHANGELOG.md"
+              ],
+    "private":  false,
+    "workspaces":  [
+                       "packages/*",
+                       "apps/*",
+                       "tools/*"
+                   ],
+    "scripts":  {
+                    "bootstrap":  "lerna bootstrap --legacy-peer-deps",
+                    "build":  "npm run build:core \u0026\u0026 npm run build:web \u0026\u0026 npm run build:react-native \u0026\u0026 npm run fix-imports",
+                    "build:core":  "cd packages/core \u0026\u0026 npm run build",
+                    "build:web":  "cd packages/web \u0026\u0026 npm run build",
+                    "build:rental-api":  "cd apps/rental-api \u0026\u0026 npm run build",
+                    "start:rental-api":  "cd apps/rental-api \u0026\u0026 npm start",
+                    "dev:rental-api":  "cd apps/rental-api \u0026\u0026 npm run dev",
+                    "build:react-native":  "cd packages/react-native \u0026\u0026 npm run build",
+                    "build:enact":  "cd packages/enact \u0026\u0026 npm run build",
+                    "build:all":  "lerna run build --stream \u0026\u0026 npm run fix-imports",
+                    "clean":  "lerna clean",
+                    "test":  "jest",
+                    "test:coverage":  "jest --coverage",
+                    "test:watch":  "jest --watch",
+                    "lint":  "eslint . --ext .ts,.tsx,.js,.jsx",
+                    "type-check":  "tsc --noEmit",
+                    "prepublishOnly":  "npm run build:publish",
+                    "dev":  "lerna run dev --parallel",
+                    "serve:demo":  "node server.js",
+                    "docs":  "typedoc --out docs packages/core/src",
+                    "fix-imports":  "node scripts/fix-imports.js",
+                    "build:publish":  "npm run build:core \u0026\u0026 npm run build:web \u0026\u0026 npm run fix-imports"
+                },
+    "devDependencies":  {
+                            "@types/node":  "^18.0.0",
+                            "@types/react":  "^18.0.0",
+                            "@types/react-native":  "^0.70.0",
+                            "@typescript-eslint/eslint-plugin":  "^5.0.0",
+                            "@typescript-eslint/parser":  "^5.0.0",
+                            "eslint":  "^8.0.0",
+                            "lerna":  "^6.0.0",
+                            "prettier":  "^2.8.0",
+                            "typescript":  "^4.9.0",
+                            "typedoc":  "^0.23.0",
+                            "webpack":  "^5.75.0",
+                            "webpack-cli":  "^5.0.0"
+                        },
+    "repository":  {
+                       "type":  "git",
+                       "url":  "git+https://github.com/flicknexs/unified-video-framework.git"
+                   },
+    "homepage":  "https://github.com/flicknexs/unified-video-framework#readme",
+    "bugs":  {
+                 "url":  "https://github.com/flicknexs/unified-video-framework/issues"
+             },
+    "keywords":  [
+                     "video",
+                     "player",
+                     "streaming",
+                     "cross-platform",
+                     "react",
+                     "react-native",
+                     "enact",
+                     "smart-tv",
+                     "tizen",
+                     "webos",
+                     "roku",
+                     "accessibility",
+                     "drm",
+                     "hls",
+                     "dash",
+                     "analytics",
+                     "tracking",
+                     "metrics",
+                     "engagement"
+                 ],
+    "author":  "flicknexs",
+    "license":  "MIT",
+    "engines":  {
+                    "node":  "\u003e=14.0.0",
+                    "npm":  "\u003e=6.0.0"
+                }
 }

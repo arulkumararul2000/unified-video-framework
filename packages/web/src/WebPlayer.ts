@@ -1351,11 +1351,15 @@ export class WebPlayer extends BasePlayer {
             await (this.video as any).webkitEnterFullscreen();
             this.playerWrapper.classList.add('uvf-fullscreen');
             this.emit('onFullscreenChanged', true);
+            // Lock to landscape orientation
+            await this.lockOrientationLandscape();
             return;
           } else if ((this.video as any).webkitRequestFullscreen) {
             await (this.video as any).webkitRequestFullscreen();
             this.playerWrapper.classList.add('uvf-fullscreen');
             this.emit('onFullscreenChanged', true);
+            // Lock to landscape orientation
+            await this.lockOrientationLandscape();
             return;
           }
         } catch (iosError) {
@@ -1421,12 +1425,8 @@ export class WebPlayer extends BasePlayer {
         this.playerWrapper.classList.add('uvf-fullscreen');
         this.emit('onFullscreenChanged', true);
         
-        // On Android, suggest orientation for better experience
-        if (this.isAndroidDevice()) {
-          setTimeout(() => {
-            this.showShortcutIndicator('Rotate device to landscape for best experience');
-          }, 1000);
-        }
+        // Lock to landscape orientation on mobile devices
+        await this.lockOrientationLandscape();
       } else {
         this.debugWarn('All fullscreen methods failed');
         
@@ -1457,6 +1457,8 @@ export class WebPlayer extends BasePlayer {
               this.playerWrapper.classList.remove('uvf-fullscreen');
             }
             this.emit('onFullscreenChanged', false);
+            // Unlock orientation
+            await this.unlockOrientation();
             return;
           }
         } catch (iosError) {
@@ -1510,6 +1512,8 @@ export class WebPlayer extends BasePlayer {
           this.playerWrapper.classList.remove('uvf-fullscreen');
         }
         this.emit('onFullscreenChanged', false);
+        // Unlock orientation
+        await this.unlockOrientation();
       } else {
         this.debugWarn('All exit fullscreen methods failed');
         // Still remove the class to keep UI consistent
@@ -2343,21 +2347,6 @@ export class WebPlayer extends BasePlayer {
         --uvf-scrollbar-thumb-hover-start: rgba(255,0,0,0.5);
         --uvf-scrollbar-thumb-hover-end: rgba(255,0,0,0.6);
         --uvf-firefox-scrollbar-color: rgba(255,255,255,0.25);
-      }
-      
-      /* Player focus styles for better UX */
-      .uvf-player-wrapper:focus {
-        // outline: 2px solid var(--uvf-accent-1);
-        outline-offset: -2px;
-      }
-      
-      .uvf-player-wrapper:focus-visible {
-        // outline: 2px solid var(--uvf-accent-1);
-        outline-offset: -2px;
-      }
-      
-      .uvf-player-wrapper:focus:not(:focus-visible) {
-        outline: none;
       }
       
       /* Responsive Container Styles */
@@ -4239,14 +4228,15 @@ export class WebPlayer extends BasePlayer {
           overflow: hidden;
         }
         
-        /* Video container occupies middle 50% */
+        /* Video container occupies middle 50% with all UI elements */
         .uvf-responsive-container .uvf-video-container {
           height: 50vh;
           height: 50dvh;
           width: 100vw;
-          position: relative;
-          margin-top: 25vh;
-          margin-top: 25dvh;
+          position: absolute;
+          top: 25vh;
+          top: 25dvh;
+          left: 0;
           aspect-ratio: unset !important;
           background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 100%);
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
@@ -4292,33 +4282,50 @@ export class WebPlayer extends BasePlayer {
           pointer-events: none;
         }
         
-        /* Material surface container for controls */
-        .uvf-controls-bar {
+        /* Material surface container for controls - positioned in middle 50% area */
+        .uvf-responsive-container .uvf-video-container .uvf-controls-bar {
           position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: auto;
-          max-height: 25vh;
-          max-height: 25dvh;
-          padding: 16px 20px;
-          padding-bottom: calc(16px + var(--uvf-safe-area-bottom, 0px));
+          bottom: 12px;
+          padding: 0px 10px;
           background: transparent;
-          z-index: 2;
+          z-index: 10;
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
+          pointer-events: auto !important; /* Allow clicking on controls */
+        }
+
+        .uvf-responsive-container .uvf-video-container .uvf-controls-bar::before {
+          content: '';
+          position: absolute;
+          inset: 0; /* stretch to cover the controls-bar */
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
+          pointer-events: auto !important; /* Allow clicking on controls */
+
+          /* Gradient mask */
+          -webkit-mask-image: linear-gradient(to top, black 50%, transparent 100%);
+          mask-image: linear-gradient(to top, black 50%, transparent 100%);
+          -webkit-mask-size: 100% 100%;
+          mask-size: 100% 100%;
+          -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+
+          z-index: -1; /* sit behind the content of the controls bar */
         }
+        
+        /* Make sure child elements are also clickable */
+        .uvf-controls-bar > * {
+          pointer-events: auto !important;
+        }
+
         
         /* Material surface tint overlay */
         .uvf-controls-bar::before {
           content: '';
           position: absolute;
           inset: 0;
-          background: var(--uvf-surface-tint, rgba(255, 0, 0, 0.08));
-          border-radius: 28px 28px 0 0;
+          background: var(--uvf-surface-tint, rgba(0, 0, 0, 0.08));
           pointer-events: none;
           z-index: -1;
         }
@@ -4436,7 +4443,7 @@ export class WebPlayer extends BasePlayer {
           align-items: center;
         }
         
-        /* Time display with Material surface */
+        /* Time display positioned bottom-left above seekbar */
         .uvf-time-display {
           background: rgba(255, 255, 255, 0.1);
           backdrop-filter: blur(8px);
@@ -4448,13 +4455,193 @@ export class WebPlayer extends BasePlayer {
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
         }
         
-        /* Hide desktop elements */
-        .uvf-top-controls,
-        .uvf-title-bar,
+        /* Framework branding positioned bottom-right above seekbar */
+        .uvf-video-container .uvf-framework-branding {
+          position: absolute !important;
+          bottom: 80px !important;
+          right: 16px !important;
+          z-index: 10 !important;
+          opacity: 0.8 !important;
+        }
+        
+        /* Adjust above-seekbar section to align time and branding */
+        .uvf-above-seekbar-section {
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          width: 100% !important;
+          margin-bottom: 8px !important;
+        }
+        
+        /* Hide desktop volume control and skip buttons */
         .uvf-volume-control,
         #uvf-skip-back,
         #uvf-skip-forward {
           display: none !important;
+        }
+        
+        /* Title bar positioned in top-left of middle 50% video area */
+        .uvf-video-container .uvf-title-bar,
+        .uvf-responsive-container .uvf-video-container .uvf-title-bar {
+          display: flex !important;
+          position: absolute !important;
+          top: 12px !important;
+          left: 16px !important;
+          right: auto !important;
+          width: auto !important;
+          max-width: 50% !important;
+          height: auto !important;
+          padding: 0 !important;
+          background: transparent !important;
+          z-index: 10 !important;
+          opacity: 0 !important;
+          transform: translateY(-10px) !important;
+          transition: opacity 0.3s ease, transform 0.3s ease !important;
+          flex-direction: column !important;
+          justify-content: flex-start !important;
+          align-items: flex-start !important;
+        }
+        
+        /* Show title bar when controls are visible or on hover */
+        .uvf-player-wrapper:hover .uvf-title-bar,
+        .uvf-player-wrapper.controls-visible .uvf-title-bar {
+          opacity: 1 !important;
+          transform: translateY(0) !important;
+        }
+        
+        /* Title content layout */
+        .uvf-title-bar .uvf-title-content {
+          display: flex !important;
+          align-items: flex-start !important;
+          gap: 12px !important;
+          width: 100% !important;
+        }
+        
+        /* Video thumbnail/logo */
+        .uvf-title-bar .uvf-video-thumb {
+          width: 48px !important;
+          height: 48px !important;
+          border-radius: 12px !important;
+          object-fit: cover !important;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+          flex-shrink: 0 !important;
+        }
+        
+        /* Title and subtitle text */
+        .uvf-title-bar .uvf-title-text {
+          flex: 1 !important;
+          min-width: 0 !important;
+        }
+        
+        .uvf-title-bar .uvf-video-title {
+          display: block !important;
+          font-size: 16px !important;
+          font-weight: 600 !important;
+          color: #fff !important;
+          margin-bottom: 4px !important;
+          line-height: 1.3 !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          display: -webkit-box !important;
+          -webkit-line-clamp: 2 !important;
+          -webkit-box-orient: vertical !important;
+          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+        }
+        
+        .uvf-title-bar .uvf-video-subtitle {
+          display: block !important;
+          font-size: 13px !important;
+          font-weight: 400 !important;
+          color: rgba(255, 255, 255, 0.8) !important;
+          line-height: 1.3 !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          display: -webkit-box !important;
+          -webkit-line-clamp: 1 !important;
+          -webkit-box-orient: vertical !important;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+        }
+        
+        /* Top controls positioned in top-right of middle 50% video area */
+        .uvf-video-container .uvf-top-controls,
+        .uvf-responsive-container .uvf-video-container .uvf-top-controls {
+          display: flex !important;
+          position: absolute !important;
+          top: 12px !important;
+          right: 16px !important;
+          width: auto !important;
+          height: auto !important;
+          padding: 0 !important;
+          background: transparent !important;
+          z-index: 10 !important;
+          opacity: 0 !important;
+          transform: translateY(-10px) !important;
+          transition: opacity 0.3s ease, transform 0.3s ease !important;
+          gap: 12px !important;
+          align-items: flex-start !important;
+          justify-content: flex-end !important;
+          flex-direction: row !important;
+        }
+        
+        /* Show top controls when controls are visible, on hover, or when casting */
+        .uvf-player-wrapper:hover .uvf-top-controls,
+        .uvf-player-wrapper.controls-visible .uvf-top-controls,
+        .uvf-player-wrapper.uvf-casting .uvf-top-controls {
+          opacity: 1 !important;
+          transform: translateY(0) !important;
+        }
+        
+        /* Material You top buttons (cast & share) */
+        .uvf-top-controls .uvf-top-btn {
+          width: 48px !important;
+          height: 48px !important;
+          min-width: 48px !important;
+          min-height: 48px !important;
+          background: rgba(0, 0, 0, 0.5) !important;
+          backdrop-filter: blur(16px) !important;
+          -webkit-backdrop-filter: blur(16px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          border-radius: 24px !important;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3),
+                      0 1px 3px rgba(0, 0, 0, 0.2) !important;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        .uvf-top-controls .uvf-top-btn:active {
+          transform: scale(0.95) !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4),
+                      0 2px 6px rgba(0, 0, 0, 0.3) !important;
+          background: rgba(0, 0, 0, 0.7) !important;
+        }
+        
+        .uvf-top-controls .uvf-top-btn svg {
+          width: 22px !important;
+          height: 22px !important;
+          fill: #fff !important;
+          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)) !important;
+        }
+        
+        /* Stop cast button styling */
+        .uvf-top-controls .uvf-pill-btn {
+          height: 48px !important;
+          padding: 0 16px !important;
+          border-radius: 24px !important;
+          background: rgba(255, 77, 79, 0.95) !important;
+          backdrop-filter: blur(16px) !important;
+          border: 1px solid rgba(255, 77, 79, 0.3) !important;
+          box-shadow: 0 2px 8px rgba(255, 77, 79, 0.4),
+                      0 1px 3px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        .uvf-top-controls .uvf-pill-btn svg {
+          width: 20px !important;
+          height: 20px !important;
+        }
+        
+        .uvf-top-controls .uvf-pill-btn span {
+          font-size: 14px !important;
+          font-weight: 500 !important;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
         }
         
         /* Optimize settings button for Material You */
@@ -5734,7 +5921,26 @@ export class WebPlayer extends BasePlayer {
     // Play/Pause
     centerPlay?.addEventListener('click', () => this.togglePlayPause());
     playPauseBtn?.addEventListener('click', () => this.togglePlayPause());
-    this.video.addEventListener('click', () => this.togglePlayPause());
+    
+    // Video click behavior - toggle controls on mobile, play/pause on desktop
+    this.video.addEventListener('click', (e) => {
+      if (this.isMobileDevice()) {
+        // Mobile: toggle controls visibility
+        e.stopPropagation();
+        const wrapper = this.container?.querySelector('.uvf-player-wrapper');
+        if (wrapper?.classList.contains('controls-visible')) {
+          this.hideControls();
+        } else {
+          this.showControls();
+          if (this.state.isPlaying) {
+            this.scheduleHideControls();
+          }
+        }
+      } else {
+        // Desktop: toggle play/pause
+        this.togglePlayPause();
+      }
+    });
     
     // Update play/pause icons
     this.video.addEventListener('play', () => {
@@ -6729,6 +6935,67 @@ export class WebPlayer extends BasePlayer {
       (document as any).mozFullScreenEnabled ||
       (document as any).msFullscreenEnabled
     );
+  }
+
+  /**
+   * Lock screen orientation to landscape when entering fullscreen
+   */
+  private async lockOrientationLandscape(): Promise<void> {
+    try {
+      // Only attempt orientation lock on mobile devices
+      if (!this.isMobileDevice()) {
+        this.debugLog('Skipping orientation lock - not a mobile device');
+        return;
+      }
+
+      // Check if Screen Orientation API is supported
+      const screenOrientation = screen.orientation as any;
+      if (screenOrientation && typeof screenOrientation.lock === 'function') {
+        try {
+          // Try to lock to landscape orientation
+          await screenOrientation.lock('landscape');
+          this.debugLog('Screen orientation locked to landscape');
+        } catch (error) {
+          this.debugWarn('Failed to lock orientation to landscape:', (error as Error).message);
+          // Some browsers require fullscreen to be active before locking orientation
+          // If it fails, we'll just show a message
+          if (this.isAndroidDevice()) {
+            this.showShortcutIndicator('Please rotate device to landscape');
+          }
+        }
+      } else {
+        // Fallback for older browsers or iOS (which doesn't support orientation lock)
+        this.debugLog('Screen Orientation API not supported');
+        if (this.isMobileDevice()) {
+          // Show a subtle hint for devices that don't support orientation lock
+          this.showShortcutIndicator('Rotate device to landscape for best experience');
+        }
+      }
+    } catch (error) {
+      this.debugWarn('Orientation lock error:', (error as Error).message);
+    }
+  }
+
+  /**
+   * Unlock screen orientation when exiting fullscreen
+   */
+  private async unlockOrientation(): Promise<void> {
+    try {
+      // Check if Screen Orientation API is supported
+      const screenOrientation = screen.orientation as any;
+      if (screenOrientation && typeof screenOrientation.unlock === 'function') {
+        try {
+          screenOrientation.unlock();
+          this.debugLog('Screen orientation unlocked');
+        } catch (error) {
+          this.debugWarn('Failed to unlock orientation:', (error as Error).message);
+        }
+      } else {
+        this.debugLog('Screen Orientation API not supported for unlock');
+      }
+    } catch (error) {
+      this.debugWarn('Orientation unlock error:', (error as Error).message);
+    }
   }
 
   private handleVolumeChange(e: MouseEvent): void {
@@ -7986,6 +8253,7 @@ export class WebPlayer extends BasePlayer {
     // Speed options
     settingsMenu.querySelectorAll('.speed-option').forEach(option => {
       option.addEventListener('click', (e) => {
+        e.stopPropagation();
         const speed = parseFloat((e.target as HTMLElement).dataset.speed || '1');
         this.setPlaybackRateFromSettings(speed);
         this.updateAccordionAfterSelection('speed');
@@ -7995,6 +8263,7 @@ export class WebPlayer extends BasePlayer {
     // Quality options
     settingsMenu.querySelectorAll('.quality-option').forEach(option => {
       option.addEventListener('click', (e) => {
+        e.stopPropagation();
         const quality = (e.target as HTMLElement).dataset.quality || 'auto';
         this.setQualityFromSettings(quality);
         this.updateAccordionAfterSelection('quality');
@@ -8004,6 +8273,7 @@ export class WebPlayer extends BasePlayer {
     // Subtitle options
     settingsMenu.querySelectorAll('.subtitle-option').forEach(option => {
       option.addEventListener('click', (e) => {
+        e.stopPropagation();
         const subtitle = (e.target as HTMLElement).dataset.subtitle || 'off';
         this.setSubtitle(subtitle);
         this.updateAccordionAfterSelection('subtitles');
@@ -8061,13 +8331,26 @@ export class WebPlayer extends BasePlayer {
    * Update accordion after user makes a selection
    */
   private updateAccordionAfterSelection(section: string): void {
-    // Just update the current values without closing
-    // User can manually close or it will close when they click outside
-    setTimeout(() => {
-      // Refresh the menu to update current values
-      this.generateAccordionMenu();
-      this.setupSettingsEventListeners();
-    }, 100);
+    // Close the accordion section after selection
+    const settingsMenu = document.getElementById('uvf-settings-menu');
+    if (settingsMenu) {
+      settingsMenu.querySelectorAll('.uvf-accordion-item.expanded').forEach(item => {
+        item.classList.remove('expanded');
+      });
+    }
+    
+    // Auto-close settings menu on mobile after a short delay
+    if (this.isMobileDevice()) {
+      setTimeout(() => {
+        this.hideSettingsMenu();
+      }, 300);
+    } else {
+      // Desktop: just refresh the menu to update current values
+      setTimeout(() => {
+        this.generateAccordionMenu();
+        this.setupSettingsEventListeners();
+      }, 100);
+    }
   }
 
   /**
