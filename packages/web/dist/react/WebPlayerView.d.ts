@@ -175,6 +175,30 @@ export type WebPlayerViewProps = {
             resumePlaybackAfterSkip?: boolean;
         };
     };
+    navigation?: {
+        backButton?: {
+            enabled?: boolean;
+            icon?: 'arrow' | 'chevron' | 'custom';
+            customIcon?: string;
+            title?: string;
+            ariaLabel?: string;
+            onClick?: () => void | Promise<void>;
+            href?: string;
+            replace?: boolean;
+        };
+        closeButton?: {
+            enabled?: boolean;
+            icon?: 'x' | 'close' | 'custom';
+            customIcon?: string;
+            title?: string;
+            ariaLabel?: string;
+            onClick?: () => void | Promise<void>;
+            exitFullscreen?: boolean;
+            closeModal?: boolean;
+        };
+    };
+    onNavigationBackClicked?: () => void;
+    onNavigationCloseClicked?: () => void;
     onChapterChange?: (chapter: any) => void;
     onSegmentEntered?: (segment: any) => void;
     onSegmentExited?: (segment: any) => void;

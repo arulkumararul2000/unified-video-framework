@@ -303,6 +303,7 @@ export const WebPlayerView = (props) => {
                 settings: props.settings,
                 showFrameworkBranding: props.showFrameworkBranding,
                 watermark: watermarkConfig,
+                navigation: props.navigation,
                 chapters: props.chapters ? {
                     enabled: props.chapters.enabled ?? false,
                     data: props.chapters.data,
@@ -378,6 +379,12 @@ export const WebPlayerView = (props) => {
                     if (props.onChaptersLoadError && typeof player.on === 'function') {
                         player.on('chaptersLoadError', props.onChaptersLoadError);
                     }
+                    if (props.onNavigationBackClicked && typeof player.on === 'function') {
+                        player.on('navigationBackClicked', props.onNavigationBackClicked);
+                    }
+                    if (props.onNavigationCloseClicked && typeof player.on === 'function') {
+                        player.on('navigationCloseClicked', props.onNavigationCloseClicked);
+                    }
                     props.onReady?.(player);
                 }
             }
@@ -420,6 +427,7 @@ export const WebPlayerView = (props) => {
         JSON.stringify(props.settings),
         props.showFrameworkBranding,
         JSON.stringify(props.watermark),
+        JSON.stringify(props.navigation),
     ]);
     useEffect(() => {
         const p = playerRef.current;

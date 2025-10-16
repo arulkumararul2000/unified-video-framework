@@ -4002,14 +4002,14 @@ export class WebPlayer extends BasePlayer {
         }
       }
       
-      /* Mobile portrait - hide skip buttons, ensure top bar visible */
+      /* Mobile portrait - hide skip buttons, ensure top bar syncs with controls */
       @media screen and (max-width: 767px) and (orientation: portrait) {
         #uvf-skip-back,
         #uvf-skip-forward {
           display: none !important;
         }
         
-        /* Ensure top bar and controls are visible */
+        /* Top bar structure */
         .uvf-top-bar {
           display: flex !important;
           z-index: 10 !important;
@@ -4019,8 +4019,13 @@ export class WebPlayer extends BasePlayer {
           display: flex !important;
         }
         
-        /* Show top bar when controls are visible or on hover */
-        .uvf-player-wrapper:hover .uvf-top-bar,
+        /* Disable hover effect on mobile - use only controls-visible class */
+        .uvf-player-wrapper:hover .uvf-top-bar {
+          opacity: 0 !important;
+          transform: translateY(-10px) !important;
+        }
+        
+        /* Show top bar ONLY when controls are visible */
         .uvf-player-wrapper.controls-visible .uvf-top-bar {
           opacity: 1 !important;
           transform: translateY(0) !important;
@@ -4154,6 +4159,18 @@ export class WebPlayer extends BasePlayer {
         .uvf-progress-handle {
           width: 16px;
           height: 16px;
+        }
+        
+        /* Disable hover effect on mobile landscape - use only controls-visible class */
+        .uvf-player-wrapper:hover .uvf-top-bar {
+          opacity: 0 !important;
+          transform: translateY(-10px) !important;
+        }
+        
+        /* Show top bar ONLY when controls are visible */
+        .uvf-player-wrapper.controls-visible .uvf-top-bar {
+          opacity: 1 !important;
+          transform: translateY(0) !important;
         }
         
         /* Top bar in fullscreen landscape */

@@ -215,6 +215,34 @@ export type WebPlayerViewProps = {
     };
   };
 
+  // Navigation Configuration
+  navigation?: {
+    backButton?: {
+      enabled?: boolean;
+      icon?: 'arrow' | 'chevron' | 'custom';     // Icon type
+      customIcon?: string;                       // Custom icon URL or SVG string
+      title?: string;                            // Button title/tooltip
+      ariaLabel?: string;                        // Accessibility label
+      onClick?: () => void | Promise<void>;      // Custom click handler
+      href?: string;                             // URL to navigate to
+      replace?: boolean;                         // Use history.replaceState instead of navigation
+    };
+    closeButton?: {
+      enabled?: boolean;
+      icon?: 'x' | 'close' | 'custom';          // Icon type
+      customIcon?: string;                       // Custom icon URL or SVG string
+      title?: string;                            // Button title/tooltip
+      ariaLabel?: string;                        // Accessibility label
+      onClick?: () => void | Promise<void>;      // Custom click handler
+      exitFullscreen?: boolean;                  // Exit fullscreen when clicked
+      closeModal?: boolean;                      // Hide/close player modal when clicked
+    };
+  };
+  
+  // Navigation Event Callbacks
+  onNavigationBackClicked?: () => void;         // Back button clicked
+  onNavigationCloseClicked?: () => void;        // Close button clicked
+
   // Chapter Event Callbacks
   onChapterChange?: (chapter: any) => void;                                    // Core chapter changed
   onSegmentEntered?: (segment: any) => void;                                  // Segment entered  
@@ -553,6 +581,8 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         settings: props.settings,
         showFrameworkBranding: props.showFrameworkBranding,
         watermark: watermarkConfig,
+        // Navigation configuration
+        navigation: props.navigation,
         // Chapter configuration
         chapters: props.chapters ? {
           enabled: props.chapters.enabled ?? false,
@@ -640,6 +670,14 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
             (player as any).on('chaptersLoadError', props.onChaptersLoadError);
           }
           
+          // Navigation event listeners
+          if (props.onNavigationBackClicked && typeof (player as any).on === 'function') {
+            (player as any).on('navigationBackClicked', props.onNavigationBackClicked);
+          }
+          if (props.onNavigationCloseClicked && typeof (player as any).on === 'function') {
+            (player as any).on('navigationCloseClicked', props.onNavigationCloseClicked);
+          }
+          
           props.onReady?.(player);
         }
       } catch (err) {
@@ -682,6 +720,7 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     JSON.stringify(props.settings),
     props.showFrameworkBranding,
     JSON.stringify(props.watermark),
+    JSON.stringify(props.navigation),
   ])
 
   // Update free preview duration at runtime without full re-init
