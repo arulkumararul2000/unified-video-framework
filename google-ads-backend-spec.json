@@ -1,0 +1,737 @@
+{
+  "googleAdsBackendSpecification": {
+    "version": "1.0.0",
+    "description": "Backend Google Ads Integration for Unified Video Framework",
+    "author": "Flicknexs Team",
+    "lastUpdated": "2024-12-19T07:12:58Z",
+    
+    "apiEndpoints": {
+      "adConfiguration": {
+        "endpoint": "GET /api/ads/config",
+        "description": "Get ad configuration for specific content and user",
+        "parameters": {
+          "required": {
+            "contentId": {
+              "type": "string",
+              "description": "Unique identifier for the video content",
+              "example": "video_123456"
+            },
+            "placement": {
+              "type": "string",
+              "enum": ["preroll", "midroll", "postroll", "pause", "overlay"],
+              "description": "Ad placement position"
+            },
+            "width": {
+              "type": "integer",
+              "description": "Player width in pixels",
+              "example": 1920
+            },
+            "height": {
+              "type": "integer", 
+              "description": "Player height in pixels",
+              "example": 1080
+            }
+          },
+          "optional": {
+            "userId": {
+              "type": "string",
+              "description": "User identifier for targeting",
+              "example": "user_789012"
+            },
+            "sessionId": {
+              "type": "string",
+              "description": "Session identifier for tracking",
+              "example": "session_abc123"
+            },
+            "position": {
+              "type": "mixed",
+              "description": "Time position for midroll (seconds or percentage)",
+              "examples": [300, "50%"]
+            },
+            "deviceType": {
+              "type": "string",
+              "enum": ["desktop", "mobile", "tablet", "tv"],
+              "description": "Device type for targeting"
+            },
+            "browser": {
+              "type": "string",
+              "description": "Browser information",
+              "example": "Chrome/91.0"
+            },
+            "location": {
+              "type": "object",
+              "properties": {
+                "country": "string",
+                "region": "string", 
+                "city": "string",
+                "lat": "float",
+                "lng": "float"
+              }
+            },
+            "language": {
+              "type": "string",
+              "description": "ISO language code",
+              "example": "en-US"
+            },
+            "referrer": {
+              "type": "string",
+              "description": "Referrer URL",
+              "example": "https://example.com/video-page"
+            },
+            "gdprConsent": {
+              "type": "boolean",
+              "description": "GDPR consent status"
+            },
+            "coppa": {
+              "type": "boolean",
+              "description": "COPPA compliance flag"
+            },
+            "userAgent": {
+              "type": "string",
+              "description": "User agent string"
+            },
+            "ip": {
+              "type": "string",
+              "description": "User IP address"
+            }
+          }
+        },
+        "responses": {
+          "success": {
+            "status": 200,
+            "body": {
+              "status": "success",
+              "data": {
+                "adBreaks": [
+                  {
+                    "id": "string",
+                    "type": "preroll|midroll|postroll|pause|overlay",
+                    "position": "start|end|number|percentage",
+                    "ads": [
+                      {
+                        "id": "string",
+                        "type": "video|display|interactive|social",
+                        "vastUrl": "string",
+                        "vmapUrl": "string",
+                        "directAssets": "object",
+                        "metadata": "object",
+                        "targeting": "object"
+                      }
+                    ]
+                  }
+                ],
+                "companionAds": "array",
+                "settings": {
+                  "maxAdsPerBreak": "number",
+                  "maxTotalAds": "number",
+                  "frequencyCapping": "object"
+                }
+              }
+            }
+          },
+          "noAds": {
+            "status": 204,
+            "body": {
+              "status": "no_ads",
+              "message": "No ads available for this request"
+            }
+          },
+          "error": {
+            "status": 400,
+            "body": {
+              "status": "error",
+              "message": "string",
+              "code": "number",
+              "details": "object"
+            }
+          }
+        }
+      },
+
+      "vastGeneration": {
+        "endpoint": "GET /api/ads/vast",
+        "description": "Generate VAST XML for ad serving",
+        "parameters": {
+          "contentId": "string",
+          "userId": "string",
+          "placement": "string",
+          "position": "mixed",
+          "adId": "string"
+        },
+        "response": {
+          "contentType": "application/xml",
+          "body": "VAST 4.2 XML structure"
+        }
+      },
+
+      "vmapGeneration": {
+        "endpoint": "GET /api/ads/vmap", 
+        "description": "Generate VMAP XML for multiple ad breaks",
+        "parameters": {
+          "contentId": "string",
+          "userId": "string",
+          "duration": "number"
+        },
+        "response": {
+          "contentType": "application/xml",
+          "body": "VMAP 1.0 XML structure"
+        }
+      },
+
+      "eventTracking": {
+        "endpoint": "POST /api/ads/track/event",
+        "description": "Track ad events for analytics",
+        "parameters": {
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "impression", "start", "firstQuartile", "midpoint", "thirdQuartile",
+              "complete", "skip", "click", "close", "pause", "resume", "mute",
+              "unmute", "fullscreen", "exitFullscreen", "expand", "collapse"
+            ]
+          },
+          "adId": "string",
+          "sessionId": "string", 
+          "contentId": "string",
+          "userId": "string",
+          "timestamp": "ISO datetime",
+          "playerTime": "number",
+          "customData": "object"
+        }
+      },
+
+      "impressionTracking": {
+        "endpoint": "POST /api/ads/track/impression",
+        "description": "Track ad impressions",
+        "parameters": {
+          "adId": "string",
+          "sessionId": "string",
+          "contentId": "string", 
+          "userId": "string",
+          "timestamp": "ISO datetime",
+          "viewability": "object",
+          "audiblity": "object"
+        }
+      },
+
+      "clickTracking": {
+        "endpoint": "POST /api/ads/track/click",
+        "description": "Track ad clicks",
+        "parameters": {
+          "adId": "string",
+          "sessionId": "string",
+          "contentId": "string",
+          "userId": "string", 
+          "timestamp": "ISO datetime",
+          "clickPosition": "object",
+          "targetUrl": "string"
+        }
+      }
+    },
+
+    "adFormats": {
+      "vast": {
+        "version": "4.2",
+        "description": "Video Ad Serving Template - Industry standard",
+        "structure": {
+          "VAST": {
+            "attributes": {
+              "version": "4.2"
+            },
+            "elements": {
+              "Ad": {
+                "attributes": {
+                  "id": "unique_ad_id"
+                },
+                "elements": {
+                  "InLine": {
+                    "elements": {
+                      "AdSystem": {
+                        "value": "Ad Server Name",
+                        "attributes": {
+                          "version": "1.0"
+                        }
+                      },
+                      "AdTitle": "Ad Title Here",
+                      "Description": "Ad Description Here",
+                      "Impression": "https://tracking.example.com/impression?id={AD_ID}",
+                      "Creatives": {
+                        "Creative": {
+                          "attributes": {
+                            "id": "creative_id"
+                          },
+                          "elements": {
+                            "Linear": {
+                              "elements": {
+                                "Duration": "00:00:30",
+                                "MediaFiles": {
+                                  "MediaFile": [
+                                    {
+                                      "attributes": {
+                                        "delivery": "progressive",
+                                        "type": "video/mp4",
+                                        "width": "1920",
+                                        "height": "1080",
+                                        "scalable": "true",
+                                        "maintainAspectRatio": "true"
+                                      },
+                                      "value": "https://cdn.example.com/ad-video.mp4"
+                                    }
+                                  ]
+                                },
+                                "VideoClicks": {
+                                  "ClickThrough": "https://advertiser.com/landing-page",
+                                  "ClickTracking": "https://tracking.example.com/click?id={AD_ID}"
+                                },
+                                "TrackingEvents": {
+                                  "Tracking": [
+                                    {
+                                      "attributes": {
+                                        "event": "start"
+                                      },
+                                      "value": "https://tracking.example.com/event?event=start&id={AD_ID}"
+                                    },
+                                    {
+                                      "attributes": {
+                                        "event": "firstQuartile"
+                                      },
+                                      "value": "https://tracking.example.com/event?event=firstQuartile&id={AD_ID}"
+                                    },
+                                    {
+                                      "attributes": {
+                                        "event": "midpoint"
+                                      },
+                                      "value": "https://tracking.example.com/event?event=midpoint&id={AD_ID}"
+                                    },
+                                    {
+                                      "attributes": {
+                                        "event": "thirdQuartile"
+                                      },
+                                      "value": "https://tracking.example.com/event?event=thirdQuartile&id={AD_ID}"
+                                    },
+                                    {
+                                      "attributes": {
+                                        "event": "complete"
+                                      },
+                                      "value": "https://tracking.example.com/event?event=complete&id={AD_ID}"
+                                    },
+                                    {
+                                      "attributes": {
+                                        "event": "skip"
+                                      },
+                                      "value": "https://tracking.example.com/event?event=skip&id={AD_ID}"
+                                    }
+                                  ]
+                                },
+                                "AdParameters": "<![CDATA[{\"skipOffset\": 5, \"clickable\": true}]]>",
+                                "Icons": {
+                                  "Icon": {
+                                    "attributes": {
+                                      "program": "AdChoices",
+                                      "width": "15",
+                                      "height": "15",
+                                      "xPosition": "right",
+                                      "yPosition": "top"
+                                    },
+                                    "elements": {
+                                      "StaticResource": {
+                                        "attributes": {
+                                          "creativeType": "image/png"
+                                        },
+                                        "value": "https://cdn.example.com/adchoices-icon.png"
+                                      },
+                                      "IconClicks": {
+                                        "IconClickThrough": "https://youradchoices.com/"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      "vmap": {
+        "version": "1.0",
+        "description": "Video Multiple Ad Playlist - For multiple ad breaks",
+        "structure": {
+          "vmap:VMAP": {
+            "attributes": {
+              "version": "1.0",
+              "xmlns:vmap": "http://www.iab.net/vmap-1.0"
+            },
+            "elements": {
+              "vmap:AdBreak": [
+                {
+                  "attributes": {
+                    "timeOffset": "start",
+                    "breakType": "linear"
+                  },
+                  "elements": {
+                    "vmap:AdSource": {
+                      "attributes": {
+                        "allowMultipleAds": "false",
+                        "followRedirects": "true"
+                      },
+                      "elements": {
+                        "vmap:VASTAdData": "VAST_XML_CONTENT_HERE"
+                      }
+                    }
+                  }
+                },
+                {
+                  "attributes": {
+                    "timeOffset": "00:05:00.000",
+                    "breakType": "linear"
+                  },
+                  "elements": {
+                    "vmap:AdSource": {
+                      "elements": {
+                        "vmap:AdTagURI": "https://backend.com/api/ads/vast?placement=midroll&position=300"
+                      }
+                    }
+                  }
+                },
+                {
+                  "attributes": {
+                    "timeOffset": "end",
+                    "breakType": "linear"
+                  },
+                  "elements": {
+                    "vmap:AdSource": {
+                      "elements": {
+                        "vmap:AdTagURI": "https://backend.com/api/ads/vast?placement=postroll"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+
+    "databaseSchema": {
+      "ads": {
+        "table": "ads",
+        "fields": {
+          "id": "VARCHAR(255) PRIMARY KEY",
+          "title": "VARCHAR(255) NOT NULL",
+          "description": "TEXT",
+          "advertiser_id": "VARCHAR(255) NOT NULL",
+          "campaign_id": "VARCHAR(255) NOT NULL",
+          "creative_id": "VARCHAR(255) NOT NULL",
+          "ad_type": "ENUM('video', 'display', 'interactive', 'social')",
+          "placement_type": "ENUM('preroll', 'midroll', 'postroll', 'pause', 'overlay')",
+          "video_url": "TEXT",
+          "click_url": "TEXT",
+          "impression_url": "TEXT",
+          "duration": "INTEGER",
+          "skip_offset": "INTEGER DEFAULT -1",
+          "width": "INTEGER",
+          "height": "INTEGER",
+          "targeting_data": "JSON",
+          "metadata": "JSON",
+          "status": "ENUM('active', 'paused', 'expired') DEFAULT 'active'",
+          "start_date": "DATETIME",
+          "end_date": "DATETIME",
+          "budget": "DECIMAL(10,2)",
+          "bid_amount": "DECIMAL(10,4)",
+          "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+          "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+        },
+        "indexes": [
+          "INDEX idx_campaign_id (campaign_id)",
+          "INDEX idx_ad_type (ad_type)",
+          "INDEX idx_placement_type (placement_type)",
+          "INDEX idx_status (status)",
+          "INDEX idx_dates (start_date, end_date)"
+        ]
+      },
+
+      "campaigns": {
+        "table": "campaigns",
+        "fields": {
+          "id": "VARCHAR(255) PRIMARY KEY", 
+          "name": "VARCHAR(255) NOT NULL",
+          "advertiser_id": "VARCHAR(255) NOT NULL",
+          "campaign_type": "VARCHAR(100)",
+          "budget_total": "DECIMAL(10,2)",
+          "budget_daily": "DECIMAL(10,2)",
+          "bid_strategy": "VARCHAR(100)",
+          "targeting": "JSON",
+          "status": "ENUM('active', 'paused', 'completed') DEFAULT 'active'",
+          "start_date": "DATETIME",
+          "end_date": "DATETIME",
+          "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+          "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+        }
+      },
+
+      "ad_events": {
+        "table": "ad_events",
+        "fields": {
+          "id": "BIGINT AUTO_INCREMENT PRIMARY KEY",
+          "session_id": "VARCHAR(255) NOT NULL",
+          "ad_id": "VARCHAR(255) NOT NULL",
+          "content_id": "VARCHAR(255)",
+          "user_id": "VARCHAR(255)",
+          "event_type": "VARCHAR(50) NOT NULL",
+          "timestamp": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+          "player_time": "DECIMAL(10,3)",
+          "custom_data": "JSON",
+          "ip_address": "VARCHAR(45)",
+          "user_agent": "TEXT",
+          "referrer": "TEXT"
+        },
+        "indexes": [
+          "INDEX idx_session_id (session_id)",
+          "INDEX idx_ad_id (ad_id)",
+          "INDEX idx_event_type (event_type)",
+          "INDEX idx_timestamp (timestamp)",
+          "INDEX idx_user_id (user_id)"
+        ]
+      },
+
+      "user_targeting": {
+        "table": "user_targeting",
+        "fields": {
+          "id": "BIGINT AUTO_INCREMENT PRIMARY KEY",
+          "user_id": "VARCHAR(255) NOT NULL",
+          "demographics": "JSON",
+          "interests": "JSON",
+          "behavioral_data": "JSON",
+          "location_data": "JSON",
+          "device_info": "JSON",
+          "consent_data": "JSON",
+          "last_updated": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+        }
+      },
+
+      "frequency_capping": {
+        "table": "frequency_capping",
+        "fields": {
+          "id": "BIGINT AUTO_INCREMENT PRIMARY KEY",
+          "user_id": "VARCHAR(255) NOT NULL",
+          "ad_id": "VARCHAR(255) NOT NULL",
+          "campaign_id": "VARCHAR(255) NOT NULL",
+          "impression_count": "INTEGER DEFAULT 0",
+          "last_shown": "TIMESTAMP",
+          "daily_count": "INTEGER DEFAULT 0",
+          "last_reset": "DATE DEFAULT CURRENT_DATE"
+        }
+      }
+    },
+
+    "businessLogic": {
+      "adSelection": {
+        "algorithm": "auction_based",
+        "factors": [
+          "bid_amount",
+          "targeting_relevance",
+          "ad_quality_score", 
+          "user_engagement_history",
+          "campaign_budget_remaining",
+          "frequency_capping_rules",
+          "content_compatibility",
+          "brand_safety_score"
+        ],
+        "targeting": {
+          "demographic": ["age", "gender", "income", "education"],
+          "geographic": ["country", "region", "city", "postal_code", "radius"],
+          "behavioral": ["interests", "purchase_history", "website_visits", "app_usage"],
+          "contextual": ["content_category", "keywords", "sentiment", "time_of_day"],
+          "device": ["type", "os", "browser", "connection_speed"],
+          "custom": ["lookalike_audiences", "custom_lists", "retargeting"]
+        }
+      },
+
+      "frequencyCapping": {
+        "rules": {
+          "impression_per_user_per_day": 5,
+          "impression_per_user_per_hour": 2,
+          "minimum_interval_seconds": 300,
+          "campaign_lifetime_cap": 20,
+          "cross_campaign_rules": true
+        }
+      },
+
+      "budgetManagement": {
+        "pacing": {
+          "algorithm": "even_pacing",
+          "adjustments": ["performance_based", "time_remaining", "competition"]
+        },
+        "bidding": {
+          "strategies": ["cpm", "cpc", "cpv", "cpa", "target_roas"],
+          "real_time_adjustments": true,
+          "floor_prices": true
+        }
+      },
+
+      "brandSafety": {
+        "content_filtering": {
+          "blacklist_categories": ["adult", "violence", "controversial", "hate_speech"],
+          "whitelist_categories": ["family_friendly", "education", "news", "entertainment"],
+          "keyword_filtering": true,
+          "ai_content_analysis": true
+        },
+        "domain_filtering": {
+          "blacklist_domains": true,
+          "whitelist_domains": true,
+          "domain_reputation_check": true
+        }
+      }
+    },
+
+    "integrations": {
+      "googleAdManager": {
+        "endpoint": "https://securepubads.g.doubleclick.net/gampad/ads",
+        "parameters": {
+          "sz": "player_size",
+          "iu": "/network_code/ad_unit_path",
+          "impl": "s",
+          "gdfp_req": "1",
+          "env": "vp",
+          "output": "vast",
+          "unviewed_position_start": "1",
+          "url": "content_url",
+          "correlator": "cache_buster"
+        }
+      },
+
+      "googleAdsApi": {
+        "version": "v8",
+        "endpoints": {
+          "campaigns": "https://googleads.googleapis.com/v8/customers/{customer_id}/campaigns",
+          "adGroups": "https://googleads.googleapis.com/v8/customers/{customer_id}/adGroups",
+          "ads": "https://googleads.googleapis.com/v8/customers/{customer_id}/ads"
+        },
+        "authentication": "oauth2"
+      },
+
+      "thirdPartyTracking": {
+        "doubleClick": {
+          "impression": "https://ad.doubleclick.net/ddm/activity/",
+          "click": "https://ad.doubleclick.net/ddm/clk/"
+        },
+        "googleAnalytics": {
+          "endpoint": "https://www.google-analytics.com/collect",
+          "events": ["ad_impression", "ad_click", "ad_completion"]
+        }
+      }
+    },
+
+    "caching": {
+      "strategies": {
+        "ad_responses": {
+          "ttl": 300,
+          "storage": "redis",
+          "invalidation": "campaign_updates"
+        },
+        "user_targeting": {
+          "ttl": 3600,
+          "storage": "memory",
+          "refresh": "background"
+        },
+        "creative_assets": {
+          "ttl": 86400,
+          "storage": "cdn",
+          "preload": true
+        }
+      }
+    },
+
+    "security": {
+      "authentication": {
+        "api_keys": true,
+        "oauth2": true,
+        "jwt_tokens": true
+      },
+      "encryption": {
+        "data_at_rest": "AES-256",
+        "data_in_transit": "TLS 1.3",
+        "sensitive_fields": ["user_id", "ip_address", "targeting_data"]
+      },
+      "privacy": {
+        "gdpr_compliance": true,
+        "ccpa_compliance": true,
+        "coppa_compliance": true,
+        "data_retention_policies": true,
+        "consent_management": true
+      }
+    },
+
+    "monitoring": {
+      "metrics": [
+        "request_latency",
+        "ad_fill_rate",
+        "error_rate",
+        "impression_discrepancies",
+        "click_through_rate",
+        "viewability_rate",
+        "revenue_metrics"
+      ],
+      "alerts": {
+        "low_fill_rate": "<90%",
+        "high_error_rate": ">5%",
+        "latency_threshold": ">500ms",
+        "budget_depletion": ">90%"
+      },
+      "logging": {
+        "level": "info",
+        "format": "json",
+        "retention": "30_days",
+        "sensitive_data_masking": true
+      }
+    },
+
+    "scaling": {
+      "loadBalancing": {
+        "algorithm": "round_robin",
+        "health_checks": true,
+        "auto_scaling": true
+      },
+      "database": {
+        "read_replicas": true,
+        "sharding": "user_id_based",
+        "connection_pooling": true
+      },
+      "caching": {
+        "distributed": "redis_cluster",
+        "cdn": "cloudflare",
+        "edge_caching": true
+      }
+    },
+
+    "sampleImplementation": {
+      "nodeJs": {
+        "dependencies": {
+          "express": "^4.18.0",
+          "mysql2": "^2.3.3",
+          "redis": "^4.0.6",
+          "xml2js": "^0.4.23",
+          "moment": "^2.29.4",
+          "uuid": "^8.3.2"
+        },
+        "routes": [
+          "GET /api/ads/config - Get ad configuration",
+          "GET /api/ads/vast - Generate VAST XML",
+          "GET /api/ads/vmap - Generate VMAP XML", 
+          "POST /api/ads/track/event - Track ad events",
+          "POST /api/ads/track/impression - Track impressions",
+          "POST /api/ads/track/click - Track clicks"
+        ]
+      }
+    }
+  }
+}

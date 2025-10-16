@@ -1,4 +1,5 @@
-import { IVideoPlayer, VideoSource, PlayerConfig, PlayerState, PlayerEvents, PlayerError, Quality, SubtitleTrack } from './interfaces/IVideoPlayer';
+import { IVideoPlayer, VideoSource, PlayerConfig, PlayerState, PlayerError, Quality, SubtitleTrack } from './interfaces/IVideoPlayer';
+import { PlayerEvent } from './interfaces';
 import { EventEmitter } from './utils/EventEmitter';
 export declare abstract class BasePlayer implements IVideoPlayer {
     protected container: HTMLElement | null;
@@ -41,10 +42,10 @@ export declare abstract class BasePlayer implements IVideoPlayer {
     toggleFullscreen(): Promise<void>;
     abstract enterPictureInPicture(): Promise<void>;
     abstract exitPictureInPicture(): Promise<void>;
-    on(event: keyof PlayerEvents, handler: Function): void;
-    off(event: keyof PlayerEvents, handler?: Function): void;
-    once(event: keyof PlayerEvents, handler: Function): void;
-    protected emit(event: keyof PlayerEvents, ...args: any[]): void;
+    on(event: string, handler: Function): void;
+    off(event: string, handler?: Function): void;
+    once(event: string, handler: Function): void;
+    protected emit(event: PlayerEvent, ...args: any[]): void;
     setFreeDuration?(seconds: number): void;
     resetFreePreviewGate?(): void;
     getSubtitles(): SubtitleTrack[];

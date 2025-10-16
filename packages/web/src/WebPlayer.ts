@@ -238,6 +238,10 @@ export class WebPlayer extends BasePlayer {
     this.video.playsInline = this.config.playsInline ?? true;
     this.video.preload = this.config.preload ?? 'metadata';
     
+    // Enable AirPlay for iOS devices
+    (this.video as any).webkitAllowsAirPlay = true;
+    this.video.setAttribute('x-webkit-airplay', 'allow');
+    
     if (this.config.crossOrigin) {
       this.video.crossOrigin = this.config.crossOrigin;
     }
@@ -361,6 +365,8 @@ export class WebPlayer extends BasePlayer {
     this.updateMetadataUI();
   }
 
+  private autoplayAttempted: boolean = false;
+
   private setupVideoEventListeners(): void {
     if (!this.video) return;
 
@@ -378,9 +384,6 @@ export class WebPlayer extends BasePlayer {
       this.state.isPlaying = true;
       this.state.isPaused = false;
       this.emit('onPlay');
-
-      // Hide play overlay when playback starts
-      this.hidePlayOverlay();
     });
 
     this.video.addEventListener('playing', () => {
@@ -389,9 +392,6 @@ export class WebPlayer extends BasePlayer {
         this._deferredPause = false;
         try { this.video?.pause(); } catch (_) {}
       }
-
-      // Also hide overlay on playing event (more reliable)
-      this.hidePlayOverlay();
 
       // Stop buffering state
       this.setBuffering(false);
@@ -430,6 +430,7 @@ export class WebPlayer extends BasePlayer {
     });
 
     this.video.addEventListener('canplay', () => {
+      this.debugLog('📡 canplay event fired');
       this.setBuffering(false);
       this.emit('onReady');
       
@@ -440,6 +441,26 @@ export class WebPlayer extends BasePlayer {
       if (this._deferredPause) {
         this._deferredPause = false;
         try { this.video?.pause(); } catch (_) {}
+      }
+
+      // Attempt autoplay once when video is ready to play
+      this.debugLog(`🎬 Autoplay check: config.autoPlay=${this.config.autoPlay}, autoplayAttempted=${this.autoplayAttempted}`);
+      if (this.config.autoPlay && !this.autoplayAttempted) {
+        this.debugLog('🎬 Starting intelligent autoplay attempt');
+        this.autoplayAttempted = true;
+        this.attemptIntelligentAutoplay().then(success => {
+          if (!success) {
+            this.debugWarn('❌ Intelligent autoplay failed - will retry on user interaction');
+            this.setupAutoplayRetry();
+          } else {
+            this.debugLog('✅ Intelligent autoplay succeeded');
+          }
+        }).catch(error => {
+          this.debugError('Autoplay failed:', error);
+          this.setupAutoplayRetry();
+        });
+      } else {
+        this.debugLog(`⛔ Skipping autoplay: autoPlay=${this.config.autoPlay}, attempted=${this.autoplayAttempted}`);
       }
     });
 
@@ -517,6 +538,9 @@ export class WebPlayer extends BasePlayer {
   async load(source: any): Promise<void> {
     this.source = source as any;
     this.subtitles = (source.subtitles || []) as any;
+
+    // Reset autoplay flag for new source
+    this.autoplayAttempted = false;
 
     // Clean up previous instances
     await this.cleanup();
@@ -613,25 +637,8 @@ export class WebPlayer extends BasePlayer {
 
         // Update settings menu with detected qualities
         this.updateSettingsMenu();
-
-        // Start playback if autoPlay is enabled
-        if (this.config.autoPlay) {
-          // Use intelligent autoplay with capability detection
-          this.attemptIntelligentAutoplay().then(success => {
-            if (!success) {
-              this.debugWarn('❌ Intelligent autoplay failed, showing play overlay');
-              this.showPlayOverlay();
-              // Set up retry on user interaction
-              this.setupAutoplayRetry();
-            } else {
-              this.debugLog('✅ Intelligent autoplay succeeded');
-            }
-          }).catch(error => {
-            this.debugError('HLS autoplay failed:', error);
-            this.showPlayOverlay();
-            this.setupAutoplayRetry();
-          });
-        }
+        
+        // Note: Autoplay is now handled in the 'canplay' event when video is ready
       });
 
       this.hls.on(window.Hls.Events.LEVEL_SWITCHED, (event: any, data: any) => {
@@ -902,13 +909,20 @@ export class WebPlayer extends BasePlayer {
    * Attempt intelligent autoplay based on detected capabilities
    */
   private async attemptIntelligentAutoplay(): Promise<boolean> {
-    if (!this.config.autoPlay || !this.video) return false;
+    this.debugLog('🎬 attemptIntelligentAutoplay called');
+    if (!this.config.autoPlay || !this.video) {
+      this.debugLog(`⛔ Early return: autoPlay=${this.config.autoPlay}, video=${!!this.video}`);
+      return false;
+    }
 
     // Detect capabilities first
+    this.debugLog('🔍 Detecting autoplay capabilities...');
     await this.detectAutoplayCapabilities();
+    this.debugLog(`📦 Capabilities detected: canAutoplayMuted=${this.autoplayCapabilities.canAutoplayMuted}, canAutoplayUnmuted=${this.autoplayCapabilities.canAutoplayUnmuted}`);
 
     // Check if user has activated the page (navigation counts as activation)
     const hasActivation = this.hasUserActivation();
+    this.debugLog(`👤 User activation: ${hasActivation}`);
 
     // Try unmuted autoplay if:
     // 1. Browser supports unmuted autoplay OR user has activated the page
@@ -922,26 +936,41 @@ export class WebPlayer extends BasePlayer {
       this.debugLog(`🔊 Attempting unmuted autoplay (activation: ${hasActivation})`);
 
       try {
+        this.debugLog('▶️ Calling play() for unmuted autoplay...');
         await this.play();
-        this.debugLog('✅ Unmuted autoplay successful');
-        return true;
+        // Verify video is actually playing
+        this.debugLog(`📊 Play returned, video.paused=${this.video.paused}`);
+        if (!this.video.paused) {
+          this.debugLog('✅ Unmuted autoplay successful');
+          return true;
+        } else {
+          this.debugLog('⚠️ Unmuted play() succeeded but video is paused, trying muted');
+        }
       } catch (error) {
-        this.debugLog('⚠️ Unmuted autoplay failed, trying muted');
+        this.debugLog('⚠️ Unmuted autoplay failed:', error);
       }
     }
 
-    // Fall back to muted autoplay
-    if (this.autoplayCapabilities.canAutoplayMuted || hasActivation) {
-      this.video.muted = true;
-      this.debugLog('🔇 Attempting muted autoplay');
+    // Always try muted autoplay as fallback (browsers allow this)
+    // Ignore capability detection - it can give false negatives
+    this.video.muted = true;
+    this.debugLog('🔇 Attempting muted autoplay (always try this)');
 
-      try {
-        await this.play();
+    try {
+      this.debugLog('▶️ Calling play() for muted autoplay...');
+      await this.play();
+      // Verify video is actually playing
+      this.debugLog(`📊 Play returned, video.paused=${this.video.paused}`);
+      if (!this.video.paused) {
         this.debugLog('✅ Muted autoplay successful');
+        // Show YouTube-style unmute button instead of blocking overlay
+        this.showUnmuteButton();
         return true;
-      } catch (error) {
-        this.debugLog('❌ Muted autoplay failed');
+      } else {
+        this.debugLog('❌ Muted play() succeeded but video is paused');
       }
+    } catch (error) {
+      this.debugLog('❌ Muted autoplay failed:', error);
     }
 
     return false;
@@ -991,145 +1020,182 @@ export class WebPlayer extends BasePlayer {
     this.debugLog('🎯 Autoplay retry armed - waiting for user interaction');
   }
 
-  private showPlayOverlay(): void {
-    // Remove existing overlay
-    this.hidePlayOverlay();
-
-    this.debugLog('📺 Showing play overlay due to autoplay restriction');
-
-    const overlay = document.createElement('div');
-    overlay.id = 'uvf-play-overlay';
-    overlay.className = 'uvf-play-overlay';
-
-    const playButton = document.createElement('button');
-    playButton.className = 'uvf-play-button';
-    playButton.setAttribute('aria-label', 'Play video');
-    playButton.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M8 5v14l11-7z"/>
+  
+  /**
+   * Show YouTube-style unmute button when video autoplays muted
+   */
+  private showUnmuteButton(): void {
+    // Remove existing unmute button
+    this.hideUnmuteButton();
+    
+    this.debugLog('🔇 Showing unmute button - video autoplaying muted');
+    
+    const unmuteBtn = document.createElement('button');
+    unmuteBtn.id = 'uvf-unmute-btn';
+    unmuteBtn.className = 'uvf-unmute-btn';
+    unmuteBtn.setAttribute('aria-label', 'Tap to unmute');
+    unmuteBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" class="uvf-unmute-icon">
+        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
       </svg>
+      <span class="uvf-unmute-text">Tap to unmute</span>
     `;
-
-    const message = document.createElement('div');
-    message.className = 'uvf-play-message';
-    message.textContent = 'Click to play';
-
-    overlay.appendChild(playButton);
-    overlay.appendChild(message);
-
-    // Enhanced click handler with better error handling
-    const handlePlayClick = async (e: Event) => {
-      e.preventDefault();
+    
+    // Click handler to unmute
+    unmuteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.lastUserInteraction = Date.now();
-      this.debugLog('▶️ User clicked play overlay');
-
-      try {
-        // Ensure video is ready
-        if (!this.video) {
-          this.debugError('Video element not available');
-          return;
-        }
-
-        // Try to play
-        await this.play();
-        this.debugLog('✅ Play successful after user click');
-      } catch (error) {
-        this.debugError('❌ Failed to play after user interaction:', error);
-        // Show error message on overlay
-        message.textContent = 'Unable to play. Please try again.';
-        message.style.color = '#ff6b6b';
-      }
-    };
-
-    // Add click handler to button
-    playButton.addEventListener('click', handlePlayClick);
-
-    // Also allow clicking anywhere on overlay
-    overlay.addEventListener('click', async (e) => {
-      if (e.target === overlay) {
-        await handlePlayClick(e);
+      if (this.video) {
+        this.video.muted = false;
+        this.debugLog('🔊 Video unmuted by user');
+        this.hideUnmuteButton();
       }
     });
-
-    // Add enhanced styles with better visibility
+    
+    // Add enhanced styles
     const style = document.createElement('style');
     style.textContent = `
-      .uvf-play-overlay {
+      .uvf-unmute-btn {
         position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        background: rgba(0, 0, 0, 0.85) !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-        align-items: center !important;
-        z-index: 999999 !important;
-        cursor: pointer !important;
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-      }
-
-      .uvf-play-button {
-        width: 96px !important;
-        height: 96px !important;
-        border-radius: 50% !important;
-        background: rgba(255, 255, 255, 0.95) !important;
-        border: 3px solid rgba(255, 255, 255, 0.3) !important;
-        color: #000 !important;
-        cursor: pointer !important;
+        bottom: 80px !important;
+        left: 20px !important;
+        z-index: 1000 !important;
         display: flex !important;
         align-items: center !important;
-        justify-content: center !important;
-        transition: all 0.3s ease !important;
-        margin-bottom: 20px !important;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
-      }
-
-      .uvf-play-button:hover {
-        background: #fff !important;
-        transform: scale(1.15) !important;
-        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4) !important;
-      }
-
-      .uvf-play-button svg {
-        width: 40px !important;
-        height: 40px !important;
-        margin-left: 4px !important;
-      }
-
-      .uvf-play-message {
+        gap: 8px !important;
+        padding: 12px 16px !important;
+        background: rgba(0, 0, 0, 0.8) !important;
+        border: none !important;
+        border-radius: 4px !important;
         color: white !important;
-        font-size: 18px !important;
-        font-weight: 600 !important;
-        text-align: center !important;
-        opacity: 0.95 !important;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        animation: uvf-unmute-pulse 2s ease-in-out infinite !important;
+      }
+      
+      .uvf-unmute-btn:hover {
+        background: rgba(0, 0, 0, 0.9) !important;
+        transform: scale(1.05) !important;
+      }
+      
+      .uvf-unmute-btn:active {
+        transform: scale(0.95) !important;
+      }
+      
+      .uvf-unmute-icon {
+        width: 20px !important;
+        height: 20px !important;
+        fill: white !important;
+      }
+      
+      .uvf-unmute-text {
+        white-space: nowrap !important;
+      }
+      
+      @keyframes uvf-unmute-pulse {
+        0%, 100% {
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+        }
+        50% {
+          box-shadow: 0 2px 16px rgba(255, 255, 255, 0.2) !important;
+        }
+      }
+      
+      /* Mobile responsive */
+      @media (max-width: 767px) {
+        .uvf-unmute-btn {
+          bottom: 70px !important;
+          left: 50% !important;
+          transform: translateX(-50%) !important;
+          padding: 10px 14px !important;
+          font-size: 13px !important;
+        }
+        
+        .uvf-unmute-btn:hover {
+          transform: translateX(-50%) scale(1.05) !important;
+        }
       }
     `;
-
+    
     // Add to page if not already added
-    if (!document.getElementById('uvf-play-overlay-styles')) {
-      style.id = 'uvf-play-overlay-styles';
+    if (!document.getElementById('uvf-unmute-styles')) {
+      style.id = 'uvf-unmute-styles';
       document.head.appendChild(style);
     }
-
+    
     // Add to player
     if (this.playerWrapper) {
-      this.playerWrapper.appendChild(overlay);
-      this.debugLog('✅ Play overlay added to player wrapper');
-    } else {
-      this.debugError('❌ Cannot show play overlay - playerWrapper not found');
+      this.playerWrapper.appendChild(unmuteBtn);
+      this.debugLog('✅ Unmute button added to player');
+      
+      // Enable clicking anywhere on video to unmute
+      this.setupClickToUnmute();
     }
   }
-
-  private hidePlayOverlay(): void {
-    this.debugLog('🔇 Hiding play overlay');
-    const overlay = document.getElementById('uvf-play-overlay');
-    if (overlay) {
-      overlay.remove();
+  
+  /**
+   * Set up click anywhere on video to unmute when unmute button is visible
+   */
+  private setupClickToUnmute(): void {
+    // Remove any existing listener first
+    if (this.clickToUnmuteHandler) {
+      this.playerWrapper?.removeEventListener('click', this.clickToUnmuteHandler, true);
+    }
+    
+    this.clickToUnmuteHandler = (e: MouseEvent) => {
+      const unmuteBtn = document.getElementById('uvf-unmute-btn');
+      
+      // Only handle if unmute button is visible (video is muted)
+      if (!unmuteBtn || !this.video) return;
+      
+      // Don't unmute if clicking on controls or buttons
+      const target = e.target as HTMLElement;
+      if (target.closest('.uvf-controls-container') || 
+          target.closest('button') ||
+          target.closest('.uvf-settings-menu')) {
+        return;
+      }
+      
+      // Stop the event from triggering play/pause
+      e.stopPropagation();
+      e.preventDefault();
+      
+      // Unmute the video
+      this.video.muted = false;
+      this.debugLog('🔊 Video unmuted by clicking on player');
+      this.hideUnmuteButton();
+      
+      // Clean up the handler
+      if (this.clickToUnmuteHandler) {
+        this.playerWrapper?.removeEventListener('click', this.clickToUnmuteHandler, true);
+        this.clickToUnmuteHandler = null;
+      }
+    };
+    
+    // Use capture phase to intercept clicks before they reach the video element
+    this.playerWrapper?.addEventListener('click', this.clickToUnmuteHandler, true);
+    this.debugLog('👆 Click anywhere to unmute enabled');
+  }
+  
+  /**
+   * Hide unmute button
+   */
+  private clickToUnmuteHandler: ((e: MouseEvent) => void) | null = null;
+  
+  private hideUnmuteButton(): void {
+    const unmuteBtn = document.getElementById('uvf-unmute-btn');
+    if (unmuteBtn) {
+      unmuteBtn.remove();
+      this.debugLog('Unmute button removed');
+    }
+    
+    // Remove click to unmute handler when button is hidden
+    if (this.clickToUnmuteHandler) {
+      this.playerWrapper?.removeEventListener('click', this.clickToUnmuteHandler, true);
+      this.clickToUnmuteHandler = null;
     }
   }
   
@@ -1207,8 +1273,10 @@ export class WebPlayer extends BasePlayer {
         this.video.pause();
       }
 
-      // Hide the play overlay if it exists
-      this.hidePlayOverlay();
+      // Hide unmute button when video starts playing with sound
+      if (!this.video.muted) {
+        this.hideUnmuteButton();
+      }
       await super.play();
     } catch (err) {
       this._playPromise = null;
@@ -1219,9 +1287,9 @@ export class WebPlayer extends BasePlayer {
       
       // Check if this is an autoplay restriction error
       if (this.isAutoplayRestrictionError(err)) {
-        this.debugWarn('Autoplay blocked by browser policy - showing play overlay');
-        this.showPlayOverlay();
-        return; // Don't throw error for autoplay restrictions
+        this.debugWarn('Autoplay blocked by browser policy');
+        // Throw error so intelligent autoplay can handle fallback
+        throw err;
       }
       
       this.handleError({
@@ -3148,6 +3216,37 @@ export class WebPlayer extends BasePlayer {
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
       }
       
+      /* PiP Button Specific Styling */
+      #uvf-pip-btn {
+        background: var(--uvf-button-bg);
+        border: 1px solid var(--uvf-button-border);
+        position: relative;
+        z-index: 10;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      #uvf-pip-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px var(--uvf-button-shadow);
+      }
+      
+      #uvf-pip-btn:active {
+        transform: scale(0.95);
+        transition: all 0.1s ease;
+      }
+      
+      #uvf-pip-btn svg {
+        opacity: 0.9;
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+      }
+      
+      #uvf-pip-btn:hover svg {
+        opacity: 1;
+        transform: scale(1.05);
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      }
+      
       /* Fullscreen Button Specific Styling */
       #uvf-fullscreen-btn {
         background: var(--uvf-button-bg);
@@ -3651,55 +3750,234 @@ export class WebPlayer extends BasePlayer {
         margin-left: 10px;
       }
       
-      /* Title Bar */
-      .uvf-title-bar {
+      /* Top Bar Container - Contains Navigation + Title (left) and Controls (right) */
+      .uvf-top-bar {
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         padding: 20px;
         z-index: 7;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
         opacity: 0;
         transform: translateY(-10px);
         transition: all 0.3s ease;
       }
       
-      .uvf-player-wrapper:hover .uvf-title-bar,
-      .uvf-player-wrapper.controls-visible .uvf-title-bar {
+      /* Left side container for navigation + title */
+      .uvf-left-side {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        max-width: 70%;
+      }
+      
+      /* Navigation controls container */
+      .uvf-navigation-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      
+      /* Navigation button styles */
+      .uvf-nav-btn {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(8px);
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .uvf-nav-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.4);
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      
+      .uvf-nav-btn:active {
+        transform: scale(0.95);
+      }
+      
+      .uvf-nav-btn svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+        transition: all 0.2s ease;
+      }
+      
+      .uvf-nav-btn:hover svg {
+        transform: scale(1.1);
+      }
+      
+      /* Back button specific styles */
+      #uvf-back-btn {
+        background: rgba(0, 0, 0, 0.7);
+      }
+      
+      #uvf-back-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: var(--uvf-accent-1, #ff0000);
+      }
+      
+      /* Close button specific styles */
+      #uvf-close-btn {
+        background: rgba(220, 53, 69, 0.8);
+        border-color: rgba(220, 53, 69, 0.6);
+      }
+      
+      #uvf-close-btn:hover {
+        background: rgba(220, 53, 69, 1);
+        border-color: rgba(220, 53, 69, 1);
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+      }
+      
+      .uvf-player-wrapper:hover .uvf-top-bar,
+      .uvf-player-wrapper.controls-visible .uvf-top-bar {
         opacity: 1;
         transform: translateY(0);
+      }
+      
+      /* Title Bar - After navigation buttons */
+      .uvf-title-bar {
+        flex: 1;
+        min-width: 0; /* Allow shrinking */
+      }
+
+      /* Top Controls - Right side of top bar */
+      .uvf-top-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+        flex-shrink: 0;
       }
       
       .uvf-title-content {
         display: flex;
         align-items: center;
-        gap: 12px;
+        width: 100%;
+        min-width: 0; /* Allow shrinking */
       }
-      .uvf-video-thumb {
-        width: 56px;
-        height: 56px;
-        border-radius: 8px;
-        object-fit: cover;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.5);
-        border: 1px solid rgba(255,255,255,0.25);
-        background: rgba(255,255,255,0.05);
+      
+      .uvf-title-text { 
+        display: flex; 
+        flex-direction: column;
+        min-width: 0; /* Allow shrinking */
+        flex: 1;
       }
-      .uvf-title-text { display: flex; flex-direction: column; }
+      
       .uvf-video-title {
         color: var(--uvf-text-primary);
-        font-size: 18px;
+        font-size: clamp(14px, 2.5vw, 18px); /* Responsive font size */
         font-weight: 600;
         text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+        cursor: pointer;
+        transition: color 0.3s ease;
+        position: relative;
+      }
+      
+      .uvf-video-title:hover {
+        color: var(--uvf-accent-1, #ff0000);
       }
       
       .uvf-video-subtitle {
         color: var(--uvf-text-secondary);
-        font-size: 13px;
-        margin-top: 4px;
-        max-width: min(70vw, 900px);
+        font-size: clamp(11px, 1.8vw, 13px); /* Responsive font size */
+        margin-top: 2px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        max-width: 100%;
+        opacity: 0.9;
+        line-height: 1.4;
+        cursor: pointer;
+        transition: opacity 0.3s ease;
+        position: relative;
+      }
+      
+      .uvf-video-subtitle:hover {
+        opacity: 1;
+      }
+      
+      /* Tooltip for long text */
+      .uvf-text-tooltip {
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        line-height: 1.4;
+        max-width: 400px;
+        word-wrap: break-word;
+        white-space: normal;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-5px);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      }
+      
+      .uvf-text-tooltip::before {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 12px;
+        border: 5px solid transparent;
+        border-top-color: rgba(0, 0, 0, 0.9);
+      }
+      
+      .uvf-text-tooltip.show {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+      }
+      
+      /* Multi-line title option for desktop */
+      .uvf-video-title.multiline {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        line-height: 1.2;
+        max-height: 2.4em;
+      }
+      
+      .uvf-video-subtitle.multiline {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        line-height: 1.3;
+        max-height: 3.9em;
       }
       
                 /* Above seekbar section with time and branding */
@@ -3778,7 +4056,21 @@ export class WebPlayer extends BasePlayer {
                     }
                 }
                 
+                /* Ultra small screens */
                 @media (max-width: 480px) {
+                    .uvf-video-title {
+                        font-size: clamp(11px, 3.5vw, 14px) !important;
+                    }
+                    
+                    .uvf-video-subtitle {
+                        font-size: clamp(9px, 2.5vw, 11px) !important;
+                        -webkit-line-clamp: 1; /* Single line on very small screens */
+                    }
+                    
+                    .uvf-left-side {
+                        max-width: 80%;
+                    }
+                    
                     .uvf-above-seekbar-section {
                         margin-bottom: 5px;
                     }
@@ -3810,66 +4102,19 @@ export class WebPlayer extends BasePlayer {
           height: 16px;
         }
       }
-      
-      /* Top Controls */
-      .uvf-top-controls {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        z-index: 10;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        opacity: 0;
-        transform: translateY(-10px);
-        transition: all 0.3s ease;
-      }
-      
-      .uvf-player-wrapper:hover .uvf-top-controls,
-      .uvf-player-wrapper.controls-visible .uvf-top-controls,
-      .uvf-player-wrapper.uvf-casting .uvf-top-controls {
-        opacity: 1;
-        transform: translateY(0);
-      }
-      
-      .uvf-top-btn {
-        width: 40px;
-        height: 40px;
-        background: rgba(255,255,255,0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
-      }
-      
-      .uvf-top-btn:hover {
-        background: rgba(255,255,255,0.2);
-        transform: scale(1.1);
-        box-shadow: 0 0 20px rgba(255,255,255,0.3);
-      }
 
-      .uvf-top-btn.cast-grey {
+
+      /* Cast button grey state when casting */
+      .uvf-control-btn.cast-grey {
         opacity: 0.6;
         filter: grayscale(0.6);
-        box-shadow: none;
-        background: rgba(255,255,255,0.08);
-      }
-      .uvf-top-btn.cast-grey:hover {
-        transform: none;
-        background: rgba(255,255,255,0.12);
-        box-shadow: none;
       }
       
-      .uvf-top-btn svg {
-        width: 20px;
-        height: 20px;
-        fill: var(--uvf-icon-color);
+      .uvf-control-btn.cast-grey:hover {
+        transform: none;
+        opacity: 0.7;
       }
-
+      
       /* Pill-style button for prominent actions */
       .uvf-pill-btn {
         display: inline-flex;
@@ -4056,9 +4301,8 @@ export class WebPlayer extends BasePlayer {
         100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
       }
       
-      /* Hide top elements with controls */
-      .uvf-player-wrapper.no-cursor .uvf-title-bar,
-      .uvf-player-wrapper.no-cursor .uvf-top-controls {
+      /* Hide top bar when no cursor */
+      .uvf-player-wrapper.no-cursor .uvf-top-bar {
         opacity: 0 !important;
         transform: translateY(-10px) !important;
         pointer-events: none;
@@ -4115,18 +4359,6 @@ export class WebPlayer extends BasePlayer {
           height: 24px;
         }
         
-        .uvf-player-wrapper.uvf-fullscreen .uvf-top-btn {
-          width: 40px;
-          height: 40px;
-          min-width: 40px;
-          min-height: 40px;
-        }
-        
-        .uvf-player-wrapper.uvf-fullscreen .uvf-top-btn svg {
-          width: 20px;
-          height: 20px;
-        }
-        
         .uvf-player-wrapper.uvf-fullscreen .uvf-time-display {
           font-size: 14px;
           padding: 0 10px;
@@ -4143,8 +4375,7 @@ export class WebPlayer extends BasePlayer {
         }
         
         /* Ensure overlays remain visible in fullscreen with consistent spacing */
-        .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar,
-        .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls,
+        .uvf-player-wrapper.uvf-fullscreen .uvf-top-bar,
         .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar,
         .uvf-player-wrapper.uvf-fullscreen .uvf-top-gradient,
         .uvf-player-wrapper.uvf-fullscreen .uvf-controls-gradient {
@@ -4159,21 +4390,13 @@ export class WebPlayer extends BasePlayer {
           gap: 15px; /* Consistent gap in fullscreen */
         }
         
-        .uvf-player-wrapper.uvf-fullscreen .uvf-title-bar {
+        .uvf-player-wrapper.uvf-fullscreen .uvf-top-bar {
           padding: 20px 30px;
         }
         
-        .uvf-player-wrapper.uvf-fullscreen .uvf-top-controls {
-          top: 20px;
-          right: 30px;
-          gap: 10px;
-        }
-        
         /* Fullscreen hover and visibility states */
-        .uvf-player-wrapper.uvf-fullscreen:hover .uvf-title-bar,
-        .uvf-player-wrapper.uvf-fullscreen:hover .uvf-top-controls,
-        .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-title-bar,
-        .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-top-controls {
+        .uvf-player-wrapper.uvf-fullscreen:hover .uvf-top-bar,
+        .uvf-player-wrapper.uvf-fullscreen.controls-visible .uvf-top-bar {
           opacity: 1;
           transform: translateY(0);
         }
@@ -4197,13 +4420,31 @@ export class WebPlayer extends BasePlayer {
       
       /* Modern browsers with dynamic viewport support */
       @supports (height: 100dvh) {
-        .uvf-player-wrapper,
-        .uvf-video-container {
-          height: 100dvh;
+        /* Mobile devices - use dvh for dynamic viewport */
+        @media screen and (max-width: 767px) {
+          .uvf-player-wrapper,
+          .uvf-video-container,
+          .uvf-responsive-container {
+            height: 100dvh !important;
+            min-height: 100dvh !important;
+          }
+          
+          /* Ensure controls stay visible with dvh */
+          .uvf-controls-bar {
+            bottom: env(safe-area-inset-bottom, 0px);
+          }
         }
         
-        .uvf-responsive-container {
-          height: 100dvh;
+        /* Desktop - standard height */
+        @media screen and (min-width: 768px) {
+          .uvf-player-wrapper,
+          .uvf-video-container {
+            height: 100dvh;
+          }
+          
+          .uvf-responsive-container {
+            height: 100dvh;
+          }
         }
       }
       
@@ -4217,556 +4458,69 @@ export class WebPlayer extends BasePlayer {
       }
       
       
-      /* Enhanced Responsive Media Queries with UX Best Practices */
-      /* Mobile devices (portrait) - Material You Design (25-50-25 Layout) */
+      /* Mobile responsive styles for navigation buttons */
+      @media screen and (max-width: 767px) {
+        .uvf-nav-btn {
+          width: 36px;
+          height: 36px;
+          min-width: 36px;
+          min-height: 36px;
+        }
+        
+        .uvf-nav-btn svg {
+          width: 18px;
+          height: 18px;
+        }
+        
+        .uvf-navigation-controls {
+          gap: 6px;
+        }
+        
+        .uvf-left-side {
+          gap: 8px;
+          max-width: 75%;
+        }
+        
+        /* Mobile title adjustments */
+        .uvf-video-title {
+          font-size: clamp(12px, 3vw, 16px) !important;
+          line-height: 1.2;
+        }
+        
+        .uvf-video-subtitle {
+          font-size: clamp(10px, 2.2vw, 12px) !important;
+          margin-top: 1px;
+          /* Allow wrapping on mobile if needed */
+          white-space: normal;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      }
+      
+      /* Mobile portrait - hide skip buttons, ensure top bar visible */
       @media screen and (max-width: 767px) and (orientation: portrait) {
-        .uvf-responsive-container {
-          padding: 0;
-          width: 100vw !important;
-          height: 100vh;
-          height: 100dvh;
-          margin: 0;
-          position: fixed;
-          top: 0;
-          left: 0;
-          overflow: hidden;
-        }
-        
-        .uvf-responsive-container .uvf-player-wrapper {
-          width: 100vw !important;
-          height: 100vh;
-          height: 100dvh;
-          position: fixed;
-          top: 0;
-          left: 0;
-          display: flex;
-          flex-direction: column;
-          background: #000;
-          overflow: hidden;
-        }
-        
-        /* Video container occupies middle 50% with all UI elements */
-        .uvf-responsive-container .uvf-video-container {
-          height: 50vh;
-          height: 50dvh;
-          width: 100vw;
-          position: absolute;
-          top: 25vh;
-          top: 25dvh;
-          left: 0;
-          aspect-ratio: unset !important;
-          background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 100%);
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
-                      0 4px 16px rgba(0, 0, 0, 0.3),
-                      0 2px 8px rgba(0, 0, 0, 0.2);
-        }
-        
-        .uvf-video {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-        }
-        
-        /* Top black section (25%) - Tap zone */
-        .uvf-player-wrapper::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 25vh;
-          height: 25dvh;
-          background: #000;
-          z-index: 1;
-          pointer-events: all;
-          touch-action: manipulation;
-        }
-        
-        /* Bottom black section (25%) - Controls area */
-        .uvf-player-wrapper::after {
-          content: '';
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          width: 100vw;
-          height: 25vh;
-          height: 25dvh;
-          background: linear-gradient(to top, 
-            #000 0%, 
-            rgba(0, 0, 0, 0.98) 20%,
-            rgba(0, 0, 0, 0.95) 100%);
-          z-index: 1;
-          pointer-events: none;
-        }
-        
-        /* Material surface container for controls - positioned in middle 50% area */
-        .uvf-responsive-container .uvf-video-container .uvf-controls-bar {
-          position: absolute;
-          bottom: 12px;
-          padding: 0px 10px;
-          background: transparent;
-          z-index: 10;
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-end;
-          pointer-events: auto !important; /* Allow clicking on controls */
-        }
-
-        .uvf-responsive-container .uvf-video-container .uvf-controls-bar::before {
-          content: '';
-          position: absolute;
-          inset: 0; /* stretch to cover the controls-bar */
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          pointer-events: auto !important; /* Allow clicking on controls */
-
-          /* Gradient mask */
-          -webkit-mask-image: linear-gradient(to top, black 50%, transparent 100%);
-          mask-image: linear-gradient(to top, black 50%, transparent 100%);
-          -webkit-mask-size: 100% 100%;
-          mask-size: 100% 100%;
-          -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-
-          z-index: -1; /* sit behind the content of the controls bar */
-        }
-        
-        /* Make sure child elements are also clickable */
-        .uvf-controls-bar > * {
-          pointer-events: auto !important;
-        }
-
-        
-        /* Material surface tint overlay */
-        .uvf-controls-bar::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: var(--uvf-surface-tint, rgba(0, 0, 0, 0.08));
-          pointer-events: none;
-          z-index: -1;
-        }
-        
-        /* Progress bar with chapter markers */
-        .uvf-progress-section {
-          margin-bottom: 12px;
-          position: relative;
-        }
-        
-        .uvf-progress-bar-wrapper {
-          padding: 12px 0;
-          position: relative;
-        }
-        
-        .uvf-progress-bar {
-          height: 4px;
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 4px;
-          position: relative;
-          overflow: visible;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-        
-        .uvf-progress-filled {
-          background: var(--uvf-accent-1, #ff0000);
-          box-shadow: 0 0 8px var(--uvf-accent-1, #ff0000);
-        }
-        
-        .uvf-progress-handle {
-          width: 20px;
-          height: 20px;
-          background: var(--uvf-accent-1, #ff0000);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3),
-                      0 0 0 0 var(--uvf-accent-1, #ff0000);
-          transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .uvf-progress-handle:active {
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4),
-                      0 0 0 12px rgba(255, 0, 0, 0.15);
-          transform: translate(-50%, -50%) scale(1.2);
-        }
-        
-        /* Material Design control buttons */
-        .uvf-control-btn {
-          width: 48px;
-          height: 48px;
-          min-width: 48px;
-          min-height: 48px;
-          background: rgba(255, 255, 255, 0.12);
-          border-radius: 24px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12),
-                      0 1px 2px rgba(0, 0, 0, 0.24);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          position: relative;
-          overflow: hidden;
-        }
-        
-        /* Material ripple effect */
-        .uvf-control-btn::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: inherit;
-          opacity: 0;
-          transition: opacity 0.2s ease;
-        }
-        
-        .uvf-control-btn:active::before {
-          opacity: 1;
-        }
-        
-        .uvf-control-btn:active {
-          box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16),
-                      0 3px 6px rgba(0, 0, 0, 0.23);
-          transform: scale(0.95);
-        }
-        
-        .uvf-control-btn.play-pause {
-          width: 56px;
-          height: 56px;
-          min-width: 56px;
-          min-height: 56px;
-          border-radius: 28px;
-          background: linear-gradient(135deg, 
-            var(--uvf-accent-1, #ff0000), 
-            var(--uvf-accent-2, #ff4d4f));
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2),
-                      0 2px 4px rgba(0, 0, 0, 0.15),
-                      0 0 0 0 var(--uvf-accent-1, #ff0000);
-        }
-        
-        .uvf-control-btn.play-pause:active {
-          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25),
-                      0 4px 8px rgba(0, 0, 0, 0.20),
-                      0 0 0 8px rgba(255, 0, 0, 0.12);
-        }
-        
-        .uvf-control-btn svg {
-          width: 20px;
-          height: 20px;
-        }
-        
-        .uvf-control-btn.play-pause svg {
-          width: 24px;
-          height: 24px;
-        }
-        
-        /* Controls row with Material spacing */
-        .uvf-controls-row {
-          gap: 16px;
-          padding: 0;
-          align-items: center;
-        }
-        
-        /* Time display positioned bottom-left above seekbar */
-        .uvf-time-display {
-          background: rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(8px);
-          border-radius: 16px;
-          padding: 6px 12px;
-          font-size: 13px;
-          font-weight: 500;
-          font-feature-settings: 'tnum';
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-        }
-        
-        /* Framework branding positioned bottom-right above seekbar */
-        .uvf-video-container .uvf-framework-branding {
-          position: absolute !important;
-          bottom: 80px !important;
-          right: 16px !important;
-          z-index: 10 !important;
-          opacity: 0.8 !important;
-        }
-        
-        /* Adjust above-seekbar section to align time and branding */
-        .uvf-above-seekbar-section {
-          display: flex !important;
-          justify-content: space-between !important;
-          align-items: center !important;
-          width: 100% !important;
-          margin-bottom: 8px !important;
-        }
-        
-        /* Hide desktop volume control and skip buttons */
-        .uvf-volume-control,
         #uvf-skip-back,
         #uvf-skip-forward {
           display: none !important;
         }
         
-        /* Title bar positioned in top-left of middle 50% video area */
-        .uvf-video-container .uvf-title-bar,
-        .uvf-responsive-container .uvf-video-container .uvf-title-bar {
+        /* Ensure top bar and controls are visible */
+        .uvf-top-bar {
           display: flex !important;
-          position: absolute !important;
-          top: 12px !important;
-          left: 16px !important;
-          right: auto !important;
-          width: auto !important;
-          max-width: 50% !important;
-          height: auto !important;
-          padding: 0 !important;
-          background: transparent !important;
           z-index: 10 !important;
-          opacity: 0 !important;
-          transform: translateY(-10px) !important;
-          transition: opacity 0.3s ease, transform 0.3s ease !important;
-          flex-direction: column !important;
-          justify-content: flex-start !important;
-          align-items: flex-start !important;
         }
         
-        /* Show title bar when controls are visible or on hover */
-        .uvf-player-wrapper:hover .uvf-title-bar,
-        .uvf-player-wrapper.controls-visible .uvf-title-bar {
+        .uvf-top-controls {
+          display: flex !important;
+        }
+        
+        /* Show top bar when controls are visible or on hover */
+        .uvf-player-wrapper:hover .uvf-top-bar,
+        .uvf-player-wrapper.controls-visible .uvf-top-bar {
           opacity: 1 !important;
           transform: translateY(0) !important;
-        }
-        
-        /* Hide title bar when controls are hidden (no-cursor class) */
-        .uvf-player-wrapper.no-cursor .uvf-title-bar {
-          opacity: 0 !important;
-          transform: translateY(-10px) !important;
-          pointer-events: none !important;
-        }
-        
-        /* Title content layout */
-        .uvf-title-bar .uvf-title-content {
-          display: flex !important;
-          align-items: flex-start !important;
-          gap: 12px !important;
-          width: 100% !important;
-        }
-        
-        /* Video thumbnail/logo */
-        .uvf-title-bar .uvf-video-thumb {
-          width: 48px !important;
-          height: 48px !important;
-          border-radius: 12px !important;
-          object-fit: cover !important;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-          flex-shrink: 0 !important;
-        }
-        
-        /* Title and subtitle text */
-        .uvf-title-bar .uvf-title-text {
-          flex: 1 !important;
-          min-width: 0 !important;
-        }
-        
-        .uvf-title-bar .uvf-video-title {
-          display: block !important;
-          font-size: 16px !important;
-          font-weight: 600 !important;
-          color: #fff !important;
-          margin-bottom: 4px !important;
-          line-height: 1.3 !important;
-          overflow: hidden !important;
-          text-overflow: ellipsis !important;
-          display: -webkit-box !important;
-          -webkit-line-clamp: 2 !important;
-          -webkit-box-orient: vertical !important;
-          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
-        }
-        
-        .uvf-title-bar .uvf-video-subtitle {
-          display: block !important;
-          font-size: 13px !important;
-          font-weight: 400 !important;
-          color: rgba(255, 255, 255, 0.8) !important;
-          line-height: 1.3 !important;
-          overflow: hidden !important;
-          text-overflow: ellipsis !important;
-          display: -webkit-box !important;
-          -webkit-line-clamp: 1 !important;
-          -webkit-box-orient: vertical !important;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
-        }
-        
-        /* Top controls positioned in top-right of middle 50% video area */
-        .uvf-video-container .uvf-top-controls,
-        .uvf-responsive-container .uvf-video-container .uvf-top-controls {
-          display: flex !important;
-          position: absolute !important;
-          top: 12px !important;
-          right: 16px !important;
-          width: auto !important;
-          height: auto !important;
-          padding: 0 !important;
-          background: transparent !important;
-          z-index: 10 !important;
-          opacity: 0 !important;
-          transform: translateY(-10px) !important;
-          transition: opacity 0.3s ease, transform 0.3s ease !important;
-          gap: 12px !important;
-          align-items: flex-start !important;
-          justify-content: flex-end !important;
-          flex-direction: row !important;
-        }
-        
-        /* Show top controls when controls are visible, on hover, or when casting */
-        .uvf-player-wrapper:hover .uvf-top-controls,
-        .uvf-player-wrapper.controls-visible .uvf-top-controls,
-        .uvf-player-wrapper.uvf-casting .uvf-top-controls {
-          opacity: 1 !important;
-          transform: translateY(0) !important;
-        }
-        
-        /* Hide top controls when controls are hidden (no-cursor class) */
-        /* Exception: Keep visible when casting */
-        .uvf-player-wrapper.no-cursor:not(.uvf-casting) .uvf-top-controls {
-          opacity: 0 !important;
-          transform: translateY(-10px) !important;
-          pointer-events: none !important;
-        }
-        
-        /* Material You top buttons (cast & share) */
-        .uvf-top-controls .uvf-top-btn {
-          width: 48px !important;
-          height: 48px !important;
-          min-width: 48px !important;
-          min-height: 48px !important;
-          background: rgba(0, 0, 0, 0.5) !important;
-          backdrop-filter: blur(16px) !important;
-          -webkit-backdrop-filter: blur(16px) !important;
-          border: 1px solid rgba(255, 255, 255, 0.15) !important;
-          border-radius: 24px !important;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3),
-                      0 1px 3px rgba(0, 0, 0, 0.2) !important;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-        
-        .uvf-top-controls .uvf-top-btn:active {
-          transform: scale(0.95) !important;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4),
-                      0 2px 6px rgba(0, 0, 0, 0.3) !important;
-          background: rgba(0, 0, 0, 0.7) !important;
-        }
-        
-        .uvf-top-controls .uvf-top-btn svg {
-          width: 22px !important;
-          height: 22px !important;
-          fill: #fff !important;
-          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)) !important;
-        }
-        
-        /* Stop cast button styling */
-        .uvf-top-controls .uvf-pill-btn {
-          height: 48px !important;
-          padding: 0 16px !important;
-          border-radius: 24px !important;
-          background: rgba(255, 77, 79, 0.95) !important;
-          backdrop-filter: blur(16px) !important;
-          border: 1px solid rgba(255, 77, 79, 0.3) !important;
-          box-shadow: 0 2px 8px rgba(255, 77, 79, 0.4),
-                      0 1px 3px rgba(0, 0, 0, 0.3) !important;
-        }
-        
-        .uvf-top-controls .uvf-pill-btn svg {
-          width: 20px !important;
-          height: 20px !important;
-        }
-        
-        .uvf-top-controls .uvf-pill-btn span {
-          font-size: 14px !important;
-          font-weight: 500 !important;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
-        }
-        
-        /* Optimize settings button for Material You */
-        #uvf-settings-btn {
-          width: 48px !important;
-          height: 48px !important;
-          min-width: 48px !important;
-          min-height: 48px !important;
-          border-radius: 24px !important;
-        }
-        
-        /* Fullscreen on mobile portrait - maintain Material You layout */
-        .uvf-player-wrapper.uvf-fullscreen,
-        .uvf-responsive-container .uvf-player-wrapper.uvf-fullscreen {
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100vw !important;
-          height: 100vh !important;
-          height: 100dvh !important;
-          z-index: 2147483647 !important;
-          display: flex !important;
-          flex-direction: column !important;
-          background: #000 !important;
-        }
-        
-        /* Video container in fullscreen - keep 50% middle */
-        .uvf-player-wrapper.uvf-fullscreen .uvf-video-container,
-        .uvf-responsive-container .uvf-player-wrapper.uvf-fullscreen .uvf-video-container {
-          height: 50vh !important;
-          height: 50dvh !important;
-          width: 100vw !important;
-          margin-top: 25vh !important;
-          margin-top: 25dvh !important;
-          position: relative !important;
-        }
-        
-        /* Top and bottom black sections in fullscreen */
-        .uvf-player-wrapper.uvf-fullscreen::before {
-          height: 25vh !important;
-          height: 25dvh !important;
-        }
-        
-        .uvf-player-wrapper.uvf-fullscreen::after {
-          height: 25vh !important;
-          height: 25dvh !important;
-        }
-        
-        /* Controls stay in bottom 25% in fullscreen */
-        .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar,
-        .uvf-responsive-container .uvf-player-wrapper.uvf-fullscreen .uvf-controls-bar {
-          position: absolute !important;
-          bottom: 0 !important;
-          max-height: 25vh !important;
-          max-height: 25dvh !important;
-          padding: 16px 20px !important;
-          padding-bottom: calc(16px + var(--uvf-safe-area-bottom, 0px)) !important;
-        }
-      }
-        }
-        
-        #uvf-settings-btn svg {
-          width: 20px !important;
-          height: 20px !important;
-          fill: var(--uvf-icon-color) !important;
-        }
-        
-        /* Hide skip buttons on small mobile devices to save space */
-        @media screen and (max-width: 480px) {
-          #uvf-skip-back,
-          #uvf-skip-forward {
-            display: none;
-          }
-        }
-        
-        /* Ensure all controls remain visible and functional */
-        .uvf-controls-row > * {
-          flex-shrink: 0;
-        }
-        
-        /* Loading spinner optimization for mobile */
-        .uvf-loading-spinner {
-          width: 48px;
-          height: 48px;
-          border-width: 4px;
-        }
-        
-        /* Mobile shortcut indicators */
-        .uvf-shortcut-indicator {
-          font-size: 20px;
-          padding: 16px 24px;
-          border-radius: 12px;
-          max-width: 280px;
         }
       }
       
@@ -4854,38 +4608,20 @@ export class WebPlayer extends BasePlayer {
           height: 22px;
         }
         
-        /* Compact top controls with safe area padding */
-        .uvf-top-controls,
-        .uvf-video-container .uvf-top-controls,
-        .uvf-responsive-container .uvf-video-container .uvf-top-controls {
-          position: absolute !important;
-          top: calc(8px + var(--uvf-safe-area-top)) !important;
-          right: calc(12px + var(--uvf-safe-area-right)) !important;
-          left: auto !important;
+        /* Top bar for landscape - compact padding */
+        .uvf-top-bar,
+        .uvf-video-container .uvf-top-bar,
+        .uvf-responsive-container .uvf-video-container .uvf-top-bar {
+          padding: 8px 12px !important;
+          padding-top: calc(8px + var(--uvf-safe-area-top)) !important;
+          padding-left: calc(12px + var(--uvf-safe-area-left)) !important;
+          padding-right: calc(12px + var(--uvf-safe-area-right)) !important;
           gap: 6px !important;
         }
         
-        .uvf-title-bar {
-          padding: 8px 12px;
-          padding-top: calc(8px + var(--uvf-safe-area-top));
-          padding-left: calc(12px + var(--uvf-safe-area-left));
-          padding-right: calc(12px + var(--uvf-safe-area-right));
-        }
-        
-        .uvf-top-btn {
-          width: 40px;
-          height: 40px;
-          min-width: 40px;
-          min-height: 40px;
-        }
-        
-        .uvf-top-btn svg {
-          width: 18px;
-          height: 18px;
-        }
-        
-        .uvf-title-bar {
-          padding: 8px 12px;
+        /* Title bar within top bar - landscape */
+        .uvf-top-bar .uvf-title-bar {
+          padding: 0;
         }
         
         .uvf-video-title {
@@ -4916,10 +4652,45 @@ export class WebPlayer extends BasePlayer {
           width: 16px;
           height: 16px;
         }
+        
+        /* Top bar in fullscreen landscape */
+        .uvf-player-wrapper.uvf-fullscreen .uvf-top-bar,
+        .uvf-player-wrapper.uvf-fullscreen .uvf-video-container .uvf-top-bar,
+        .uvf-responsive-container .uvf-player-wrapper.uvf-fullscreen .uvf-top-bar,
+        .uvf-responsive-container .uvf-player-wrapper.uvf-fullscreen .uvf-video-container .uvf-top-bar {
+          display: flex !important;
+        }
       }
+      }
+
       
       /* Tablet devices - Enhanced UX with desktop features */
       @media screen and (min-width: 768px) and (max-width: 1023px) {
+        /* Tablet navigation and title adjustments */
+        .uvf-nav-btn {
+          width: 38px;
+          height: 38px;
+          min-width: 38px;
+          min-height: 38px;
+        }
+        
+        .uvf-nav-btn svg {
+          width: 19px;
+          height: 19px;
+        }
+        
+        .uvf-left-side {
+          max-width: 70%;
+        }
+        
+        .uvf-video-title {
+          font-size: clamp(15px, 2.2vw, 17px) !important;
+        }
+        
+        .uvf-video-subtitle {
+          font-size: clamp(12px, 1.8vw, 13px) !important;
+        }
+        
         .uvf-controls-bar {
           padding: 18px 16px;
           background: linear-gradient(to top, var(--uvf-overlay-strong) 0%, var(--uvf-overlay-medium) 70%, var(--uvf-overlay-transparent) 100%);
@@ -4958,27 +4729,10 @@ export class WebPlayer extends BasePlayer {
           height: 23px;
         }
         
-        /* Tablet top controls */
-        .uvf-top-btn {
-          width: 42px;
-          height: 42px;
-          min-width: 42px;
-          min-height: 42px;
-        }
-        
-        .uvf-top-btn svg {
-          width: 19px;
-          height: 19px;
-        }
-        
-        .uvf-top-controls {
-          top: 16px;
-          right: 16px;
-          gap: 8px;
-        }
-        
-        .uvf-title-bar {
+        /* Top bar for tablet */
+        .uvf-top-bar {
           padding: 16px;
+          gap: 12px;
         }
         
         .uvf-video-title {
@@ -5113,35 +4867,10 @@ export class WebPlayer extends BasePlayer {
           height: 24px;
         }
         
-        /* Enhanced top controls */
-        .uvf-top-btn {
-          width: 40px;
-          height: 40px;
-          transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
-        }
-        
-        .uvf-top-btn:hover {
-          transform: scale(1.1);
-          background: var(--uvf-overlay-medium);
-        }
-        
-        .uvf-top-btn svg {
-          width: 20px;
-          height: 20px;
-        }
-        
-        .uvf-top-controls {
-          position: absolute;
-          top: 20px;
-          right: 20px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          z-index: 10;
-        }
-        
-        .uvf-title-bar {
+        /* Top bar for desktop 1024px+ */
+        .uvf-top-bar {
           padding: 20px;
+          gap: 20px;
         }
         
         .uvf-video-title {
@@ -5257,16 +4986,6 @@ export class WebPlayer extends BasePlayer {
           height: 28px;
         }
         
-        .uvf-top-btn {
-          width: 44px;
-          height: 44px;
-        }
-        
-        .uvf-top-btn svg {
-          width: 22px;
-          height: 22px;
-        }
-        
         .uvf-center-play-btn {
           width: clamp(64px, 10vw, 76px);
           height: clamp(64px, 10vw, 76px);
@@ -5307,8 +5026,7 @@ export class WebPlayer extends BasePlayer {
       /* High-DPI display optimizations */
       @media screen and (-webkit-min-device-pixel-ratio: 2), 
              screen and (min-resolution: 192dpi) {
-        .uvf-control-btn,
-        .uvf-top-btn {
+        .uvf-control-btn {
           image-rendering: -webkit-optimize-contrast;
           image-rendering: crisp-edges;
         }
@@ -5325,7 +5043,6 @@ export class WebPlayer extends BasePlayer {
       /* Reduced motion accessibility */
       @media (prefers-reduced-motion: reduce) {
         .uvf-control-btn,
-        .uvf-top-btn,
         .uvf-center-play-btn,
         .uvf-progress-handle,
         .uvf-volume-slider,
@@ -5334,7 +5051,6 @@ export class WebPlayer extends BasePlayer {
         }
         
         .uvf-control-btn:hover,
-        .uvf-top-btn:hover,
         .uvf-center-play-btn:hover {
           transform: none !important;
         }
@@ -5357,11 +5073,7 @@ export class WebPlayer extends BasePlayer {
         .uvf-control-btn {
           min-width: 44px;
           min-height: 44px;
-        }
-        
-        .uvf-top-btn {
-          min-width: 44px;
-          min-height: 44px;
+          border-radius: 50%
         }
         
         .uvf-progress-bar {
@@ -5382,16 +5094,10 @@ export class WebPlayer extends BasePlayer {
           background: var(--uvf-overlay-medium);
           transform: scale(0.95);
         }
-        
-        .uvf-top-btn:active {
-          background: var(--uvf-overlay-medium);
-          transform: scale(0.95);
-        }
       }
       
       /* Keyboard navigation and accessibility */
       .uvf-control-btn:focus-visible,
-      .uvf-top-btn:focus-visible,
       .uvf-center-play-btn:focus-visible {
         outline: 2px solid var(--uvf-primary-color, #007bff);
         outline-offset: 2px;
@@ -5429,8 +5135,7 @@ export class WebPlayer extends BasePlayer {
       
       /* High contrast mode support */
       @media (prefers-contrast: high) {
-        .uvf-control-btn,
-        .uvf-top-btn {
+        .uvf-control-btn {
           border: 1px solid;
         }
         
@@ -5518,6 +5223,40 @@ export class WebPlayer extends BasePlayer {
         }
       }
       
+      /* Desktop styles for title and navigation */
+      @media screen and (min-width: 1024px) {
+        .uvf-left-side {
+          max-width: 65%; /* More space for title on desktop */
+        }
+        
+        .uvf-video-title {
+          font-size: clamp(16px, 1.8vw, 20px) !important;
+          font-weight: 700; /* Bolder on desktop */
+        }
+        
+        .uvf-video-subtitle {
+          font-size: clamp(13px, 1.4vw, 15px) !important;
+          margin-top: 3px;
+        }
+        
+        /* Allow hover effects on desktop */
+        .uvf-title-bar:hover .uvf-video-title {
+          color: var(--uvf-accent-1, #ff0000);
+          transition: color 0.3s ease;
+        }
+      }
+      
+      /* Ultra-wide screens */
+      @media screen and (min-width: 1440px) {
+        .uvf-video-title {
+          font-size: clamp(18px, 1.6vw, 22px) !important;
+        }
+        
+        .uvf-video-subtitle {
+          font-size: clamp(14px, 1.2vw, 16px) !important;
+        }
+      }
+      
       /* Paywall Desktop */
       @media screen and (min-width: 1024px) {
         .uvf-paywall-modal {
@@ -5593,6 +5332,132 @@ export class WebPlayer extends BasePlayer {
         this.debugLog('Framework branding added');
     }
 
+  /**
+   * Create navigation buttons (back/close) based on configuration
+   */
+  private createNavigationButtons(container: HTMLElement): void {
+    const navigationConfig = (this.config as any).navigation;
+    if (!navigationConfig) return;
+
+    const { backButton, closeButton } = navigationConfig;
+
+    // Back button
+    if (backButton?.enabled) {
+      const backBtn = document.createElement('button');
+      backBtn.className = 'uvf-control-btn uvf-nav-btn';
+      backBtn.id = 'uvf-back-btn';
+      backBtn.title = backButton.title || 'Back';
+      backBtn.setAttribute('aria-label', backButton.ariaLabel || 'Go back');
+      
+      // Get icon based on config
+      const backIcon = this.getNavigationIcon(backButton.icon || 'arrow', backButton.customIcon);
+      backBtn.innerHTML = backIcon;
+      
+      // Add click handler
+      backBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (backButton.onClick) {
+          await backButton.onClick();
+        } else if (backButton.href) {
+          if (backButton.replace) {
+            window.history.replaceState(null, '', backButton.href);
+          } else {
+            window.location.href = backButton.href;
+          }
+        } else {
+          // Default: go back in history
+          window.history.back();
+        }
+        
+        this.emit('navigationBackClicked');
+      });
+      
+      container.appendChild(backBtn);
+    }
+
+    // Close button
+    if (closeButton?.enabled) {
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'uvf-control-btn uvf-nav-btn';
+      closeBtn.id = 'uvf-close-btn';
+      closeBtn.title = closeButton.title || 'Close';
+      closeBtn.setAttribute('aria-label', closeButton.ariaLabel || 'Close player');
+      
+      // Get icon based on config
+      const closeIcon = this.getNavigationIcon(closeButton.icon || 'x', closeButton.customIcon);
+      closeBtn.innerHTML = closeIcon;
+      
+      // Add click handler
+      closeBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (closeButton.onClick) {
+          await closeButton.onClick();
+        } else {
+          // Default behaviors
+          if (closeButton.exitFullscreen && this.isFullscreen()) {
+            await this.exitFullscreen();
+          }
+          
+          if (closeButton.closeModal) {
+            // Hide player or remove from DOM
+            const playerWrapper = this.container?.querySelector('.uvf-player-wrapper') as HTMLElement;
+            if (playerWrapper) {
+              playerWrapper.style.display = 'none';
+            }
+          }
+        }
+        
+        this.emit('navigationCloseClicked');
+      });
+      
+      container.appendChild(closeBtn);
+    }
+  }
+
+  /**
+   * Get navigation icon SVG based on type
+   */
+  private getNavigationIcon(iconType: string, customIcon?: string): string {
+    if (customIcon) {
+      // If it's a URL, create img tag, otherwise assume it's SVG
+      if (customIcon.startsWith('http') || customIcon.includes('.')) {
+        return `<img src="${customIcon}" alt="" style="width: 20px; height: 20px;" />`;
+      }
+      return customIcon;
+    }
+
+    switch (iconType) {
+      case 'arrow':
+        return `<svg viewBox="0 0 24 24">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z" fill="currentColor"/>
+        </svg>`;
+      
+      case 'chevron':
+        return `<svg viewBox="0 0 24 24">
+          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" fill="currentColor"/>
+        </svg>`;
+      
+      case 'x':
+        return `<svg viewBox="0 0 24 24">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/>
+        </svg>`;
+      
+      case 'close':
+        return `<svg viewBox="0 0 24 24">
+          <path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z" fill="currentColor"/>
+        </svg>`;
+      
+      default:
+        return `<svg viewBox="0 0 24 24">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z" fill="currentColor"/>
+        </svg>`;
+    }
+  }
+
   private createCustomControls(container: HTMLElement): void {
     // Add gradients
     const topGradient = document.createElement('div');
@@ -5603,42 +5468,59 @@ export class WebPlayer extends BasePlayer {
     controlsGradient.className = 'uvf-controls-gradient';
     container.appendChild(controlsGradient);
     
-    // Add title bar
+    // Combined top bar: navigation buttons → title → controls
+    const topBar = document.createElement('div');
+    topBar.className = 'uvf-top-bar';
+    
+    // Left side container for navigation + title
+    const leftSide = document.createElement('div');
+    leftSide.className = 'uvf-left-side';
+    
+    // Navigation buttons (back/close)
+    const navigationControls = document.createElement('div');
+    navigationControls.className = 'uvf-navigation-controls';
+    this.createNavigationButtons(navigationControls);
+    leftSide.appendChild(navigationControls);
+    
+    // Title bar (after navigation buttons)
     const titleBar = document.createElement('div');
     titleBar.className = 'uvf-title-bar';
     titleBar.innerHTML = `
       <div class="uvf-title-content">
-        <img class="uvf-video-thumb" id="uvf-video-thumb" alt="thumbnail" style="display:none;" />
         <div class="uvf-title-text">
           <div class=\"uvf-video-title\" id=\"uvf-video-title\" style=\"display:none;\"></div>
           <div class=\"uvf-video-subtitle\" id=\"uvf-video-description\" style=\"display:none;\"></div>
         </div>
       </div>
     `;
-    container.appendChild(titleBar);
+    leftSide.appendChild(titleBar);
     
-    // Add top controls with proper alignment
+    topBar.appendChild(leftSide);
+    
+    // Top controls (right side - Cast and Share buttons)
     const topControls = document.createElement('div');
     topControls.className = 'uvf-top-controls';
     topControls.innerHTML = `
-      <div class="uvf-top-btn" id="uvf-cast-btn" title="Cast" aria-label="Cast">
+      <button class="uvf-control-btn" id="uvf-cast-btn" title="Cast" aria-label="Cast">
         <svg viewBox="0 0 24 24">
           <path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm18-7H5v1.63c3.96 1.28 7.09 4.41 8.37 8.37H19V7zM1 10v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zm20-7H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
         </svg>
-      </div>
+      </button>
       <button class="uvf-pill-btn uvf-stop-cast-btn" id="uvf-stop-cast-btn" title="Stop Casting" aria-label="Stop Casting" style="display: none;">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M6 6h12v12H6z"/>
         </svg>
         <span>Stop Casting</span>
       </button>
-      <div class="uvf-top-btn" id="uvf-share-btn" title="Share" aria-label="Share">
+      <button class="uvf-control-btn" id="uvf-share-btn" title="Share" aria-label="Share">
         <svg viewBox="0 0 24 24">
           <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
         </svg>
-      </div>
+      </button>
     `;
-    container.appendChild(topControls);
+    topBar.appendChild(topControls);
+    
+    container.appendChild(topBar);
 
     // Add loading spinner
     const loadingContainer = document.createElement('div');
@@ -6210,6 +6092,8 @@ export class WebPlayer extends BasePlayer {
         } else {
           volumeIcon.style.display = 'block';
           muteIcon.style.display = 'none';
+          // Hide unmute button when video is unmuted
+          this.hideUnmuteButton();
         }
       }
     });
@@ -6386,6 +6270,17 @@ export class WebPlayer extends BasePlayer {
     const stopCastBtn = document.getElementById('uvf-stop-cast-btn');
     const shareBtn = document.getElementById('uvf-share-btn');
     
+    // Update cast button icon and functionality for iOS (AirPlay)
+    if (this.isIOSDevice() && castBtn) {
+      castBtn.innerHTML = `
+        <svg viewBox="0 0 24 24">
+          <path d="M1 18h6v-2H1v2zm0-4h12v-2H1v2zm16.5 4.5c-1.25 0-2.45-.5-3.35-1.41L12 18.5l2.09 2.09c1.8 1.8 4.72 1.8 6.52 0 1.8-1.8 1.8-4.72 0-6.52L12 5.5 3.39 14.11c-1.8 1.8-1.8 4.72 0 6.52.9.9 2.1 1.41 3.35 1.41l6.76-6.76M12 7.91l6.89 6.89c.78.78.78 2.05 0 2.83-.78.78-2.05.78-2.83 0L12 13.57 7.94 17.63c-.78.78-2.05.78-2.83 0-.78-.78-.78-2.05 0-2.83L12 7.91z"/>
+        </svg>
+      `;
+      castBtn.setAttribute('title', 'AirPlay');
+      castBtn.setAttribute('aria-label', 'AirPlay');
+    }
+    
     castBtn?.addEventListener('click', () => this.onCastButtonClick());
     stopCastBtn?.addEventListener('click', () => this.stopCasting());
     shareBtn?.addEventListener('click', () => this.shareVideo());
@@ -6447,11 +6342,13 @@ export class WebPlayer extends BasePlayer {
           break;
         case 'ArrowLeft':
           e.preventDefault();
+          e.stopImmediatePropagation(); // Prevent duplicate handler triggers
           this.seek(Math.max(0, this.video!.currentTime - 10));
           shortcutText = '-10s';
           break;
         case 'ArrowRight':
           e.preventDefault();
+          e.stopImmediatePropagation(); // Prevent duplicate handler triggers
           this.seek(Math.min(this.video!.duration, this.video!.currentTime + 10));
           shortcutText = '+10s';
           break;
@@ -7632,7 +7529,7 @@ export class WebPlayer extends BasePlayer {
         autoSkip: this.chapterConfig.userPreferences?.autoSkipIntro || false,
         onChapterChange: (chapter: Chapter | null) => {
           this.debugLog('Core chapter changed:', chapter?.title || 'none');
-          this.emit('chapterchange', chapter);
+          this.emit('onChapterchange', chapter);
         },
         onSegmentEntered: (segment: ChapterSegment) => {
           this.debugLog('Core segment entered:', segment.title);
@@ -8729,6 +8626,13 @@ export class WebPlayer extends BasePlayer {
   }
 
   private onCastButtonClick(): void {
+    // On iOS, use AirPlay instead of Google Cast
+    if (this.isIOSDevice()) {
+      this.showAirPlayPicker();
+      return;
+    }
+    
+    // Google Cast for non-iOS devices
     try {
       const castNs = (window as any).cast;
       if (this.isCasting && castNs && castNs.framework) {
@@ -8739,6 +8643,31 @@ export class WebPlayer extends BasePlayer {
     } catch (_) {}
     // Not casting yet
     this.initCast();
+  }
+  
+  /**
+   * Show AirPlay picker for iOS devices
+   */
+  private showAirPlayPicker(): void {
+    if (!this.video) {
+      this.showNotification('Video not ready');
+      return;
+    }
+    
+    // Check if AirPlay is supported
+    const videoElement = this.video as any;
+    if (typeof videoElement.webkitShowPlaybackTargetPicker === 'function') {
+      try {
+        videoElement.webkitShowPlaybackTargetPicker();
+        this.debugLog('AirPlay picker shown');
+      } catch (error) {
+        this.debugWarn('Failed to show AirPlay picker:', (error as Error).message);
+        this.showNotification('AirPlay not available');
+      }
+    } else {
+      this.debugWarn('AirPlay not supported on this device');
+      this.showNotification('AirPlay not supported');
+    }
   }
 
   private stopCasting(): void {
@@ -8883,6 +8812,168 @@ export class WebPlayer extends BasePlayer {
     }
   }
   
+  /**
+   * Check if text is truncated and needs tooltip
+   */
+  private isTextTruncated(element: HTMLElement): boolean {
+    return element.scrollWidth > element.offsetWidth || element.scrollHeight > element.offsetHeight;
+  }
+
+  /**
+   * Show tooltip for truncated text
+   */
+  private showTextTooltip(element: HTMLElement, text: string): void {
+    // Remove existing tooltip
+    const existingTooltip = element.querySelector('.uvf-text-tooltip');
+    if (existingTooltip) {
+      existingTooltip.remove();
+    }
+
+    // Create tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'uvf-text-tooltip';
+    tooltip.textContent = text;
+    
+    element.appendChild(tooltip);
+    
+    // Show tooltip with delay
+    setTimeout(() => {
+      tooltip.classList.add('show');
+    }, 100);
+  }
+
+  /**
+   * Hide tooltip
+   */
+  private hideTextTooltip(element: HTMLElement): void {
+    const tooltip = element.querySelector('.uvf-text-tooltip');
+    if (tooltip) {
+      tooltip.classList.remove('show');
+      setTimeout(() => {
+        if (tooltip.parentElement) {
+          tooltip.remove();
+        }
+      }, 300);
+    }
+  }
+
+  /**
+   * Setup tooltip handlers for title and description
+   */
+  private setupTextTooltips(): void {
+    const titleElement = document.getElementById('uvf-video-title');
+    const descElement = document.getElementById('uvf-video-description');
+
+    if (titleElement) {
+      titleElement.addEventListener('mouseenter', () => {
+        const titleText = (this.source?.metadata?.title || '').toString().trim();
+        if (this.isTextTruncated(titleElement) && titleText) {
+          this.showTextTooltip(titleElement, titleText);
+        }
+      });
+      
+      titleElement.addEventListener('mouseleave', () => {
+        this.hideTextTooltip(titleElement);
+      });
+      
+      // Touch support for mobile
+      titleElement.addEventListener('touchstart', () => {
+        const titleText = (this.source?.metadata?.title || '').toString().trim();
+        if (this.isTextTruncated(titleElement) && titleText) {
+          this.showTextTooltip(titleElement, titleText);
+          // Auto-hide after 3 seconds on touch
+          setTimeout(() => {
+            this.hideTextTooltip(titleElement);
+          }, 3000);
+        }
+      });
+    }
+
+    if (descElement) {
+      descElement.addEventListener('mouseenter', () => {
+        const descText = (this.source?.metadata?.description || '').toString().trim();
+        if (this.isTextTruncated(descElement) && descText) {
+          this.showTextTooltip(descElement, descText);
+        }
+      });
+      
+      descElement.addEventListener('mouseleave', () => {
+        this.hideTextTooltip(descElement);
+      });
+      
+      // Touch support for mobile
+      descElement.addEventListener('touchstart', () => {
+        const descText = (this.source?.metadata?.description || '').toString().trim();
+        if (this.isTextTruncated(descElement) && descText) {
+          this.showTextTooltip(descElement, descText);
+          // Auto-hide after 3 seconds on touch
+          setTimeout(() => {
+            this.hideTextTooltip(descElement);
+          }, 3000);
+        }
+      });
+    }
+  }
+
+  /**
+   * Smart text truncation based on word count
+   */
+  private smartTruncateText(text: string, maxWords: number = 12): { truncated: string, needsTooltip: boolean } {
+    const words = text.split(' ');
+    if (words.length <= maxWords) {
+      return { truncated: text, needsTooltip: false };
+    }
+    
+    const truncated = words.slice(0, maxWords).join(' ') + '...';
+    return { truncated, needsTooltip: true };
+  }
+
+  /**
+   * Apply smart text display based on screen size and content length
+   */
+  private applySmartTextDisplay(titleEl: HTMLElement | null, descEl: HTMLElement | null, titleText: string, descText: string): void {
+    const isDesktop = window.innerWidth >= 1024;
+    const isMobile = window.innerWidth < 768;
+    
+    if (titleEl && titleText) {
+      const wordCount = titleText.split(' ').length;
+      
+      if (isDesktop && wordCount > 8 && wordCount <= 15) {
+        // Use multiline for moderately long titles on desktop
+        titleEl.classList.add('multiline');
+        titleEl.textContent = titleText;
+      } else if (wordCount > 12) {
+        // Smart truncation for very long titles
+        const maxWords = isMobile ? 8 : isDesktop ? 12 : 10;
+        const { truncated } = this.smartTruncateText(titleText, maxWords);
+        titleEl.textContent = truncated;
+        titleEl.classList.remove('multiline');
+      } else {
+        titleEl.textContent = titleText;
+        titleEl.classList.remove('multiline');
+      }
+    }
+    
+    if (descEl && descText) {
+      const wordCount = descText.split(' ').length;
+      
+      if (isDesktop && wordCount > 15 && wordCount <= 25) {
+        // Use multiline for moderately long descriptions on desktop
+        descEl.classList.add('multiline');
+        descEl.textContent = descText;
+      } else if (wordCount > 20) {
+        // Smart truncation for very long descriptions
+        const maxWords = isMobile ? 12 : isDesktop ? 18 : 15;
+        const { truncated } = this.smartTruncateText(descText, maxWords);
+        descEl.textContent = truncated;
+        descEl.classList.remove('multiline');
+      } else {
+        descEl.textContent = descText;
+        descEl.classList.remove('multiline');
+      }
+    }
+  }
+
   private updateMetadataUI(): void {
     try {
       const md = this.source?.metadata || ({} as any);
@@ -8895,34 +8986,33 @@ export class WebPlayer extends BasePlayer {
       const descText = (md.description || '').toString().trim();
       const thumbUrl = (md.thumbnailUrl || '').toString().trim();
 
-      // Title
+      // Apply smart text display with truncation and multiline support
+      this.applySmartTextDisplay(titleEl, descEl, titleText, descText);
+
+      // Show/hide elements
       if (titleEl) {
-        titleEl.textContent = titleText;
         titleEl.style.display = titleText ? 'block' : 'none';
       }
-
-      // Description
       if (descEl) {
-        descEl.textContent = descText;
         descEl.style.display = descText ? 'block' : 'none';
       }
 
-      // Thumbnail
+      // Thumbnail (removed from layout but keeping for compatibility)
       if (thumbEl) {
-        if (thumbUrl) {
-          thumbEl.src = thumbUrl;
-          thumbEl.style.display = 'block';
-        } else {
-          thumbEl.removeAttribute('src');
-          thumbEl.style.display = 'none';
-        }
+        thumbEl.style.display = 'none'; // Always hidden in new layout
       }
 
       // Hide entire title bar if nothing to show
-      const hasAny = !!(titleText || descText || thumbUrl);
+      const hasAny = !!(titleText || descText);
       if (titleBar) {
         titleBar.style.display = hasAny ? '' : 'none';
       }
+
+      // Setup tooltips for truncated text
+      setTimeout(() => {
+        this.setupTextTooltips();
+      }, 100); // Small delay to ensure elements are rendered
+      
     } catch (_) { /* ignore */ }
   }
 

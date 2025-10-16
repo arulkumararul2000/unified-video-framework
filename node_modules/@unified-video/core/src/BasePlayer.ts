@@ -7,11 +7,11 @@ import {
   VideoSource, 
   PlayerConfig, 
   PlayerState, 
-  PlayerEvents, 
   PlayerError,
   Quality,
   SubtitleTrack 
 } from './interfaces/IVideoPlayer';
+import { PlayerEvent } from './interfaces';
 import { EventEmitter } from './utils/EventEmitter';
 
 export abstract class BasePlayer implements IVideoPlayer {
@@ -184,19 +184,19 @@ export abstract class BasePlayer implements IVideoPlayer {
   abstract enterPictureInPicture(): Promise<void>;
   abstract exitPictureInPicture(): Promise<void>;
 
-  on(event: keyof PlayerEvents, handler: Function): void {
+  on(event: string, handler: Function): void {
     this.events.on(event, handler as any);
   }
 
-  off(event: keyof PlayerEvents, handler?: Function): void {
+  off(event: string, handler?: Function): void {
     this.events.off(event, handler as any);
   }
 
-  once(event: keyof PlayerEvents, handler: Function): void {
+  once(event: string, handler: Function): void {
     this.events.once(event, handler as any);
   }
 
-  protected emit(event: keyof PlayerEvents, ...args: any[]): void {
+  protected emit(event: PlayerEvent, ...args: any[]): void {
     this.events.emit(event, ...args);
   }
 

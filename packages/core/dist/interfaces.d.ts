@@ -88,6 +88,30 @@ export interface AdaptiveBitrateConfig {
     autoLevelEnabled?: boolean;
     startLevel?: number;
 }
+export interface NavigationConfig {
+    backButton?: {
+        enabled?: boolean;
+        position?: 'top-left' | 'top-right';
+        icon?: 'arrow' | 'chevron' | 'custom';
+        customIcon?: string;
+        title?: string;
+        ariaLabel?: string;
+        onClick?: () => void | Promise<void>;
+        href?: string;
+        replace?: boolean;
+    };
+    closeButton?: {
+        enabled?: boolean;
+        position?: 'top-left' | 'top-right';
+        icon?: 'x' | 'close' | 'custom';
+        customIcon?: string;
+        title?: string;
+        ariaLabel?: string;
+        onClick?: () => void | Promise<void>;
+        exitFullscreen?: boolean;
+        closeModal?: boolean;
+    };
+}
 export interface VideoPlayerConfig {
     autoPlay?: boolean;
     muted?: boolean;
@@ -98,6 +122,7 @@ export interface VideoPlayerConfig {
     playsInline?: boolean;
     pictureInPicture?: boolean;
     showFrameworkBranding?: boolean;
+    navigation?: NavigationConfig;
     watermark?: WatermarkConfig;
     adaptiveBitrate?: AdaptiveBitrateConfig;
     drm?: DRMConfig;
@@ -232,7 +257,7 @@ export interface PlatformInfo {
         height: number;
     };
 }
-export type PlayerEvent = 'ready' | 'play' | 'pause' | 'ended' | 'error' | 'loadstart' | 'loadedmetadata' | 'timeupdate' | 'progress' | 'seeking' | 'seeked' | 'waiting' | 'canplay' | 'canplaythrough' | 'volumechange' | 'ratechange' | 'qualitychange' | 'subtitlechange' | 'audiotrackchange' | 'fullscreenchange' | 'pictureInPicturechange' | 'castStateChanged' | 'adstart' | 'adend' | 'aderror' | 'chapterchange' | 'segmententered' | 'segmentexited' | 'segmentskipped' | 'chapterSegmentEntered' | 'chapterSegmentSkipped' | 'chapterSkipButtonShown' | 'chapterSkipButtonHidden' | 'chaptersLoaded' | 'chaptersLoadError';
+export type PlayerEvent = 'onReady' | 'onPlay' | 'onPause' | 'onEnded' | 'onError' | 'onLoadstart' | 'onLoadedMetadata' | 'onTimeUpdate' | 'onProgress' | 'onSeeking' | 'onSeeked' | 'onWaiting' | 'onCanplay' | 'onCanplaythrough' | 'onVolumeChanged' | 'onBuffering' | 'onRatechange' | 'onQualityChanged' | 'onSubtitlechange' | 'onAudiotrackchange' | 'onFullscreenChanged' | 'onPictureInPicturechange' | 'castStateChanged' | 'onAdstart' | 'onAdend' | 'onAderror' | 'onChapterchange' | 'segmententered' | 'segmentexited' | 'segmentskipped' | 'chapterSegmentEntered' | 'chapterSegmentSkipped' | 'chapterSkipButtonShown' | 'chapterSkipButtonHidden' | 'chaptersLoaded' | 'chaptersLoadError' | 'epgToggle' | 'epgDataSet' | 'frameworkBrandingClick' | 'onFreePreviewEnded' | 'statechange' | 'navigationBackClicked' | 'navigationCloseClicked';
 export type EventHandler = (data?: any) => void;
 export interface EventEmitter {
     on(event: PlayerEvent, handler: EventHandler): void;

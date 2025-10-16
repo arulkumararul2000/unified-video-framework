@@ -157,7 +157,7 @@ export abstract class VideoPlayer {
   // Error handling
   protected handleError(error: PlayerError): void {
     this.errors.push(error);
-    this.emit('error', error);
+    this.emit('onError', error);
     
     if (error.fatal) {
       this.setState(PlayerState.ERROR);

@@ -1,0 +1,721 @@
+{
+  "googleAdsSpecification": {
+    "version": "1.0.0",
+    "description": "Comprehensive Google Ads Integration for Unified Video Framework",
+    "author": "Flicknexs Team",
+    "lastUpdated": "2024-12-19T13:29:24Z",
+    
+    "supportedAdTypes": {
+      "videoAds": {
+        "skippableInStream": {
+          "type": "SKIPPABLE_IN_STREAM",
+          "description": "TrueView In-Stream ads that can be skipped after 5 seconds",
+          "properties": {
+            "skipOffset": 5,
+            "minDuration": 12,
+            "maxDuration": 3600,
+            "placement": ["preroll", "midroll", "postroll"],
+            "bidding": "CPV",
+            "targeting": ["demographics", "interests", "keywords", "placements"],
+            "formats": ["MP4", "WebM", "MOV"],
+            "aspectRatio": ["16:9", "4:3", "1:1", "9:16"],
+            "resolution": ["480p", "720p", "1080p", "4K"]
+          }
+        },
+        "nonSkippableInStream": {
+          "type": "NON_SKIPPABLE_IN_STREAM",
+          "description": "15-30 second non-skippable video ads",
+          "properties": {
+            "skipOffset": -1,
+            "minDuration": 6,
+            "maxDuration": 30,
+            "placement": ["preroll", "midroll", "postroll"],
+            "bidding": "CPM",
+            "targeting": ["demographics", "interests", "keywords", "placements"],
+            "formats": ["MP4", "WebM", "MOV"],
+            "aspectRatio": ["16:9", "4:3"],
+            "resolution": ["480p", "720p", "1080p"]
+          }
+        },
+        "bumperAds": {
+          "type": "BUMPER_ADS",
+          "description": "6-second non-skippable video ads",
+          "properties": {
+            "skipOffset": -1,
+            "duration": 6,
+            "placement": ["preroll", "postroll"],
+            "bidding": "CPM",
+            "targeting": ["demographics", "interests", "affinity"],
+            "formats": ["MP4", "WebM"],
+            "aspectRatio": ["16:9"],
+            "resolution": ["720p", "1080p"]
+          }
+        },
+        "inFeedVideoAds": {
+          "type": "IN_FEED_VIDEO",
+          "description": "Video ads that appear in YouTube search results and related videos",
+          "properties": {
+            "thumbnail": "required",
+            "headline": "required",
+            "description": "required",
+            "bidding": "CPV",
+            "targeting": ["keywords", "topics", "interests"],
+            "formats": ["MP4", "WebM", "MOV"],
+            "thumbnailFormats": ["JPG", "PNG"],
+            "maxHeadlineLength": 100,
+            "maxDescriptionLength": 35
+          }
+        },
+        "outStreamAds": {
+          "type": "OUTSTREAM_VIDEO",
+          "description": "Mobile-only video ads on partner sites",
+          "properties": {
+            "placement": ["mobile_web", "mobile_app"],
+            "autoplay": true,
+            "muted": true,
+            "bidding": "vCPM",
+            "targeting": ["demographics", "interests", "placements"],
+            "formats": ["MP4", "WebM"],
+            "aspectRatio": ["16:9", "1:1", "9:16"],
+            "resolution": ["480p", "720p"]
+          }
+        }
+      },
+      
+      "displayAds": {
+        "responsiveDisplayAds": {
+          "type": "RESPONSIVE_DISPLAY",
+          "description": "Auto-fitting ads with multiple assets",
+          "properties": {
+            "headlines": {
+              "required": 5,
+              "max": 15,
+              "maxLength": 30
+            },
+            "longHeadlines": {
+              "required": 1,
+              "max": 5,
+              "maxLength": 90
+            },
+            "descriptions": {
+              "required": 2,
+              "max": 5,
+              "maxLength": 90
+            },
+            "images": {
+              "landscape": {
+                "required": 1,
+                "max": 15,
+                "aspectRatio": "1.91:1",
+                "minSize": "600x314"
+              },
+              "square": {
+                "required": 1,
+                "max": 15,
+                "aspectRatio": "1:1",
+                "minSize": "300x300"
+              },
+              "logo": {
+                "required": 1,
+                "max": 5,
+                "aspectRatio": "1:1",
+                "minSize": "128x128"
+              }
+            },
+            "bidding": "CPC",
+            "targeting": ["demographics", "interests", "keywords", "placements"]
+          }
+        },
+        "uploadedImageAds": {
+          "type": "UPLOADED_IMAGE",
+          "description": "Custom-designed banner ads",
+          "properties": {
+            "formats": ["JPG", "PNG", "GIF"],
+            "sizes": [
+              "728x90", "300x250", "320x50", "468x60", "970x250", 
+              "300x600", "320x100", "970x90", "250x250", "200x200"
+            ],
+            "maxFileSize": "150KB",
+            "bidding": "CPC",
+            "targeting": ["demographics", "interests", "keywords", "placements"]
+          }
+        },
+        "mastheadAds": {
+          "type": "MASTHEAD",
+          "description": "Premium banner on YouTube homepage",
+          "properties": {
+            "placement": "youtube_homepage",
+            "duration": 24,
+            "bidding": "CPD",
+            "videoLength": 30,
+            "autoplay": true,
+            "muted": true,
+            "formats": ["MP4", "WebM"],
+            "resolution": ["1920x1080"],
+            "companionBanners": ["300x250", "300x60"]
+          }
+        }
+      },
+      
+      "shoppingAds": {
+        "productShoppingAds": {
+          "type": "PRODUCT_SHOPPING",
+          "description": "Individual product ads with image, price, and store info",
+          "properties": {
+            "productImage": "required",
+            "productTitle": "required",
+            "price": "required",
+            "merchantName": "required",
+            "bidding": "CPC",
+            "targeting": ["product_categories", "demographics", "location"],
+            "imageFormats": ["JPG", "PNG", "GIF", "BMP"],
+            "imageSize": "100x100_to_64MP"
+          }
+        },
+        "showcaseShoppingAds": {
+          "type": "SHOWCASE_SHOPPING",
+          "description": "Multiple related products grouped together",
+          "properties": {
+            "mainImage": "required",
+            "headline": "required",
+            "products": {
+              "min": 4,
+              "max": 50
+            },
+            "bidding": "CPC",
+            "targeting": ["product_categories", "demographics", "location"]
+          }
+        },
+        "localInventoryAds": {
+          "type": "LOCAL_INVENTORY",
+          "description": "Show in-store product availability",
+          "properties": {
+            "storeLocation": "required",
+            "productAvailability": "required",
+            "localPrice": "required",
+            "storeHours": "required",
+            "bidding": "CPC",
+            "targeting": ["location", "store_visits"]
+          }
+        }
+      },
+      
+      "appAds": {
+        "appInstallCampaigns": {
+          "type": "APP_INSTALL",
+          "description": "Drive app downloads",
+          "properties": {
+            "appStore": ["google_play", "app_store"],
+            "appId": "required",
+            "bidding": "CPI",
+            "targeting": ["demographics", "interests", "similar_apps"],
+            "creativeAssets": {
+              "headlines": { "max": 30 },
+              "descriptions": { "max": 90 },
+              "images": ["320x50", "300x250", "728x90"],
+              "videos": ["landscape", "portrait", "square"]
+            }
+          }
+        },
+        "appEngagementCampaigns": {
+          "type": "APP_ENGAGEMENT",
+          "description": "Re-engage existing app users",
+          "properties": {
+            "appId": "required",
+            "deepLinks": "supported",
+            "bidding": "CPC",
+            "targeting": ["app_users", "similar_users", "demographics"],
+            "events": ["in_app_purchase", "level_complete", "custom_events"]
+          }
+        }
+      },
+      
+      "customAds": {
+        "preRollAds": {
+          "type": "CUSTOM_PREROLL",
+          "description": "Custom pre-roll ads before main content",
+          "properties": {
+            "placement": "preroll",
+            "timing": "before_content",
+            "skippable": true,
+            "skipOffset": 5,
+            "maxDuration": 30,
+            "autoTiming": true,
+            "manualTiming": false
+          }
+        },
+        "midRollAds": {
+          "type": "CUSTOM_MIDROLL",
+          "description": "Custom mid-roll ads during content",
+          "properties": {
+            "placement": "midroll",
+            "timing": {
+              "auto": {
+                "enabled": true,
+                "interval": 300,
+                "naturalBreaks": true,
+                "sceneDetection": true
+              },
+              "manual": {
+                "enabled": true,
+                "positions": [300, 600, 900, 1200],
+                "cuePoints": ["chapter_break", "scene_change"]
+              }
+            },
+            "skippable": true,
+            "skipOffset": 5,
+            "maxDuration": 30,
+            "frequency": {
+              "maxPerVideo": 4,
+              "minInterval": 180
+            }
+          }
+        },
+        "postRollAds": {
+          "type": "CUSTOM_POSTROLL",
+          "description": "Custom post-roll ads after main content",
+          "properties": {
+            "placement": "postroll",
+            "timing": "after_content",
+            "skippable": false,
+            "maxDuration": 15,
+            "autoplay": true
+          }
+        },
+        "pauseAds": {
+          "type": "PAUSE_OVERLAY",
+          "description": "YouTube-style split-screen ads when content is paused",
+          "properties": {
+            "trigger": "video_pause",
+            "layout": "split_screen",
+            "contentSide": "left",
+            "adSide": "right",
+            "minPauseDuration": 3,
+            "maxDisplayTime": 30,
+            "closeable": true,
+            "formats": ["video", "image", "rich_media"]
+          }
+        },
+        "overlayAds": {
+          "type": "OVERLAY_AD",
+          "description": "Non-intrusive overlay ads on video content",
+          "properties": {
+            "position": ["bottom", "top", "corner"],
+            "size": ["20%", "25%", "30%"],
+            "duration": 10,
+            "closeable": true,
+            "timing": {
+              "start": 30,
+              "frequency": 300
+            }
+          }
+        },
+        "interactiveAds": {
+          "type": "INTERACTIVE_AD",
+          "description": "Clickable interactive elements within video",
+          "properties": {
+            "hotspots": true,
+            "clickableElements": true,
+            "hoverEffects": true,
+            "callToAction": "required",
+            "tracking": ["clicks", "hovers", "interactions"]
+          }
+        },
+        "socialAds": {
+          "type": "SOCIAL_AD",
+          "description": "Social media style ads with engagement features",
+          "properties": {
+            "likes": true,
+            "shares": true,
+            "comments": false,
+            "followButton": true,
+            "socialProof": true
+          }
+        }
+      }
+    },
+
+    "backendIntegration": {
+      "vastFormat": {
+        "description": "Video Ad Serving Template (VAST) - Industry standard for video ads",
+        "version": "4.2",
+        "xmlStructure": {
+          "VAST": {
+            "version": "4.2",
+            "Ad": {
+              "id": "string",
+              "InLine": {
+                "AdSystem": "string",
+                "AdTitle": "string",
+                "Description": "string",
+                "Impression": "url",
+                "Creatives": {
+                  "Creative": {
+                    "Linear": {
+                      "Duration": "HH:MM:SS",
+                      "MediaFiles": {
+                        "MediaFile": {
+                          "delivery": "progressive|streaming",
+                          "type": "video/mp4|video/webm",
+                          "width": "number",
+                          "height": "number",
+                          "url": "string"
+                        }
+                      },
+                      "VideoClicks": {
+                        "ClickThrough": "url"
+                      },
+                      "AdParameters": "string",
+                      "TrackingEvents": {
+                        "Tracking": {
+                          "event": "start|firstQuartile|midpoint|thirdQuartile|complete|skip",
+                          "url": "string"
+                        }
+                      },
+                      "Icons": {
+                        "Icon": {
+                          "program": "string",
+                          "width": "number",
+                          "height": "number",
+                          "xPosition": "string",
+                          "yPosition": "string",
+                          "StaticResource": "url",
+                          "IconClicks": {
+                            "IconClickThrough": "url"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "sampleVastUrl": "https://your-backend.com/api/ads/vast?placement={PLACEMENT}&user={USER_ID}&content={CONTENT_ID}&position={POSITION}"
+      },
+
+      "vmap": {
+        "description": "Video Multiple Ad Playlist (VMAP) - For multiple ad breaks",
+        "version": "1.0",
+        "xmlStructure": {
+          "vmap:VMAP": {
+            "version": "1.0",
+            "xmlns:vmap": "http://www.iab.net/vmap-1.0",
+            "vmap:AdBreak": [
+              {
+                "timeOffset": "start|end|HH:MM:SS|n%",
+                "breakType": "linear|nonlinear|display",
+                "vmap:AdSource": {
+                  "vmap:VASTAdData": "VAST_XML_HERE"
+                }
+              }
+            ]
+          }
+        },
+        "sampleVmapUrl": "https://your-backend.com/api/ads/vmap?content={CONTENT_ID}&duration={DURATION}&user={USER_ID}"
+      },
+
+      "customJsonFormat": {
+        "description": "Custom JSON format for advanced ad configurations",
+        "structure": {
+          "adConfiguration": {
+            "contentId": "string",
+            "userId": "string",
+            "sessionId": "string",
+            "adBreaks": [
+              {
+                "id": "string",
+                "type": "preroll|midroll|postroll|pause|overlay",
+                "position": "start|end|300|50%",
+                "ads": [
+                  {
+                    "id": "string",
+                    "type": "video|display|interactive|social",
+                    "vastUrl": "string",
+                    "directAssets": {
+                      "videoUrl": "string",
+                      "clickUrl": "string",
+                      "impressionUrls": ["string"],
+                      "trackingUrls": {
+                        "start": "string",
+                        "quartile1": "string",
+                        "midpoint": "string",
+                        "quartile3": "string",
+                        "complete": "string",
+                        "skip": "string"
+                      }
+                    },
+                    "metadata": {
+                      "title": "string",
+                      "description": "string",
+                      "advertiser": "string",
+                      "duration": "number",
+                      "skippable": "boolean",
+                      "skipOffset": "number"
+                    },
+                    "targeting": {
+                      "demographics": {},
+                      "interests": [],
+                      "location": {},
+                      "device": "string",
+                      "browser": "string"
+                    }
+                  }
+                ]
+              }
+            ],
+            "companionAds": [
+              {
+                "id": "string",
+                "width": "number",
+                "height": "number",
+                "resourceUrl": "string",
+                "clickUrl": "string",
+                "containerId": "string"
+              }
+            ],
+            "settings": {
+              "maxAdsPerBreak": "number",
+              "maxTotalAds": "number",
+              "enableFrequencyCapping": "boolean",
+              "frequencyCapSettings": {
+                "impressionsPerDay": "number",
+                "impressionsPerHour": "number"
+              }
+            }
+          }
+        },
+        "sampleJsonUrl": "https://your-backend.com/api/ads/config?content={CONTENT_ID}&user={USER_ID}&format=json"
+      },
+
+      "googleAdManagerIntegration": {
+        "description": "Integration with Google Ad Manager (DFP)",
+        "adUnitFormat": "/network_code/ad_unit_path",
+        "targeting": {
+          "customTargeting": {
+            "key": "value"
+          },
+          "categoryExclusions": ["string"],
+          "contentTargeting": {
+            "contentId": "string",
+            "contentCategory": "string",
+            "contentTags": ["string"]
+          }
+        },
+        "sampleAdTag": "https://securepubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/your_network_code/your_ad_unit&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&url={CONTENT_URL}&correlator={RANDOM_NUMBER}"
+      }
+    },
+
+    "frontendImplementation": {
+      "apiEndpoints": {
+        "getAdConfiguration": "GET /api/ads/config",
+        "trackImpression": "POST /api/ads/track/impression",
+        "trackClick": "POST /api/ads/track/click",
+        "trackEvent": "POST /api/ads/track/event",
+        "getVastTag": "GET /api/ads/vast",
+        "getVmapTag": "GET /api/ads/vmap"
+      },
+      
+      "urlParameters": {
+        "contentId": "Unique identifier for the video content",
+        "userId": "User identifier for targeting",
+        "sessionId": "Session identifier for tracking",
+        "placement": "preroll|midroll|postroll|pause|overlay",
+        "position": "Time position for midroll ads (seconds or percentage)",
+        "width": "Video player width",
+        "height": "Video player height",
+        "deviceType": "desktop|mobile|tablet|tv",
+        "browser": "Browser information",
+        "location": "User location for geo-targeting",
+        "language": "User language preference",
+        "referrer": "Referrer URL",
+        "gdprConsent": "GDPR consent status",
+        "coppa": "COPPA compliance flag"
+      },
+
+      "responseFormat": {
+        "success": {
+          "status": "success",
+          "data": {
+            "adBreaks": "array",
+            "vastUrl": "string",
+            "vmapUrl": "string",
+            "companionAds": "array"
+          }
+        },
+        "error": {
+          "status": "error",
+          "message": "string",
+          "code": "number"
+        },
+        "noAds": {
+          "status": "no_ads",
+          "message": "No ads available for this request"
+        }
+      }
+    },
+
+    "additionalAdOptions": {
+      "audioAds": {
+        "type": "AUDIO_ONLY",
+        "description": "Audio-only ads for podcast-style content",
+        "properties": {
+          "duration": "15-30 seconds",
+          "formats": ["MP3", "AAC", "WAV"],
+          "placement": ["preroll", "midroll", "postroll"]
+        }
+      },
+      "richMediaAds": {
+        "type": "RICH_MEDIA",
+        "description": "Interactive rich media ads",
+        "properties": {
+          "html5": true,
+          "javascript": true,
+          "css3": true,
+          "animations": true,
+          "userInteraction": true
+        }
+      },
+      "vr360Ads": {
+        "type": "VR_360",
+        "description": "360-degree virtual reality ads",
+        "properties": {
+          "format": "equirectangular",
+          "resolution": "4K minimum",
+          "compatibility": ["cardboard", "oculus", "vive"]
+        }
+      },
+      "aiPersonalizedAds": {
+        "type": "AI_PERSONALIZED",
+        "description": "AI-generated personalized ad content",
+        "properties": {
+          "dynamicContent": true,
+          "userProfileBased": true,
+          "realTimeGeneration": true,
+          "a11yCompliant": true
+        }
+      },
+      "gamifiedAds": {
+        "type": "GAMIFIED",
+        "description": "Interactive game-like ad experiences",
+        "properties": {
+          "minigames": true,
+          "rewards": true,
+          "leaderboards": true,
+          "achievements": true
+        }
+      },
+      "shoppableVideoAds": {
+        "type": "SHOPPABLE_VIDEO",
+        "description": "Video ads with direct purchase options",
+        "properties": {
+          "productHotspots": true,
+          "inAdCheckout": true,
+          "priceDisplay": true,
+          "addToCart": true
+        }
+      },
+      "contextualAds": {
+        "type": "CONTEXTUAL",
+        "description": "Ads based on video content analysis",
+        "properties": {
+          "contentAnalysis": true,
+          "sceneMatching": true,
+          "emotionDetection": true,
+          "brandSafety": true
+        }
+      },
+      "accessibleAds": {
+        "type": "ACCESSIBLE",
+        "description": "Accessibility-compliant ads",
+        "properties": {
+          "closedCaptions": true,
+          "audioDescription": true,
+          "keyboardNavigation": true,
+          "screenReaderSupport": true,
+          "highContrast": true
+        }
+      }
+    },
+
+    "trackingAndAnalytics": {
+      "trackingEvents": [
+        "impression", "start", "firstQuartile", "midpoint", "thirdQuartile", 
+        "complete", "skip", "click", "close", "pause", "resume", "mute", 
+        "unmute", "fullscreen", "exitFullscreen", "expand", "collapse",
+        "acceptInvitation", "creativeView", "loaded", "progress"
+      ],
+      "customEvents": [
+        "userEngagement", "brandInteraction", "socialShare", "productView",
+        "addToCart", "purchase", "signUp", "downloadApp", "visitStore"
+      ],
+      "metrics": [
+        "viewability", "completion_rate", "click_through_rate", "engagement_rate",
+        "conversion_rate", "cost_per_view", "return_on_ad_spend", "brand_lift"
+      ]
+    },
+
+    "privacyAndCompliance": {
+      "gdpr": {
+        "consentRequired": true,
+        "dataProcessing": "transparent",
+        "userRights": ["access", "portability", "erasure", "rectification"]
+      },
+      "coppa": {
+        "childSafeAds": true,
+        "noPersonalizedAds": true,
+        "contentFiltering": true
+      },
+      "ccpa": {
+        "optOutRights": true,
+        "dataTransparency": true
+      },
+      "brandSafety": {
+        "contentFiltering": true,
+        "blacklistSupport": true,
+        "whitelistSupport": true,
+        "manualReview": true
+      }
+    },
+
+    "performanceOptimization": {
+      "preloading": {
+        "enabled": true,
+        "maxConcurrent": 2,
+        "priorities": ["preroll", "midroll", "postroll"]
+      },
+      "caching": {
+        "enabled": true,
+        "duration": "24 hours",
+        "strategy": "LRU"
+      },
+      "compression": {
+        "video": ["H.264", "H.265", "VP9", "AV1"],
+        "audio": ["AAC", "MP3", "Opus"],
+        "adaptive": true
+      },
+      "cdn": {
+        "enabled": true,
+        "providers": ["CloudFlare", "AWS", "Google", "Azure"],
+        "geoDistribution": true
+      }
+    },
+
+    "integrationExamples": {
+      "basicImplementation": {
+        "javascript": "// Basic ad request\nconst adConfig = await fetch('https://your-backend.com/api/ads/config?contentId=123&userId=456');\nconst ads = await adConfig.json();\nplayer.loadAds(ads);",
+        "html": "<div id='ad-container'></div>\n<video id='main-video'></video>",
+        "css": ".ad-container { position: relative; }\n.ad-skip-button { position: absolute; top: 10px; right: 10px; }"
+      },
+      "vastIntegration": {
+        "url": "https://your-backend.com/api/ads/vast?contentId={CONTENT_ID}&placement=preroll",
+        "response": "<?xml version='1.0' encoding='UTF-8'?>\n<VAST version='4.2'>...</VAST>"
+      },
+      "jsonIntegration": {
+        "url": "https://your-backend.com/api/ads/config?contentId=123&format=json",
+        "response": "{\n  \"adConfiguration\": {\n    \"adBreaks\": [...]\n  }\n}"
+      }
+    }
+  }
+}

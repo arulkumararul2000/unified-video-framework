@@ -91,6 +91,9 @@ export interface PlayerEvents {
   chapterSkipButtonHidden?: (data: any) => void;
   chaptersLoaded?: (data: any) => void;
   chaptersLoadError?: (data: any) => void;
+  // Navigation events
+  navigationBackClicked?: () => void;
+  navigationCloseClicked?: () => void;
 }
 
 export interface PlayerError {
@@ -213,9 +216,9 @@ export interface IVideoPlayer {
   exitPictureInPicture(): Promise<void>;
 
   // Event handling
-  on(event: keyof PlayerEvents, handler: Function): void;
-  off(event: keyof PlayerEvents, handler?: Function): void;
-  once(event: keyof PlayerEvents, handler: Function): void;
+  on(event: string, handler: Function): void;
+  off(event: string, handler?: Function): void;
+  once(event: string, handler: Function): void;
 
   // Subtitle control
   getSubtitles(): SubtitleTrack[];

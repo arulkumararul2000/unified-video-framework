@@ -81,6 +81,7 @@ export declare class WebPlayer extends BasePlayer {
     private debugWarn;
     initialize(container: HTMLElement | string, config?: any): Promise<void>;
     protected setupPlayer(): Promise<void>;
+    private autoplayAttempted;
     private setupVideoEventListeners;
     private getMediaErrorMessage;
     private updateBufferProgress;
@@ -99,8 +100,10 @@ export declare class WebPlayer extends BasePlayer {
     private hasUserActivation;
     private attemptIntelligentAutoplay;
     private setupAutoplayRetry;
-    private showPlayOverlay;
-    private hidePlayOverlay;
+    private showUnmuteButton;
+    private setupClickToUnmute;
+    private clickToUnmuteHandler;
+    private hideUnmuteButton;
     private updateTimeTooltip;
     private hideTimeTooltip;
     private setupUserInteractionTracking;
@@ -140,6 +143,8 @@ export declare class WebPlayer extends BasePlayer {
     private injectStyles;
     private getPlayerStyles;
     private createFrameworkBranding;
+    private createNavigationButtons;
+    private getNavigationIcon;
     private createCustomControls;
     private setupControlsEventListeners;
     protected setupKeyboardShortcuts(): void;
@@ -226,9 +231,16 @@ export declare class WebPlayer extends BasePlayer {
     private setSubtitle;
     private _updateCastActiveTracks;
     private onCastButtonClick;
+    private showAirPlayPicker;
     private stopCasting;
     private initCast;
     private shareVideo;
+    private isTextTruncated;
+    private showTextTooltip;
+    private hideTextTooltip;
+    private setupTextTooltips;
+    private smartTruncateText;
+    private applySmartTextDisplay;
     private updateMetadataUI;
     private showNotification;
     private canPlayVideo;

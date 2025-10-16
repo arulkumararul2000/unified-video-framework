@@ -78,7 +78,7 @@ export class VideoPlayer {
     }
     handleError(error) {
         this.errors.push(error);
-        this.emit('error', error);
+        this.emit('onError', error);
         if (error.fatal) {
             this.setState(PlayerState.ERROR);
         }

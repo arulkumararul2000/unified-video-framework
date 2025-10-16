@@ -81,6 +81,8 @@ export interface PlayerEvents {
     chapterSkipButtonHidden?: (data: any) => void;
     chaptersLoaded?: (data: any) => void;
     chaptersLoadError?: (data: any) => void;
+    navigationBackClicked?: () => void;
+    navigationCloseClicked?: () => void;
 }
 export interface PlayerError {
     code: string;
@@ -183,9 +185,9 @@ export interface IVideoPlayer {
     toggleFullscreen(): Promise<void>;
     enterPictureInPicture(): Promise<void>;
     exitPictureInPicture(): Promise<void>;
-    on(event: keyof PlayerEvents, handler: Function): void;
-    off(event: keyof PlayerEvents, handler?: Function): void;
-    once(event: keyof PlayerEvents, handler: Function): void;
+    on(event: string, handler: Function): void;
+    off(event: string, handler?: Function): void;
+    once(event: string, handler: Function): void;
     getSubtitles(): SubtitleTrack[];
     setSubtitleTrack(index: number): void;
     disableSubtitles(): void;

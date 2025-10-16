@@ -1,0 +1,586 @@
+{
+  "googleAdsFrontendSpecification": {
+    "version": "1.0.0",
+    "description": "Frontend Google Ads Integration for Unified Video Framework",
+    "author": "Flicknexs Team",
+    "lastUpdated": "2024-12-19T07:12:58Z",
+    
+    "supportedAdTypes": {
+      "videoAds": {
+        "skippableInStream": {
+          "type": "SKIPPABLE_IN_STREAM",
+          "description": "TrueView In-Stream ads that can be skipped after 5 seconds",
+          "uiElements": {
+            "skipButton": {
+              "enabled": true,
+              "skipOffset": 5,
+              "text": "Skip Ad",
+              "position": "top-right",
+              "style": "button"
+            },
+            "countdown": {
+              "enabled": true,
+              "format": "Ad: {time}",
+              "position": "bottom-left"
+            },
+            "progressBar": {
+              "enabled": true,
+              "color": "#ff0000"
+            }
+          },
+          "events": ["loaded", "started", "firstQuartile", "midpoint", "thirdQuartile", "completed", "skipped", "clicked"],
+          "controls": {
+            "pauseOnClick": false,
+            "volumeControl": false,
+            "seekControl": false
+          }
+        },
+        "nonSkippableInStream": {
+          "type": "NON_SKIPPABLE_IN_STREAM",
+          "description": "15-30 second non-skippable video ads",
+          "uiElements": {
+            "skipButton": {
+              "enabled": false
+            },
+            "countdown": {
+              "enabled": true,
+              "format": "Ad: {time}",
+              "position": "bottom-left"
+            },
+            "progressBar": {
+              "enabled": true,
+              "color": "#ff0000"
+            },
+            "adLabel": {
+              "enabled": true,
+              "text": "Advertisement",
+              "position": "top-left"
+            }
+          },
+          "events": ["loaded", "started", "firstQuartile", "midpoint", "thirdQuartile", "completed", "clicked"],
+          "controls": {
+            "pauseOnClick": false,
+            "volumeControl": false,
+            "seekControl": false
+          }
+        },
+        "bumperAds": {
+          "type": "BUMPER_ADS",
+          "description": "6-second non-skippable video ads",
+          "uiElements": {
+            "skipButton": {
+              "enabled": false
+            },
+            "countdown": {
+              "enabled": true,
+              "format": "{time}",
+              "position": "bottom-right"
+            },
+            "adLabel": {
+              "enabled": true,
+              "text": "Ad",
+              "position": "top-left"
+            }
+          },
+          "events": ["loaded", "started", "midpoint", "completed", "clicked"],
+          "controls": {
+            "pauseOnClick": false,
+            "volumeControl": false,
+            "seekControl": false
+          }
+        }
+      },
+      
+      "displayAds": {
+        "responsiveDisplayAds": {
+          "type": "RESPONSIVE_DISPLAY",
+          "description": "Auto-fitting banner ads",
+          "uiElements": {
+            "closeButton": {
+              "enabled": true,
+              "position": "top-right",
+              "style": "×"
+            },
+            "adLabel": {
+              "enabled": true,
+              "text": "Advertisement",
+              "position": "top-left",
+              "fontSize": "12px"
+            }
+          },
+          "responsive": {
+            "breakpoints": {
+              "mobile": "320px",
+              "tablet": "768px",
+              "desktop": "1024px"
+            },
+            "sizes": {
+              "mobile": ["320x50", "300x250"],
+              "tablet": ["728x90", "300x250"],
+              "desktop": ["970x250", "728x90", "300x250"]
+            }
+          }
+        },
+        "mastheadAds": {
+          "type": "MASTHEAD",
+          "description": "Premium banner on homepage",
+          "uiElements": {
+            "playButton": {
+              "enabled": true,
+              "autoplay": true,
+              "muted": true
+            },
+            "muteButton": {
+              "enabled": true,
+              "position": "bottom-right"
+            },
+            "companionBanners": {
+              "enabled": true,
+              "positions": ["sidebar", "bottom"]
+            }
+          }
+        }
+      },
+      
+      "customAds": {
+        "pauseAds": {
+          "type": "PAUSE_OVERLAY",
+          "description": "YouTube-style split-screen ads when content is paused",
+          "uiElements": {
+            "layout": {
+              "type": "split_screen",
+              "contentSide": "left",
+              "adSide": "right",
+              "splitRatio": "60:40"
+            },
+            "closeButton": {
+              "enabled": true,
+              "position": "top-right",
+              "delay": 0
+            },
+            "resumeButton": {
+              "enabled": true,
+              "text": "Resume Video",
+              "position": "center"
+            }
+          },
+          "triggers": {
+            "minPauseDuration": 3,
+            "maxDisplayTime": 30,
+            "frequency": "once_per_session"
+          }
+        },
+        "overlayAds": {
+          "type": "OVERLAY_AD",
+          "description": "Non-intrusive overlay ads",
+          "uiElements": {
+            "positions": ["bottom", "top-right", "bottom-left"],
+            "sizes": ["20%", "25%", "30%"],
+            "closeButton": {
+              "enabled": true,
+              "delay": 5
+            },
+            "animation": {
+              "entrance": "slideUp",
+              "exit": "fadeOut"
+            }
+          }
+        },
+        "interactiveAds": {
+          "type": "INTERACTIVE_AD",
+          "description": "Clickable interactive elements",
+          "uiElements": {
+            "hotspots": {
+              "enabled": true,
+              "style": "pulsing_dot",
+              "hoverEffect": "tooltip"
+            },
+            "callToAction": {
+              "enabled": true,
+              "text": "Learn More",
+              "animation": "bounce"
+            },
+            "progressTracker": {
+              "enabled": true,
+              "showInteractions": true
+            }
+          }
+        }
+      }
+    },
+
+    "playerIntegration": {
+      "initialization": {
+        "config": {
+          "adsEnabled": true,
+          "adsManagerUrl": "https://imasdk.googleapis.com/js/sdkloader/ima3.js",
+          "adContainer": "#ad-container",
+          "videoElement": "#main-video",
+          "debug": false
+        },
+        "events": [
+          "adsManagerLoaded",
+          "adBreakReady",
+          "adBreakStarted", 
+          "adBreakCompleted",
+          "allAdsCompleted",
+          "adError"
+        ]
+      },
+      
+      "apiCalls": {
+        "getAdConfiguration": {
+          "method": "GET",
+          "url": "/api/ads/config",
+          "parameters": {
+            "contentId": "required|string",
+            "userId": "optional|string", 
+            "sessionId": "optional|string",
+            "placement": "required|preroll|midroll|postroll|pause|overlay",
+            "position": "optional|number|percentage",
+            "width": "required|number",
+            "height": "required|number",
+            "deviceType": "auto-detected|desktop|mobile|tablet|tv",
+            "browser": "auto-detected|string",
+            "location": "optional|geo-coordinates",
+            "language": "auto-detected|iso-code",
+            "referrer": "auto-detected|url",
+            "gdprConsent": "required-eu|boolean",
+            "coppa": "optional|boolean"
+          },
+          "responseFormat": {
+            "success": {
+              "status": "success",
+              "data": {
+                "adBreaks": "array",
+                "vastUrl": "string",
+                "vmapUrl": "string", 
+                "companionAds": "array",
+                "settings": "object"
+              }
+            },
+            "error": {
+              "status": "error",
+              "message": "string",
+              "code": "number"
+            },
+            "noAds": {
+              "status": "no_ads",
+              "message": "No ads available"
+            }
+          }
+        },
+        
+        "trackEvent": {
+          "method": "POST",
+          "url": "/api/ads/track/event",
+          "parameters": {
+            "eventType": "required|string",
+            "adId": "required|string",
+            "sessionId": "required|string",
+            "timestamp": "required|iso-datetime",
+            "playerTime": "required|number",
+            "customData": "optional|object"
+          }
+        }
+      },
+      
+      "eventTracking": {
+        "standardEvents": [
+          "impression", "start", "firstQuartile", "midpoint", "thirdQuartile", 
+          "complete", "skip", "click", "close", "pause", "resume", "mute", 
+          "unmute", "fullscreen", "exitFullscreen", "expand", "collapse"
+        ],
+        "customEvents": [
+          "userEngagement", "brandInteraction", "socialShare", "productView",
+          "addToCart", "purchase", "signUp", "downloadApp", "visitStore"
+        ],
+        "autoTracking": {
+          "viewability": true,
+          "audiblity": true,
+          "completion": true,
+          "userInteraction": true
+        }
+      }
+    },
+
+    "uiComponents": {
+      "adContainer": {
+        "className": "uvf-ad-container",
+        "styles": {
+          "position": "absolute",
+          "top": "0",
+          "left": "0", 
+          "width": "100%",
+          "height": "100%",
+          "zIndex": "1000",
+          "backgroundColor": "#000"
+        }
+      },
+      
+      "skipButton": {
+        "className": "uvf-ad-skip-button",
+        "styles": {
+          "position": "absolute",
+          "top": "15px",
+          "right": "15px",
+          "padding": "8px 16px",
+          "backgroundColor": "rgba(255,255,255,0.8)",
+          "color": "#000",
+          "border": "none",
+          "borderRadius": "4px",
+          "fontSize": "14px",
+          "cursor": "pointer",
+          "transition": "all 0.3s ease"
+        },
+        "hoverStyles": {
+          "backgroundColor": "rgba(255,255,255,1)"
+        }
+      },
+      
+      "adCountdown": {
+        "className": "uvf-ad-countdown",
+        "styles": {
+          "position": "absolute",
+          "bottom": "15px",
+          "left": "15px",
+          "padding": "4px 8px",
+          "backgroundColor": "rgba(0,0,0,0.7)",
+          "color": "#fff",
+          "fontSize": "12px",
+          "borderRadius": "2px"
+        }
+      },
+      
+      "adLabel": {
+        "className": "uvf-ad-label",
+        "styles": {
+          "position": "absolute",
+          "top": "15px",
+          "left": "15px",
+          "padding": "4px 8px",
+          "backgroundColor": "rgba(255,255,255,0.9)",
+          "color": "#000",
+          "fontSize": "12px",
+          "borderRadius": "2px",
+          "fontWeight": "bold"
+        }
+      },
+      
+      "progressBar": {
+        "className": "uvf-ad-progress",
+        "styles": {
+          "position": "absolute",
+          "bottom": "0",
+          "left": "0",
+          "height": "3px",
+          "backgroundColor": "#ff0000",
+          "transition": "width 0.1s ease"
+        }
+      },
+      
+      "pauseOverlay": {
+        "className": "uvf-pause-ad-overlay",
+        "styles": {
+          "position": "absolute",
+          "top": "0",
+          "left": "0",
+          "width": "100%",
+          "height": "100%",
+          "display": "flex",
+          "backgroundColor": "rgba(0,0,0,0.8)"
+        },
+        "contentArea": {
+          "flex": "3",
+          "display": "flex",
+          "alignItems": "center",
+          "justifyContent": "center"
+        },
+        "adArea": {
+          "flex": "2",
+          "padding": "20px",
+          "display": "flex",
+          "flexDirection": "column",
+          "justifyContent": "center"
+        }
+      }
+    },
+
+    "animations": {
+      "fadeIn": {
+        "keyframes": {
+          "0%": { "opacity": "0", "transform": "scale(0.9)" },
+          "100%": { "opacity": "1", "transform": "scale(1)" }
+        },
+        "duration": "0.3s",
+        "easing": "ease-out"
+      },
+      "slideUp": {
+        "keyframes": {
+          "0%": { "transform": "translateY(100%)" },
+          "100%": { "transform": "translateY(0)" }
+        },
+        "duration": "0.4s",
+        "easing": "ease-out"
+      },
+      "pulse": {
+        "keyframes": {
+          "0%": { "transform": "scale(1)" },
+          "50%": { "transform": "scale(1.1)" },
+          "100%": { "transform": "scale(1)" }
+        },
+        "duration": "1s",
+        "iterationCount": "infinite"
+      }
+    },
+
+    "responsiveDesign": {
+      "breakpoints": {
+        "mobile": {
+          "maxWidth": "767px",
+          "adSizes": ["320x50", "300x250"],
+          "skipButtonSize": "small",
+          "fontSize": "12px"
+        },
+        "tablet": {
+          "minWidth": "768px",
+          "maxWidth": "1023px", 
+          "adSizes": ["728x90", "300x250", "320x100"],
+          "skipButtonSize": "medium",
+          "fontSize": "14px"
+        },
+        "desktop": {
+          "minWidth": "1024px",
+          "adSizes": ["970x250", "728x90", "300x250", "300x600"],
+          "skipButtonSize": "large",
+          "fontSize": "16px"
+        }
+      }
+    },
+
+    "accessibility": {
+      "features": {
+        "keyboardNavigation": true,
+        "screenReaderSupport": true,
+        "highContrast": true,
+        "focusIndicators": true,
+        "audioDescription": true
+      },
+      "ariaLabels": {
+        "skipButton": "Skip advertisement",
+        "closeButton": "Close advertisement",
+        "muteButton": "Mute advertisement",
+        "playButton": "Play advertisement"
+      },
+      "keyboardShortcuts": {
+        "skipAd": "Enter",
+        "closeAd": "Escape",
+        "toggleMute": "m",
+        "togglePause": "Space"
+      }
+    },
+
+    "errorHandling": {
+      "adLoadFailure": {
+        "fallback": "show_content_immediately",
+        "retry": {
+          "enabled": true,
+          "maxAttempts": 3,
+          "delay": 2000
+        },
+        "logging": true
+      },
+      "adPlaybackFailure": {
+        "fallback": "skip_to_content",
+        "userMessage": "Advertisement could not be loaded. Continuing to content.",
+        "duration": 3000
+      },
+      "networkFailure": {
+        "fallback": "offline_mode",
+        "cacheCheck": true,
+        "userMessage": "Unable to load advertisements. Content will play without ads."
+      }
+    },
+
+    "performance": {
+      "lazy_loading": {
+        "enabled": true,
+        "preload_distance": "viewport"
+      },
+      "caching": {
+        "enabled": true,
+        "duration": 3600000,
+        "storage": "localStorage"
+      },
+      "compression": {
+        "images": true,
+        "videos": true,
+        "gzip": true
+      }
+    },
+
+    "privacy": {
+      "gdpr": {
+        "consentRequired": true,
+        "consentBanner": {
+          "enabled": true,
+          "message": "We use cookies and collect data to provide personalized ads. Do you consent?",
+          "buttons": ["Accept", "Decline", "Learn More"]
+        }
+      },
+      "tracking": {
+        "cookieless": true,
+        "fingerprinting": false,
+        "localStorageOnly": true
+      }
+    },
+
+    "implementationExample": {
+      "html": `
+        <div id="video-container">
+          <div id="ad-container"></div>
+          <video id="main-video" controls></video>
+        </div>
+      `,
+      "javascript": `
+        // Initialize ads
+        const adsManager = new UVFAdsManager({
+          adContainer: document.getElementById('ad-container'),
+          videoElement: document.getElementById('main-video'),
+          apiEndpoint: 'https://your-backend.com/api/ads'
+        });
+
+        // Request ads
+        adsManager.requestAds({
+          contentId: 'video123',
+          userId: 'user456',
+          placement: 'preroll'
+        });
+
+        // Handle ad events
+        adsManager.on('adStarted', (event) => {
+          console.log('Ad started:', event.ad.title);
+        });
+      `,
+      "css": `
+        .uvf-ad-container {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          background: #000;
+        }
+        
+        .uvf-ad-skip-button {
+          position: absolute;
+          top: 15px;
+          right: 15px;
+          background: rgba(255,255,255,0.9);
+          border: none;
+          padding: 8px 16px;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+      `
+    }
+  }
+}

@@ -305,14 +305,6 @@ export const EPGOverlay: React.FC<EPGProps> = ({
       if (!visible) return;
       
       switch (e.key) {
-        case 'ArrowLeft':
-          e.preventDefault();
-          handleNavigate('left');
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          handleNavigate('right');
-          break;
         case 'Home':
           e.preventDefault();
           handleNavigate('today');

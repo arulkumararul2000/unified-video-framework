@@ -101,6 +101,31 @@ export interface AdaptiveBitrateConfig {
   startLevel?: number;
 }
 
+export interface NavigationConfig {
+  backButton?: {
+    enabled?: boolean;
+    position?: 'top-left' | 'top-right';
+    icon?: 'arrow' | 'chevron' | 'custom';
+    customIcon?: string; // SVG string or URL
+    title?: string;
+    ariaLabel?: string;
+    onClick?: () => void | Promise<void>;
+    href?: string; // Navigate to URL
+    replace?: boolean; // Use history.replaceState instead of pushState
+  };
+  closeButton?: {
+    enabled?: boolean;
+    position?: 'top-left' | 'top-right';
+    icon?: 'x' | 'close' | 'custom';
+    customIcon?: string; // SVG string or URL
+    title?: string;
+    ariaLabel?: string;
+    onClick?: () => void | Promise<void>;
+    exitFullscreen?: boolean; // Exit fullscreen when clicked
+    closeModal?: boolean; // Close modal/overlay when clicked
+  };
+}
+
 export interface VideoPlayerConfig {
   autoPlay?: boolean;
   muted?: boolean;
@@ -111,6 +136,7 @@ export interface VideoPlayerConfig {
   playsInline?: boolean;
   pictureInPicture?: boolean;
   showFrameworkBranding?: boolean; // Show/hide flicknexs framework branding (default: true)
+  navigation?: NavigationConfig; // Navigation buttons configuration
   watermark?: WatermarkConfig; // Watermark configuration
   adaptiveBitrate?: AdaptiveBitrateConfig;
   drm?: DRMConfig;
@@ -262,32 +288,33 @@ export interface PlatformInfo {
 }
 
 export type PlayerEvent = 
-  | 'ready'
-  | 'play'
-  | 'pause'
-  | 'ended'
-  | 'error'
-  | 'loadstart'
-  | 'loadedmetadata'
-  | 'timeupdate'
-  | 'progress'
-  | 'seeking'
-  | 'seeked'
-  | 'waiting'
-  | 'canplay'
-  | 'canplaythrough'
-  | 'volumechange'
-  | 'ratechange'
-  | 'qualitychange'
-  | 'subtitlechange'
-  | 'audiotrackchange'
-  | 'fullscreenchange'
-  | 'pictureInPicturechange'
+  | 'onReady'
+  | 'onPlay'
+  | 'onPause'
+  | 'onEnded'
+  | 'onError'
+  | 'onLoadstart'
+  | 'onLoadedMetadata'
+  | 'onTimeUpdate'
+  | 'onProgress'
+  | 'onSeeking'
+  | 'onSeeked'
+  | 'onWaiting'
+  | 'onCanplay'
+  | 'onCanplaythrough'
+  | 'onVolumeChanged'
+  | 'onBuffering'
+  | 'onRatechange'
+  | 'onQualityChanged'
+  | 'onSubtitlechange'
+  | 'onAudiotrackchange'
+  | 'onFullscreenChanged'
+  | 'onPictureInPicturechange'
   | 'castStateChanged'
-  | 'adstart'
-  | 'adend'
-  | 'aderror'
-  | 'chapterchange'
+  | 'onAdstart'
+  | 'onAdend'
+  | 'onAderror'
+  | 'onChapterchange'
   | 'segmententered'
   | 'segmentexited'
   | 'segmentskipped'
@@ -296,7 +323,14 @@ export type PlayerEvent =
   | 'chapterSkipButtonShown'
   | 'chapterSkipButtonHidden'
   | 'chaptersLoaded'
-  | 'chaptersLoadError';
+  | 'chaptersLoadError'
+  | 'epgToggle'
+  | 'epgDataSet'
+  | 'frameworkBrandingClick'
+  | 'onFreePreviewEnded'
+  | 'statechange'
+  | 'navigationBackClicked'
+  | 'navigationCloseClicked';
 
 export type EventHandler = (data?: any) => void;
 
