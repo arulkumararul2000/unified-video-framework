@@ -2889,6 +2889,99 @@ export class WebPlayer extends BasePlayer {
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
       }
       
+      /* Cast Button Specific Styling */
+      #uvf-cast-btn {
+        background: var(--uvf-button-bg);
+        border: 1px solid var(--uvf-button-border);
+        position: relative;
+        z-index: 10;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      #uvf-cast-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px var(--uvf-button-shadow);
+      }
+      
+      #uvf-cast-btn:active {
+        transform: scale(0.95);
+        transition: all 0.1s ease;
+      }
+      
+      #uvf-cast-btn svg {
+        opacity: 0.9;
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+      }
+      
+      #uvf-cast-btn:hover svg {
+        opacity: 1;
+        transform: scale(1.05);
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      }
+      
+      /* Share Button Specific Styling */
+      #uvf-share-btn {
+        background: var(--uvf-button-bg);
+        border: 1px solid var(--uvf-button-border);
+        position: relative;
+        z-index: 10;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      #uvf-share-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px var(--uvf-button-shadow);
+      }
+      
+      #uvf-share-btn:active {
+        transform: scale(0.95);
+        transition: all 0.1s ease;
+      }
+      
+      #uvf-share-btn svg {
+        opacity: 0.9;
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+      }
+      
+      #uvf-share-btn:hover svg {
+        opacity: 1;
+        transform: scale(1.05);
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      }
+      
+      /* EPG Button Specific Styling */
+      #uvf-epg-btn {
+        background: var(--uvf-button-bg);
+        border: 1px solid var(--uvf-button-border);
+        position: relative;
+        z-index: 10;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      #uvf-epg-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px var(--uvf-button-shadow);
+      }
+      
+      #uvf-epg-btn:active {
+        transform: scale(0.95);
+        transition: all 0.1s ease;
+      }
+      
+      #uvf-epg-btn svg {
+        opacity: 0.9;
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+      }
+      
+      #uvf-epg-btn:hover svg {
+        opacity: 1;
+        transform: scale(1.05);
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      }
+      
       .uvf-control-btn.play-pause {
         width: 50px;
         height: 50px;
@@ -3287,68 +3380,50 @@ export class WebPlayer extends BasePlayer {
         flex-shrink: 0;
       }
       
-      /* Navigation button styles */
+      /* Navigation button styles - Follow theme like skip/volume buttons */
       .uvf-nav-btn {
         width: 40px;
         height: 40px;
         min-width: 40px;
         min-height: 40px;
         border-radius: 50%;
-        background: rgba(0, 0, 0, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: var(--uvf-button-bg);
+        border: 1px solid var(--uvf-button-border);
         color: white;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        backdrop-filter: blur(8px);
+        backdrop-filter: blur(10px);
         position: relative;
         overflow: hidden;
+        z-index: 10;
       }
       
       .uvf-nav-btn:hover {
-        background: rgba(255, 255, 255, 0.15);
-        border-color: rgba(255, 255, 255, 0.4);
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px var(--uvf-button-shadow);
       }
       
       .uvf-nav-btn:active {
         transform: scale(0.95);
+        transition: all 0.1s ease;
       }
       
       .uvf-nav-btn svg {
         width: 20px;
         height: 20px;
         fill: currentColor;
-        transition: all 0.2s ease;
+        opacity: 0.9;
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
       }
       
       .uvf-nav-btn:hover svg {
-        transform: scale(1.1);
-      }
-      
-      /* Back button specific styles */
-      #uvf-back-btn {
-        background: rgba(0, 0, 0, 0.7);
-      }
-      
-      #uvf-back-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
-        border-color: var(--uvf-accent-1, #ff0000);
-      }
-      
-      /* Close button specific styles */
-      #uvf-close-btn {
-        background: rgba(220, 53, 69, 0.8);
-        border-color: rgba(220, 53, 69, 0.6);
-      }
-      
-      #uvf-close-btn:hover {
-        background: rgba(220, 53, 69, 1);
-        border-color: rgba(220, 53, 69, 1);
-        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+        opacity: 1;
+        transform: scale(1.05);
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
       }
       
       .uvf-player-wrapper:hover .uvf-top-bar,
