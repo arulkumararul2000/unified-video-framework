@@ -110,6 +110,7 @@ export declare class WebPlayer extends BasePlayer {
     play(): Promise<void>;
     pause(): void;
     requestPause(): void;
+    private safeSetCurrentTime;
     seek(time: number): void;
     setVolume(level: number): void;
     mute(): void;
@@ -164,7 +165,7 @@ export declare class WebPlayer extends BasePlayer {
     private lockOrientationLandscape;
     private unlockOrientation;
     private handleVolumeChange;
-    private handleProgressChange;
+    private seekToPosition;
     private formatTime;
     private updateTimeDisplay;
     private showControls;

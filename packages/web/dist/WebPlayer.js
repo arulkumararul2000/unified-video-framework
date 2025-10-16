@@ -1022,26 +1022,57 @@ export class WebPlayer extends BasePlayer {
             catch (_) { }
         }
     }
+    safeSetCurrentTime(time) {
+        if (!this.video) {
+            this.debugWarn('Cannot set currentTime: video element not available');
+            return false;
+        }
+        if (!isFinite(time) || isNaN(time)) {
+            this.debugWarn('Attempted to set invalid currentTime value:', time);
+            return false;
+        }
+        const safeTime = Math.max(0, time);
+        const duration = this.video.duration;
+        if (isFinite(duration) && duration > 0) {
+            const clampedTime = Math.min(safeTime, duration);
+            try {
+                this.video.currentTime = clampedTime;
+                return true;
+            }
+            catch (error) {
+                this.debugError('Error setting currentTime:', error);
+                return false;
+            }
+        }
+        else {
+            try {
+                this.video.currentTime = safeTime;
+                return true;
+            }
+            catch (error) {
+                this.debugError('Error setting currentTime:', error);
+                return false;
+            }
+        }
+    }
     seek(time) {
         if (!this.video)
             return;
+        if (!isFinite(time) || isNaN(time)) {
+            this.debugWarn('Invalid seek time:', time);
+            return;
+        }
         const freeDuration = Number(this.config.freeDuration || 0);
         if (freeDuration > 0 && !this.paymentSuccessful) {
             const requestedTime = Math.max(0, Math.min(time, this.video.duration || time));
             if (requestedTime >= freeDuration) {
                 this.debugWarn('Seek blocked - beyond free preview limit');
                 this.enforcePaywallSecurity();
-                this.video.currentTime = Math.max(0, freeDuration - 1);
+                this.safeSetCurrentTime(freeDuration - 1);
                 return;
             }
         }
-        const d = this.video.duration;
-        if (typeof d === 'number' && isFinite(d) && d > 0) {
-            this.video.currentTime = Math.max(0, Math.min(time, d));
-        }
-        else {
-            this.video.currentTime = Math.max(0, time);
-        }
+        this.safeSetCurrentTime(time);
     }
     setVolume(level) {
         if (!this.video)
@@ -3773,10 +3804,10 @@ export class WebPlayer extends BasePlayer {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: rgba(0,0,0,0.8);
+        background: rgba(0,0,0,0.88);
         color: #fff;
-        padding: 20px 30px;
-        border-radius: 8px;
+        padding: 22px 32px;
+        border-radius: 12px;
         font-size: 24px;
         font-weight: 600;
         opacity: 0;
@@ -3786,7 +3817,9 @@ export class WebPlayer extends BasePlayer {
         white-space: nowrap;
         text-align: center;
         min-width: auto;
-        max-width: 200px;
+        max-width: 400px;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
       }
       
       /* Time-specific indicator styling */
@@ -3847,25 +3880,37 @@ export class WebPlayer extends BasePlayer {
         pointer-events: none;
         z-index: 2;
       }
-      .uvf-shortcut-indicator .uvf-ki-volume { align-items: center; }
-      .uvf-shortcut-indicator .uvf-ki-vol-icon svg { width: 36px; height: 36px; }
+      .uvf-shortcut-indicator .uvf-ki-volume { 
+        align-items: center;
+        gap: 16px;
+      }
+      .uvf-shortcut-indicator .uvf-ki-vol-icon svg { 
+        width: 40px; 
+        height: 40px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      }
       .uvf-shortcut-indicator .uvf-ki-vol-bar {
-        width: 180px;
-        height: 8px;
-        background: rgba(255,255,255,0.25);
-        border-radius: 4px;
+        width: 220px;
+        height: 10px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 5px;
         overflow: hidden;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
       }
       .uvf-shortcut-indicator .uvf-ki-vol-fill {
         height: 100%;
         background: linear-gradient(90deg, var(--uvf-accent-1), var(--uvf-accent-2));
+        border-radius: 5px;
+        box-shadow: 0 1px 4px rgba(255,87,34,0.4);
       }
       .uvf-shortcut-indicator .uvf-ki-vol-text {
-        font-size: 16px;
-        font-weight: 600;
+        font-size: 20px;
+        font-weight: 700;
         color: var(--uvf-text-primary);
-        min-width: 42px;
+        min-width: 56px;
         text-align: right;
+        letter-spacing: 0.5px;
+        text-shadow: 0 2px 6px rgba(0,0,0,0.4);
       }
       .uvf-shortcut-indicator .uvf-ki-text {
         font-size: 18px;
@@ -3877,6 +3922,139 @@ export class WebPlayer extends BasePlayer {
         20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      }
+      
+      /* Responsive shortcut/volume indicator for mobile and tablet */
+      @media screen and (max-width: 767px) {
+        .uvf-shortcut-indicator {
+          padding: 18px 26px;
+          font-size: 20px;
+          max-width: calc(100vw - 48px);
+          border-radius: 16px;
+          backdrop-filter: blur(12px);
+          background: rgba(0,0,0,0.85);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        
+        /* Volume indicator - vertical layout on mobile */
+        .uvf-shortcut-indicator .uvf-ki-volume {
+          flex-direction: column;
+          gap: 14px;
+          align-items: center;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-icon svg {
+          width: 36px;
+          height: 36px;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-bar {
+          width: clamp(220px, 75vw, 300px);
+          height: 12px;
+          border-radius: 6px;
+          background: rgba(255,255,255,0.2);
+          box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-fill {
+          height: 100%;
+          border-radius: 6px;
+          box-shadow: 0 1px 4px rgba(255,87,34,0.4);
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-text {
+          font-size: 28px;
+          font-weight: 700;
+          min-width: auto;
+          text-align: center;
+          width: 100%;
+          letter-spacing: 0.5px;
+          text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+        
+        /* Skip indicators - optimized for mobile */
+        .uvf-shortcut-indicator .uvf-ki-skip {
+          width: 96px;
+          height: 96px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-skip svg {
+          width: 96px;
+          height: 96px;
+          filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-skip .uvf-ki-skip-num {
+          font-size: 20px;
+          font-weight: 800;
+        }
+        
+        /* Icon indicators */
+        .uvf-shortcut-indicator .uvf-ki svg {
+          width: 60px;
+          height: 60px;
+          filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-text {
+          font-size: 17px;
+          font-weight: 600;
+        }
+      }
+      
+      /* Mobile landscape - more compact */
+      @media screen and (max-width: 767px) and (orientation: landscape) {
+        .uvf-shortcut-indicator {
+          padding: 14px 20px;
+          max-width: calc(100vw - 80px);
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-volume {
+          flex-direction: row;
+          gap: 12px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-icon svg {
+          width: 28px;
+          height: 28px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-bar {
+          width: clamp(140px, 50vw, 200px);
+          height: 10px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-text {
+          font-size: 18px;
+        }
+      }
+      
+      @media screen and (min-width: 768px) and (max-width: 1023px) {
+        /* Tablet optimization */
+        .uvf-shortcut-indicator {
+          padding: 18px 28px;
+          border-radius: 14px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-volume {
+          gap: 14px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-bar {
+          width: 180px;
+          height: 10px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-icon svg {
+          width: 34px;
+          height: 34px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-text {
+          font-size: 18px;
+          font-weight: 600;
+        }
       }
       
       /* Hide top bar when no cursor */
@@ -5349,8 +5527,16 @@ export class WebPlayer extends BasePlayer {
                 this.debugLog('Center play button shown - video ended');
             }
         });
-        skipBackBtn?.addEventListener('click', () => this.seek(this.video.currentTime - 10));
-        skipForwardBtn?.addEventListener('click', () => this.seek(this.video.currentTime + 10));
+        skipBackBtn?.addEventListener('click', () => {
+            if (this.video && !isNaN(this.video.duration)) {
+                this.seek(Math.max(0, this.video.currentTime - 10));
+            }
+        });
+        skipForwardBtn?.addEventListener('click', () => {
+            if (this.video && !isNaN(this.video.duration)) {
+                this.seek(Math.min(this.video.duration, this.video.currentTime + 10));
+            }
+        });
         volumeBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
             this.toggleMuteAction();
@@ -5392,12 +5578,12 @@ export class WebPlayer extends BasePlayer {
             this.handleVolumeChange(e);
         });
         progressBar?.addEventListener('click', (e) => {
-            this.handleProgressChange(e);
+            this.seekToPosition(e);
         });
         progressBar?.addEventListener('mousedown', (e) => {
             this.isDragging = true;
             this.showTimeTooltip = true;
-            this.handleProgressChange(e);
+            this.seekToPosition(e);
             this.updateTimeTooltip(e);
         });
         progressBar?.addEventListener('mouseenter', () => {
@@ -5418,14 +5604,18 @@ export class WebPlayer extends BasePlayer {
             e.preventDefault();
             this.isDragging = true;
             const touch = e.touches[0];
-            this.handleProgressChange(touch);
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.seekToPosition(mouseEvent);
         }, { passive: false });
         document.addEventListener('mousemove', (e) => {
             if (this.isVolumeSliding) {
                 this.handleVolumeChange(e);
             }
             if (this.isDragging && progressBar) {
-                this.handleProgressChange(e);
+                this.seekToPosition(e);
                 this.updateTimeTooltip(e);
             }
         });
@@ -5433,7 +5623,11 @@ export class WebPlayer extends BasePlayer {
             if (this.isDragging && progressBar) {
                 e.preventDefault();
                 const touch = e.touches[0];
-                this.handleProgressChange(touch);
+                const mouseEvent = new MouseEvent('mousemove', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                this.seekToPosition(mouseEvent);
             }
         }, { passive: false });
         document.addEventListener('mouseup', () => {
@@ -5692,14 +5886,18 @@ export class WebPlayer extends BasePlayer {
                 case 'ArrowLeft':
                     e.preventDefault();
                     e.stopImmediatePropagation();
-                    this.seek(Math.max(0, this.video.currentTime - 10));
-                    shortcutText = '-10s';
+                    if (this.video && !isNaN(this.video.duration)) {
+                        this.seek(Math.max(0, this.video.currentTime - 10));
+                        shortcutText = '-10s';
+                    }
                     break;
                 case 'ArrowRight':
                     e.preventDefault();
                     e.stopImmediatePropagation();
-                    this.seek(Math.min(this.video.duration, this.video.currentTime + 10));
-                    shortcutText = '+10s';
+                    if (this.video && !isNaN(this.video.duration)) {
+                        this.seek(Math.min(this.video.duration, this.video.currentTime + 10));
+                        shortcutText = '+10s';
+                    }
                     break;
                 case 'ArrowUp':
                     e.preventDefault();
@@ -5765,8 +5963,8 @@ export class WebPlayer extends BasePlayer {
                 case '8':
                 case '9':
                     e.preventDefault();
-                    const percent = parseInt(e.key) * 10;
-                    if (this.video) {
+                    if (this.video && !isNaN(this.video.duration) && this.video.duration > 0) {
+                        const percent = parseInt(e.key) * 10;
                         this.video.currentTime = (this.video.duration * percent) / 100;
                         shortcutText = `${percent}%`;
                     }
@@ -6038,7 +6236,7 @@ export class WebPlayer extends BasePlayer {
                     try {
                         this.requestPause();
                         if (fromSeek || ((this.video.currentTime || 0) > lim)) {
-                            this.video.currentTime = Math.max(0, lim - 0.1);
+                            this.safeSetCurrentTime(lim - 0.1);
                         }
                     }
                     catch (_) { }
@@ -6192,16 +6390,25 @@ export class WebPlayer extends BasePlayer {
             this.video.muted = false;
         }
     }
-    handleProgressChange(e) {
-        const progressBar = document.getElementById('uvf-progress-bar');
+    seekToPosition(e) {
+        const progressBar = document.querySelector('.uvf-progress-bar');
         const progressFilled = document.getElementById('uvf-progress-filled');
         const progressHandle = document.getElementById('uvf-progress-handle');
         if (!progressBar || !this.video)
             return;
+        const duration = this.video.duration;
+        if (!isFinite(duration) || isNaN(duration) || duration <= 0) {
+            this.debugWarn('Invalid video duration, cannot seek via progress bar');
+            return;
+        }
         const rect = progressBar.getBoundingClientRect();
         const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
         const percent = (x / rect.width) * 100;
-        const time = (percent / 100) * this.video.duration;
+        const time = (percent / 100) * duration;
+        if (!isFinite(time) || isNaN(time)) {
+            this.debugWarn('Calculated seek time is invalid:', time);
+            return;
+        }
         if (progressFilled) {
             progressFilled.style.width = percent + '%';
         }
@@ -6380,14 +6587,20 @@ export class WebPlayer extends BasePlayer {
             const tapPosition = tapX - wrapperRect.left;
             const wrapperWidth = wrapperRect.width;
             const isLeftSide = tapPosition < wrapperWidth / 2;
+            const currentTime = this.video.currentTime;
+            const duration = this.video.duration;
+            if (!isFinite(currentTime) || isNaN(currentTime) || !isFinite(duration) || isNaN(duration)) {
+                this.debugWarn('Invalid video time values, skipping double-tap action');
+                return;
+            }
             if (isLeftSide) {
-                const newTime = Math.max(0, this.video.currentTime - SKIP_SECONDS);
+                const newTime = Math.max(0, currentTime - SKIP_SECONDS);
                 this.seek(newTime);
                 this.showShortcutIndicator(`-${SKIP_SECONDS}s`);
                 this.debugLog('Double tap left - skip backward');
             }
             else {
-                const newTime = Math.min(this.video.duration, this.video.currentTime + SKIP_SECONDS);
+                const newTime = Math.min(duration, currentTime + SKIP_SECONDS);
                 this.seek(newTime);
                 this.showShortcutIndicator(`+${SKIP_SECONDS}s`);
                 this.debugLog('Double tap right - skip forward');
@@ -6435,8 +6648,11 @@ export class WebPlayer extends BasePlayer {
             return;
         this.fastBackwardInterval = setInterval(() => {
             if (this.video) {
-                const newTime = Math.max(0, this.video.currentTime - 0.1);
-                this.video.currentTime = newTime;
+                const currentTime = this.video.currentTime;
+                if (isFinite(currentTime) && !isNaN(currentTime)) {
+                    const newTime = Math.max(0, currentTime - 0.1);
+                    this.safeSetCurrentTime(newTime);
+                }
             }
         }, 50);
     }
@@ -6842,8 +7058,8 @@ export class WebPlayer extends BasePlayer {
             return;
         }
         const chapter = this.coreChapterManager.seekToChapter(chapterId);
-        if (chapter) {
-            this.video.currentTime = chapter.startTime;
+        if (chapter && isFinite(chapter.startTime) && !isNaN(chapter.startTime)) {
+            this.safeSetCurrentTime(chapter.startTime);
             this.debugLog('Seeked to chapter:', chapter.title);
         }
     }
@@ -7495,17 +7711,9 @@ export class WebPlayer extends BasePlayer {
                 item.classList.remove('expanded');
             });
         }
-        if (this.isMobileDevice()) {
-            setTimeout(() => {
-                this.hideSettingsMenu();
-            }, 300);
-        }
-        else {
-            setTimeout(() => {
-                this.generateAccordionMenu();
-                this.setupSettingsEventListeners();
-            }, 100);
-        }
+        setTimeout(() => {
+            this.hideSettingsMenu();
+        }, 200);
     }
     updateSettingsActiveStates(className, activeElement) {
         const settingsMenu = document.getElementById('uvf-settings-menu');
@@ -8030,12 +8238,12 @@ export class WebPlayer extends BasePlayer {
                 }
             }
             if (this.video && !this.video.paused && !this.paymentSuccessful) {
-                this.debugWarn('Unauthorized playbook detected, pausing video');
+                this.debugWarn('Unauthorized playback detected, pausing video');
                 try {
                     this.video.pause();
                     const freeDuration = Number(this.config.freeDuration || 0);
-                    if (freeDuration > 0) {
-                        this.video.currentTime = Math.max(0, freeDuration - 1);
+                    if (freeDuration > 0 && isFinite(freeDuration)) {
+                        this.safeSetCurrentTime(freeDuration - 1);
                     }
                 }
                 catch (_) { }
@@ -8046,7 +8254,7 @@ export class WebPlayer extends BasePlayer {
         this.debugError('Security violation detected - disabling video');
         if (this.video) {
             this.video.pause();
-            this.video.currentTime = 0;
+            this.safeSetCurrentTime(0);
             this.video.src = '';
             this.video.style.display = 'none';
         }

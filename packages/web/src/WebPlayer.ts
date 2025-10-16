@@ -1328,8 +1328,56 @@ export class WebPlayer extends BasePlayer {
     }
   }
 
+  /**
+   * Safely set video currentTime with validation to prevent non-finite value errors
+   */
+  private safeSetCurrentTime(time: number): boolean {
+    if (!this.video) {
+      this.debugWarn('Cannot set currentTime: video element not available');
+      return false;
+    }
+    
+    // Validate the time value is finite
+    if (!isFinite(time) || isNaN(time)) {
+      this.debugWarn('Attempted to set invalid currentTime value:', time);
+      return false;
+    }
+    
+    // Ensure time is non-negative
+    const safeTime = Math.max(0, time);
+    
+    // Additional validation: check if video duration is available and valid
+    const duration = this.video.duration;
+    if (isFinite(duration) && duration > 0) {
+      // Clamp time to valid range [0, duration]
+      const clampedTime = Math.min(safeTime, duration);
+      try {
+        this.video.currentTime = clampedTime;
+        return true;
+      } catch (error) {
+        this.debugError('Error setting currentTime:', error);
+        return false;
+      }
+    } else {
+      // Duration not available yet, but still set time if it's valid
+      try {
+        this.video.currentTime = safeTime;
+        return true;
+      } catch (error) {
+        this.debugError('Error setting currentTime:', error);
+        return false;
+      }
+    }
+  }
+
   seek(time: number): void {
     if (!this.video) return;
+    
+    // Validate input time
+    if (!isFinite(time) || isNaN(time)) {
+      this.debugWarn('Invalid seek time:', time);
+      return;
+    }
     
     // Security check: Prevent seeking beyond free preview limit
     const freeDuration = Number(this.config.freeDuration || 0);
@@ -1339,17 +1387,13 @@ export class WebPlayer extends BasePlayer {
         this.debugWarn('Seek blocked - beyond free preview limit');
         this.enforcePaywallSecurity();
         // Reset to safe position
-        this.video.currentTime = Math.max(0, freeDuration - 1);
+        this.safeSetCurrentTime(freeDuration - 1);
         return;
       }
     }
     
-    const d = this.video.duration;
-    if (typeof d === 'number' && isFinite(d) && d > 0) {
-      this.video.currentTime = Math.max(0, Math.min(time, d));
-    } else {
-      this.video.currentTime = Math.max(0, time);
-    }
+    // Use safe setter with validated time
+    this.safeSetCurrentTime(time);
   }
 
   setVolume(level: number): void {
@@ -4270,10 +4314,10 @@ export class WebPlayer extends BasePlayer {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: rgba(0,0,0,0.8);
+        background: rgba(0,0,0,0.88);
         color: #fff;
-        padding: 20px 30px;
-        border-radius: 8px;
+        padding: 22px 32px;
+        border-radius: 12px;
         font-size: 24px;
         font-weight: 600;
         opacity: 0;
@@ -4283,7 +4327,9 @@ export class WebPlayer extends BasePlayer {
         white-space: nowrap;
         text-align: center;
         min-width: auto;
-        max-width: 200px;
+        max-width: 400px;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
       }
       
       /* Time-specific indicator styling */
@@ -4344,25 +4390,37 @@ export class WebPlayer extends BasePlayer {
         pointer-events: none;
         z-index: 2;
       }
-      .uvf-shortcut-indicator .uvf-ki-volume { align-items: center; }
-      .uvf-shortcut-indicator .uvf-ki-vol-icon svg { width: 36px; height: 36px; }
+      .uvf-shortcut-indicator .uvf-ki-volume { 
+        align-items: center;
+        gap: 16px;
+      }
+      .uvf-shortcut-indicator .uvf-ki-vol-icon svg { 
+        width: 40px; 
+        height: 40px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      }
       .uvf-shortcut-indicator .uvf-ki-vol-bar {
-        width: 180px;
-        height: 8px;
-        background: rgba(255,255,255,0.25);
-        border-radius: 4px;
+        width: 220px;
+        height: 10px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 5px;
         overflow: hidden;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
       }
       .uvf-shortcut-indicator .uvf-ki-vol-fill {
         height: 100%;
         background: linear-gradient(90deg, var(--uvf-accent-1), var(--uvf-accent-2));
+        border-radius: 5px;
+        box-shadow: 0 1px 4px rgba(255,87,34,0.4);
       }
       .uvf-shortcut-indicator .uvf-ki-vol-text {
-        font-size: 16px;
-        font-weight: 600;
+        font-size: 20px;
+        font-weight: 700;
         color: var(--uvf-text-primary);
-        min-width: 42px;
+        min-width: 56px;
         text-align: right;
+        letter-spacing: 0.5px;
+        text-shadow: 0 2px 6px rgba(0,0,0,0.4);
       }
       .uvf-shortcut-indicator .uvf-ki-text {
         font-size: 18px;
@@ -4374,6 +4432,139 @@ export class WebPlayer extends BasePlayer {
         20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      }
+      
+      /* Responsive shortcut/volume indicator for mobile and tablet */
+      @media screen and (max-width: 767px) {
+        .uvf-shortcut-indicator {
+          padding: 18px 26px;
+          font-size: 20px;
+          max-width: calc(100vw - 48px);
+          border-radius: 16px;
+          backdrop-filter: blur(12px);
+          background: rgba(0,0,0,0.85);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        
+        /* Volume indicator - vertical layout on mobile */
+        .uvf-shortcut-indicator .uvf-ki-volume {
+          flex-direction: column;
+          gap: 14px;
+          align-items: center;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-icon svg {
+          width: 36px;
+          height: 36px;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-bar {
+          width: clamp(220px, 75vw, 300px);
+          height: 12px;
+          border-radius: 6px;
+          background: rgba(255,255,255,0.2);
+          box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-fill {
+          height: 100%;
+          border-radius: 6px;
+          box-shadow: 0 1px 4px rgba(255,87,34,0.4);
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-text {
+          font-size: 28px;
+          font-weight: 700;
+          min-width: auto;
+          text-align: center;
+          width: 100%;
+          letter-spacing: 0.5px;
+          text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+        
+        /* Skip indicators - optimized for mobile */
+        .uvf-shortcut-indicator .uvf-ki-skip {
+          width: 96px;
+          height: 96px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-skip svg {
+          width: 96px;
+          height: 96px;
+          filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-skip .uvf-ki-skip-num {
+          font-size: 20px;
+          font-weight: 800;
+        }
+        
+        /* Icon indicators */
+        .uvf-shortcut-indicator .uvf-ki svg {
+          width: 60px;
+          height: 60px;
+          filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-text {
+          font-size: 17px;
+          font-weight: 600;
+        }
+      }
+      
+      /* Mobile landscape - more compact */
+      @media screen and (max-width: 767px) and (orientation: landscape) {
+        .uvf-shortcut-indicator {
+          padding: 14px 20px;
+          max-width: calc(100vw - 80px);
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-volume {
+          flex-direction: row;
+          gap: 12px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-icon svg {
+          width: 28px;
+          height: 28px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-bar {
+          width: clamp(140px, 50vw, 200px);
+          height: 10px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-text {
+          font-size: 18px;
+        }
+      }
+      
+      @media screen and (min-width: 768px) and (max-width: 1023px) {
+        /* Tablet optimization */
+        .uvf-shortcut-indicator {
+          padding: 18px 28px;
+          border-radius: 14px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-volume {
+          gap: 14px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-bar {
+          width: 180px;
+          height: 10px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-icon svg {
+          width: 34px;
+          height: 34px;
+        }
+        
+        .uvf-shortcut-indicator .uvf-ki-vol-text {
+          font-size: 18px;
+          font-weight: 600;
+        }
       }
       
       /* Hide top bar when no cursor */
@@ -5990,9 +6181,17 @@ export class WebPlayer extends BasePlayer {
       }
     });
     
-    // Skip buttons
-    skipBackBtn?.addEventListener('click', () => this.seek(this.video!.currentTime - 10));
-    skipForwardBtn?.addEventListener('click', () => this.seek(this.video!.currentTime + 10));
+    // Skip buttons with null safety
+    skipBackBtn?.addEventListener('click', () => {
+      if (this.video && !isNaN(this.video.duration)) {
+        this.seek(Math.max(0, this.video.currentTime - 10));
+      }
+    });
+    skipForwardBtn?.addEventListener('click', () => {
+      if (this.video && !isNaN(this.video.duration)) {
+        this.seek(Math.min(this.video.duration, this.video.currentTime + 10));
+      }
+    });
     
     // Volume control
     volumeBtn?.addEventListener('click', (e) => {
@@ -6045,13 +6244,13 @@ export class WebPlayer extends BasePlayer {
     
     // Progress bar interactions
     progressBar?.addEventListener('click', (e) => {
-      this.handleProgressChange(e as MouseEvent);
+      this.seekToPosition(e as MouseEvent);
     });
     
     progressBar?.addEventListener('mousedown', (e) => {
       this.isDragging = true;
       this.showTimeTooltip = true;
-      this.handleProgressChange(e as MouseEvent);
+      this.seekToPosition(e as MouseEvent);
       this.updateTimeTooltip(e as MouseEvent);
     });
     
@@ -6078,7 +6277,11 @@ export class WebPlayer extends BasePlayer {
       e.preventDefault(); // Prevent scrolling
       this.isDragging = true;
       const touch = e.touches[0];
-      this.handleProgressChange(touch);
+      const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      this.seekToPosition(mouseEvent);
     }, { passive: false });
     
     // Global mouse and touch events for enhanced dragging
@@ -6087,7 +6290,7 @@ export class WebPlayer extends BasePlayer {
         this.handleVolumeChange(e);
       }
       if (this.isDragging && progressBar) {
-        this.handleProgressChange(e);
+        this.seekToPosition(e);
         // Update tooltip position during dragging
         this.updateTimeTooltip(e);
       }
@@ -6097,7 +6300,11 @@ export class WebPlayer extends BasePlayer {
       if (this.isDragging && progressBar) {
         e.preventDefault(); // Prevent scrolling
         const touch = e.touches[0];
-        this.handleProgressChange(touch);
+        const mouseEvent = new MouseEvent('mousemove', {
+          clientX: touch.clientX,
+          clientY: touch.clientY
+        });
+        this.seekToPosition(mouseEvent);
       }
     }, { passive: false });
     
@@ -6435,14 +6642,18 @@ export class WebPlayer extends BasePlayer {
         case 'ArrowLeft':
           e.preventDefault();
           e.stopImmediatePropagation(); // Prevent duplicate handler triggers
-          this.seek(Math.max(0, this.video!.currentTime - 10));
-          shortcutText = '-10s';
+          if (this.video && !isNaN(this.video.duration)) {
+            this.seek(Math.max(0, this.video.currentTime - 10));
+            shortcutText = '-10s';
+          }
           break;
         case 'ArrowRight':
           e.preventDefault();
           e.stopImmediatePropagation(); // Prevent duplicate handler triggers
-          this.seek(Math.min(this.video!.duration, this.video!.currentTime + 10));
-          shortcutText = '+10s';
+          if (this.video && !isNaN(this.video.duration)) {
+            this.seek(Math.min(this.video.duration, this.video.currentTime + 10));
+            shortcutText = '+10s';
+          }
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -6507,8 +6718,9 @@ export class WebPlayer extends BasePlayer {
         case '8':
         case '9':
           e.preventDefault();
-          const percent = parseInt(e.key) * 10;
-          if (this.video) {
+          // Only jump to position if video is loaded and duration is valid
+          if (this.video && !isNaN(this.video.duration) && this.video.duration > 0) {
+            const percent = parseInt(e.key) * 10;
             this.video.currentTime = (this.video.duration * percent) / 100;
             shortcutText = `${percent}%`;
           }
@@ -6834,7 +7046,7 @@ export class WebPlayer extends BasePlayer {
             // Use deferred pause to avoid race conditions
             this.requestPause(); 
             if (fromSeek || ((this.video.currentTime || 0) > lim)) {
-              this.video.currentTime = Math.max(0, lim - 0.1);
+              this.safeSetCurrentTime(lim - 0.1);
             }
           } catch (_) {}
         }
@@ -7022,16 +7234,29 @@ export class WebPlayer extends BasePlayer {
     }
   }
 
-  private handleProgressChange(e: MouseEvent | Touch): void {
-    const progressBar = document.getElementById('uvf-progress-bar');
+  private seekToPosition(e: MouseEvent): void {
+    const progressBar = document.querySelector('.uvf-progress-bar') as HTMLElement;
     const progressFilled = document.getElementById('uvf-progress-filled') as HTMLElement;
     const progressHandle = document.getElementById('uvf-progress-handle') as HTMLElement;
     if (!progressBar || !this.video) return;
     
+    const duration = this.video.duration;
+    // Validate duration before calculating seek time
+    if (!isFinite(duration) || isNaN(duration) || duration <= 0) {
+      this.debugWarn('Invalid video duration, cannot seek via progress bar');
+      return;
+    }
+    
     const rect = progressBar.getBoundingClientRect();
     const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
     const percent = (x / rect.width) * 100;
-    const time = (percent / 100) * this.video.duration;
+    const time = (percent / 100) * duration;
+    
+    // Validate calculated time
+    if (!isFinite(time) || isNaN(time)) {
+      this.debugWarn('Calculated seek time is invalid:', time);
+      return;
+    }
     
     // Update UI immediately for responsive feedback
     if (progressFilled) {
@@ -7270,15 +7495,24 @@ export class WebPlayer extends BasePlayer {
       const wrapperWidth = wrapperRect.width;
       const isLeftSide = tapPosition < wrapperWidth / 2;
 
+      const currentTime = this.video.currentTime;
+      const duration = this.video.duration;
+      
+      // Validate current time and duration before calculating new time
+      if (!isFinite(currentTime) || isNaN(currentTime) || !isFinite(duration) || isNaN(duration)) {
+        this.debugWarn('Invalid video time values, skipping double-tap action');
+        return;
+      }
+
       if (isLeftSide) {
         // Skip backward
-        const newTime = Math.max(0, this.video.currentTime - SKIP_SECONDS);
+        const newTime = Math.max(0, currentTime - SKIP_SECONDS);
         this.seek(newTime);
         this.showShortcutIndicator(`-${SKIP_SECONDS}s`);
         this.debugLog('Double tap left - skip backward');
       } else {
         // Skip forward
-        const newTime = Math.min(this.video.duration, this.video.currentTime + SKIP_SECONDS);
+        const newTime = Math.min(duration, currentTime + SKIP_SECONDS);
         this.seek(newTime);
         this.showShortcutIndicator(`+${SKIP_SECONDS}s`);
         this.debugLog('Double tap right - skip forward');
@@ -7344,8 +7578,11 @@ export class WebPlayer extends BasePlayer {
 
     this.fastBackwardInterval = setInterval(() => {
       if (this.video) {
-        const newTime = Math.max(0, this.video.currentTime - 0.1); // Go back 0.1s every frame
-        this.video.currentTime = newTime;
+        const currentTime = this.video.currentTime;
+        if (isFinite(currentTime) && !isNaN(currentTime)) {
+          const newTime = Math.max(0, currentTime - 0.1); // Go back 0.1s every frame
+          this.safeSetCurrentTime(newTime);
+        }
       }
     }, 50); // Update every 50ms for smooth backward motion
   }
@@ -7862,8 +8099,8 @@ export class WebPlayer extends BasePlayer {
     }
 
     const chapter = this.coreChapterManager.seekToChapter(chapterId);
-    if (chapter) {
-      this.video.currentTime = chapter.startTime;
+    if (chapter && isFinite(chapter.startTime) && !isNaN(chapter.startTime)) {
+      this.safeSetCurrentTime(chapter.startTime);
       this.debugLog('Seeked to chapter:', chapter.title);
     }
   }
@@ -8592,18 +8829,10 @@ export class WebPlayer extends BasePlayer {
       });
     }
     
-    // Auto-close settings menu on mobile after a short delay
-    if (this.isMobileDevice()) {
-      setTimeout(() => {
-        this.hideSettingsMenu();
-      }, 300);
-    } else {
-      // Desktop: just refresh the menu to update current values
-      setTimeout(() => {
-        this.generateAccordionMenu();
-        this.setupSettingsEventListeners();
-      }, 100);
-    }
+    // Close settings menu after selection on all devices
+    setTimeout(() => {
+      this.hideSettingsMenu();
+    }, 200);
   }
 
   /**
@@ -9240,12 +9469,12 @@ export class WebPlayer extends BasePlayer {
       
       // Additional check: ensure video is paused if not authenticated
       if (this.video && !this.video.paused && !this.paymentSuccessful) {
-        this.debugWarn('Unauthorized playbook detected, pausing video');
+        this.debugWarn('Unauthorized playback detected, pausing video');
         try {
           this.video.pause();
           const freeDuration = Number(this.config.freeDuration || 0);
-          if (freeDuration > 0) {
-            this.video.currentTime = Math.max(0, freeDuration - 1);
+          if (freeDuration > 0 && isFinite(freeDuration)) {
+            this.safeSetCurrentTime(freeDuration - 1);
           }
         } catch (_) {}
       }
@@ -9261,7 +9490,7 @@ export class WebPlayer extends BasePlayer {
     // Disable video completely
     if (this.video) {
       this.video.pause();
-      this.video.currentTime = 0;
+      this.safeSetCurrentTime(0);
       this.video.src = ''; // Clear video source
       this.video.style.display = 'none';
     }
