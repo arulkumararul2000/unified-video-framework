@@ -230,12 +230,18 @@ export class ChapterManager {
 
     return this.chapters.segments
       .filter(segment => segment.type !== 'content') // Don't show markers for content segments
-      .map(segment => ({
-        segment,
-        position: (segment.startTime / this.chapters!.duration) * 100,
-        color: SEGMENT_COLORS[segment.type],
-        label: segment.title || segment.type
-      }));
+      .map(segment => {
+        // Use custom color if provided, otherwise fallback to default
+        const customColor = this.config.customStyles?.progressMarkers?.[segment.type];
+        const color = customColor || SEGMENT_COLORS[segment.type];
+        
+        return {
+          segment,
+          position: (segment.startTime / this.chapters!.duration) * 100,
+          color,
+          label: segment.title || segment.type
+        };
+      });
   }
 
   /**

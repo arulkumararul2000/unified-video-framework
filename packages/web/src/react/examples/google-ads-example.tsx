@@ -6,6 +6,11 @@ import { WebPlayerView } from '../WebPlayerView';
  * 
  * This example demonstrates how to integrate Google IMA ads
  * (pre-roll, mid-roll, post-roll, and companion ads) with the video player.
+ * 
+ * NEW: Automatic ad markers are now displayed on the seekbar!
+ * - Ad break positions from midrollTimes are automatically visualized
+ * - Yellow markers appear on the progress bar at ad break times
+ * - No manual chapter configuration needed
  */
 
 export const GoogleAdsExample: React.FC = () => {
@@ -35,6 +40,7 @@ export const GoogleAdsExample: React.FC = () => {
             adTagUrl: 'https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/single_ad_samples&sz=640x480&cust_params=sample_ct%3Dlinear&ciu_szs=300x250%2C728x90&gdfp_req=1&output=vast&unviewed_position_start=1&env=vp&impl=s&correlator=',
             
             // Optional: Specific mid-roll times (in seconds)
+            // These times will automatically appear as markers on the seekbar!
             // If not provided, VMAP schedule from ad server is used
             midrollTimes: [30, 60, 120],
             
@@ -67,6 +73,17 @@ export const GoogleAdsExample: React.FC = () => {
             
             onAllAdsComplete: () => {
               logAdEvent('All Ads Completed');
+            },
+          }}
+          
+          // Chapter configuration for ad marker customization
+          chapters={{
+            enabled: true,
+            showChapterMarkers: true,
+            customStyles: {
+              progressMarkers: {
+                ad: '#FFD700', // Gold/yellow color for ad markers
+              },
             },
           }}
           
@@ -174,7 +191,9 @@ export const GoogleAdsExample: React.FC = () => {
  * 
  * 3. Mid-roll Configuration:
  *    - Specify times in seconds: [30, 60, 120]
+ *    - Markers automatically appear on seekbar at these times
  *    - Or use VMAP schedule from ad server
+ *    - Customize marker color via chapters.customStyles.progressMarkers.ad
  * 
  * 4. Companion Ads:
  *    - Create HTML containers with specific IDs

@@ -92,6 +92,13 @@ export interface ChapterConfig {
   customStyles?: {
     skipButton?: Partial<CSSStyleDeclaration>;
     chapterMarkers?: Partial<CSSStyleDeclaration>;
+    progressMarkers?: {
+      intro?: string;
+      recap?: string;
+      content?: string;
+      credits?: string;
+      ad?: string;
+    };
   };
   
   /** User preferences */
@@ -236,5 +243,5 @@ export const SEGMENT_COLORS: Record<SegmentType, string> = {
   recap: '#ffc107',    // Amber
   content: '#4caf50',  // Green
   credits: '#9c27b0',  // Purple
-  ad: '#f44336'        // Red
+  ad: '#FFFF00'        // Yellow (like YouTube ads)
 };

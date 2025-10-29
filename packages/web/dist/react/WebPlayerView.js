@@ -28,6 +28,78 @@ export const WebPlayerView = (props) => {
     const adsManagerRef = useRef(null);
     const adContainerRef = useRef(null);
     const [isAdPlaying, setIsAdPlaying] = useState(false);
+    const generateAdMarkers = useCallback((cuePoints, videoDuration) => {
+        if (!cuePoints || cuePoints.length === 0)
+            return [];
+        return cuePoints.map((time, index) => {
+            let actualTime = time;
+            let title = 'Ad Break';
+            if (time === 0) {
+                actualTime = 0;
+                title = 'Pre-roll Ad';
+            }
+            else if (time === -1) {
+                actualTime = videoDuration > 0 ? videoDuration - 0.1 : 0;
+                title = 'Post-roll Ad';
+            }
+            else {
+                title = `Mid-roll Ad ${index + 1}`;
+            }
+            return {
+                id: `ad-${index}-${time}`,
+                type: 'ad',
+                startTime: actualTime,
+                endTime: actualTime + 0.1,
+                title,
+                skipLabel: 'Skip Ad',
+                description: `Advertisement at ${formatAdTime(actualTime)}`,
+                autoSkip: false,
+                showSkipButton: false,
+                metadata: {
+                    adBreakIndex: index,
+                    originalTime: time,
+                    isPreroll: time === 0,
+                    isPostroll: time === -1,
+                    source: 'google-ads',
+                },
+            };
+        });
+    }, []);
+    const formatAdTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+    const mergeAdMarkersWithChapters = useCallback((chapters, adMarkers, videoDuration) => {
+        if (adMarkers.length === 0)
+            return chapters;
+        const customStyles = chapters?.customStyles || {};
+        if (!chapters || !chapters.data) {
+            return {
+                enabled: true,
+                showChapterMarkers: true,
+                customStyles,
+                data: {
+                    videoId: 'auto-generated',
+                    duration: videoDuration,
+                    segments: adMarkers,
+                },
+            };
+        }
+        const existingSegments = chapters.data?.segments || [];
+        const allSegments = [...existingSegments, ...adMarkers]
+            .sort((a, b) => a.startTime - b.startTime);
+        return {
+            ...chapters,
+            enabled: true,
+            showChapterMarkers: true,
+            customStyles,
+            data: {
+                ...chapters.data,
+                segments: allSegments,
+            },
+        };
+    }, []);
     useEffect(() => {
         if (typeof window === 'undefined')
             return;
@@ -291,6 +363,13 @@ export const WebPlayerView = (props) => {
             else {
                 watermarkConfig = props.watermark;
             }
+            let chaptersConfig = props.chapters;
+            if (props.googleAds && !chaptersConfig) {
+                chaptersConfig = {
+                    enabled: true,
+                    showChapterMarkers: true,
+                };
+            }
             const config = {
                 autoPlay: props.autoPlay ?? false,
                 muted: props.muted ?? false,
@@ -312,23 +391,23 @@ export const WebPlayerView = (props) => {
                 qualityFilter: props.qualityFilter,
                 premiumQualities: props.premiumQualities,
                 navigation: props.navigation,
-                chapters: props.chapters ? {
-                    enabled: props.chapters.enabled ?? false,
-                    data: props.chapters.data,
-                    dataUrl: props.chapters.dataUrl,
-                    autoHide: props.chapters.autoHide ?? true,
-                    autoHideDelay: props.chapters.autoHideDelay ?? 5000,
-                    showChapterMarkers: props.chapters.showChapterMarkers ?? true,
-                    skipButtonPosition: props.chapters.skipButtonPosition ?? 'bottom-right',
-                    customStyles: props.chapters.customStyles,
+                chapters: chaptersConfig ? {
+                    enabled: chaptersConfig.enabled ?? (props.googleAds ? true : false),
+                    data: chaptersConfig.data,
+                    dataUrl: chaptersConfig.dataUrl,
+                    autoHide: chaptersConfig.autoHide ?? true,
+                    autoHideDelay: chaptersConfig.autoHideDelay ?? 5000,
+                    showChapterMarkers: chaptersConfig.showChapterMarkers ?? true,
+                    skipButtonPosition: chaptersConfig.skipButtonPosition ?? 'bottom-right',
+                    customStyles: chaptersConfig.customStyles,
                     userPreferences: {
-                        autoSkipIntro: props.chapters.userPreferences?.autoSkipIntro ?? false,
-                        autoSkipRecap: props.chapters.userPreferences?.autoSkipRecap ?? false,
-                        autoSkipCredits: props.chapters.userPreferences?.autoSkipCredits ?? false,
-                        showSkipButtons: props.chapters.userPreferences?.showSkipButtons ?? true,
-                        skipButtonTimeout: props.chapters.userPreferences?.skipButtonTimeout ?? 5000,
-                        rememberChoices: props.chapters.userPreferences?.rememberChoices ?? true,
-                        resumePlaybackAfterSkip: props.chapters.userPreferences?.resumePlaybackAfterSkip ?? true,
+                        autoSkipIntro: chaptersConfig.userPreferences?.autoSkipIntro ?? false,
+                        autoSkipRecap: chaptersConfig.userPreferences?.autoSkipRecap ?? false,
+                        autoSkipCredits: chaptersConfig.userPreferences?.autoSkipCredits ?? false,
+                        showSkipButtons: chaptersConfig.userPreferences?.showSkipButtons ?? true,
+                        skipButtonTimeout: chaptersConfig.userPreferences?.skipButtonTimeout ?? 5000,
+                        rememberChoices: chaptersConfig.userPreferences?.rememberChoices ?? true,
+                        resumePlaybackAfterSkip: chaptersConfig.userPreferences?.resumePlaybackAfterSkip ?? true,
                     }
                 } : { enabled: false }
             };
@@ -360,6 +439,36 @@ export const WebPlayerView = (props) => {
                     }
                     if (props.showFullscreenTipOnMount && typeof player.showFullscreenTip === 'function') {
                         player.showFullscreenTip();
+                    }
+                    const injectAdMarkersFromTimes = (adTimes) => {
+                        if (!adTimes || adTimes.length === 0)
+                            return;
+                        const duration = player.getDuration?.() || 0;
+                        if (duration > 0) {
+                            const adMarkers = generateAdMarkers(adTimes, duration);
+                            const mergedChapters = mergeAdMarkersWithChapters(props.chapters, adMarkers, duration);
+                            if (typeof player.loadChapters === 'function' && mergedChapters.data) {
+                                player.loadChapters(mergedChapters.data);
+                                console.log('✅ Ad markers injected:', adMarkers.length, 'markers at times:', adTimes);
+                            }
+                        }
+                    };
+                    if (props.googleAds) {
+                        const videoDuration = player.getDuration?.() || 0;
+                        if (props.googleAds.midrollTimes && props.googleAds.midrollTimes.length > 0) {
+                            const injectAdMarkers = () => {
+                                injectAdMarkersFromTimes(props.googleAds.midrollTimes);
+                            };
+                            if (videoDuration > 0) {
+                                injectAdMarkers();
+                            }
+                            else {
+                                const videoElement = player.video || player.getVideoElement?.();
+                                if (videoElement) {
+                                    videoElement.addEventListener('loadedmetadata', injectAdMarkers, { once: true });
+                                }
+                            }
+                        }
                     }
                     if (props.epg && typeof player.setEPGData === 'function') {
                         player.setEPGData(props.epg);
@@ -482,6 +591,12 @@ export const WebPlayerView = (props) => {
                                     onAllAdsComplete: () => {
                                         setIsAdPlaying(false);
                                         props.googleAds?.onAllAdsComplete?.();
+                                    },
+                                    onAdCuePoints: (cuePoints) => {
+                                        if (!props.googleAds?.midrollTimes || props.googleAds.midrollTimes.length === 0) {
+                                            console.log('🔵 Using VMAP cue points for ad markers:', cuePoints);
+                                            injectAdMarkersFromTimes(cuePoints);
+                                        }
                                     },
                                 });
                                 await adsManager.initialize();

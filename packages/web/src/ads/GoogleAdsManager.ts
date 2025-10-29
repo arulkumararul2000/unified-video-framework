@@ -30,6 +30,7 @@ export interface GoogleAdsConfig {
   onAdEnd?: () => void;
   onAdError?: (error: any) => void;
   onAllAdsComplete?: () => void;
+  onAdCuePoints?: (cuePoints: number[]) => void;  // Called when ad schedule is loaded
 }
 
 export class GoogleAdsManager {
@@ -173,6 +174,29 @@ export class GoogleAdsManager {
     
     // Get the ads manager
     this.adsManager = event.getAdsManager(this.video, adsRenderingSettings);
+    
+    // Extract cue points (ad break times) from VMAP/ad server
+    try {
+      const cuePoints = this.adsManager.getCuePoints();
+      if (cuePoints && cuePoints.length > 0) {
+        // Process all cue points including pre-roll (0) and post-roll (-1)
+        const allCuePoints = cuePoints.map((time: number) => {
+          // Convert special values to actual times
+          if (time === 0) return 0;           // Pre-roll at start
+          if (time === -1) return -1;         // Post-roll (will be converted to video duration later)
+          return time;                         // Mid-roll at specific time
+        });
+        
+        console.log('📍 Ad cue points detected (pre/mid/post):', allCuePoints);
+        
+        // Notify callback with all cue points
+        if (this.config.onAdCuePoints) {
+          this.config.onAdCuePoints(allCuePoints);
+        }
+      }
+    } catch (error) {
+      console.warn('Could not extract ad cue points:', error);
+    }
     
     // Setup ads manager event listeners
     this.setupAdsManagerListeners();

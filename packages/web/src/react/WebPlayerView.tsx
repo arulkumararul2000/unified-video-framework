@@ -417,6 +417,101 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
   const adsManagerRef = useRef<GoogleAdsManager | null>(null);
   const adContainerRef = useRef<HTMLDivElement>(null);
   const [isAdPlaying, setIsAdPlaying] = useState(false);
+  
+  /**
+   * Generate ad chapter segments from googleAds cue points
+   * Handles pre-roll (0), mid-rolls, and post-roll (-1)
+   */
+  const generateAdMarkers = useCallback((cuePoints: number[], videoDuration: number) => {
+    if (!cuePoints || cuePoints.length === 0) return [];
+    
+    return cuePoints.map((time, index) => {
+      // Handle special cue point values
+      let actualTime = time;
+      let title = 'Ad Break';
+      
+      if (time === 0) {
+        // Pre-roll ad at the beginning
+        actualTime = 0;
+        title = 'Pre-roll Ad';
+      } else if (time === -1) {
+        // Post-roll ad at the end
+        actualTime = videoDuration > 0 ? videoDuration - 0.1 : 0;
+        title = 'Post-roll Ad';
+      } else {
+        // Mid-roll ad at specific time
+        title = `Mid-roll Ad ${index + 1}`;
+      }
+      
+      return {
+        id: `ad-${index}-${time}`,
+        type: 'ad' as const,
+        startTime: actualTime,
+        endTime: actualTime + 0.1, // Ad markers are instantaneous points
+        title,
+        skipLabel: 'Skip Ad',
+        description: `Advertisement at ${formatAdTime(actualTime)}`,
+        autoSkip: false,
+        showSkipButton: false,  // Don't show skip button for ads (Google IMA handles this)
+        metadata: {
+          adBreakIndex: index,
+          originalTime: time,
+          isPreroll: time === 0,
+          isPostroll: time === -1,
+          source: 'google-ads',
+        },
+      };
+    });
+  }, []);
+  
+  /**
+   * Format time for ad marker labels (MM:SS)
+   */
+  const formatAdTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+  
+  /**
+   * Merge ad markers with existing chapter data
+   */
+  const mergeAdMarkersWithChapters = useCallback((chapters: any, adMarkers: any[], videoDuration: number) => {
+    if (adMarkers.length === 0) return chapters;
+    
+    // Preserve custom styles from chapters prop or use defaults
+    const customStyles = chapters?.customStyles || {};
+    
+    // If no chapters exist, create new chapter data with ad markers
+    if (!chapters || !chapters.data) {
+      return {
+        enabled: true,
+        showChapterMarkers: true,
+        customStyles,  // Preserve custom styles
+        data: {
+          videoId: 'auto-generated',
+          duration: videoDuration,
+          segments: adMarkers,
+        },
+      };
+    }
+    
+    // Merge ad markers with existing segments
+    const existingSegments = chapters.data?.segments || [];
+    const allSegments = [...existingSegments, ...adMarkers]
+      .sort((a, b) => a.startTime - b.startTime); // Sort by time
+    
+    return {
+      ...chapters,
+      enabled: true,
+      showChapterMarkers: true,
+      customStyles,  // Preserve custom styles
+      data: {
+        ...chapters.data,
+        segments: allSegments,
+      },
+    };
+  }, []);
 
   // Responsive window resize handler
   useEffect(() => {
@@ -715,6 +810,16 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         watermarkConfig = props.watermark;
       }
       
+      // Auto-enable chapters if Google Ads is configured (for ad markers)
+      let chaptersConfig = props.chapters;
+      if (props.googleAds && !chaptersConfig) {
+        // Create minimal chapter config to enable ad markers
+        chaptersConfig = {
+          enabled: true,
+          showChapterMarkers: true,
+        };
+      }
+      
       const config: PlayerConfig = {
         autoPlay: props.autoPlay ?? false,
         muted: props.muted ?? false,
@@ -737,24 +842,24 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         premiumQualities: props.premiumQualities,  // Add premium qualities config
         // Navigation configuration
         navigation: props.navigation,
-        // Chapter configuration
-        chapters: props.chapters ? {
-          enabled: props.chapters.enabled ?? false,
-          data: props.chapters.data,
-          dataUrl: props.chapters.dataUrl,
-          autoHide: props.chapters.autoHide ?? true,
-          autoHideDelay: props.chapters.autoHideDelay ?? 5000,
-          showChapterMarkers: props.chapters.showChapterMarkers ?? true,
-          skipButtonPosition: props.chapters.skipButtonPosition ?? 'bottom-right',
-          customStyles: props.chapters.customStyles,
+        // Chapter configuration (auto-enabled for Google Ads markers)
+        chapters: chaptersConfig ? {
+          enabled: chaptersConfig.enabled ?? (props.googleAds ? true : false),
+          data: chaptersConfig.data,
+          dataUrl: chaptersConfig.dataUrl,
+          autoHide: chaptersConfig.autoHide ?? true,
+          autoHideDelay: chaptersConfig.autoHideDelay ?? 5000,
+          showChapterMarkers: chaptersConfig.showChapterMarkers ?? true,
+          skipButtonPosition: chaptersConfig.skipButtonPosition ?? 'bottom-right',
+          customStyles: chaptersConfig.customStyles,
           userPreferences: {
-            autoSkipIntro: props.chapters.userPreferences?.autoSkipIntro ?? false,
-            autoSkipRecap: props.chapters.userPreferences?.autoSkipRecap ?? false,
-            autoSkipCredits: props.chapters.userPreferences?.autoSkipCredits ?? false,
-            showSkipButtons: props.chapters.userPreferences?.showSkipButtons ?? true,
-            skipButtonTimeout: props.chapters.userPreferences?.skipButtonTimeout ?? 5000,
-            rememberChoices: props.chapters.userPreferences?.rememberChoices ?? true,
-            resumePlaybackAfterSkip: props.chapters.userPreferences?.resumePlaybackAfterSkip ?? true,
+            autoSkipIntro: chaptersConfig.userPreferences?.autoSkipIntro ?? false,
+            autoSkipRecap: chaptersConfig.userPreferences?.autoSkipRecap ?? false,
+            autoSkipCredits: chaptersConfig.userPreferences?.autoSkipCredits ?? false,
+            showSkipButtons: chaptersConfig.userPreferences?.showSkipButtons ?? true,
+            skipButtonTimeout: chaptersConfig.userPreferences?.skipButtonTimeout ?? 5000,
+            rememberChoices: chaptersConfig.userPreferences?.rememberChoices ?? true,
+            resumePlaybackAfterSkip: chaptersConfig.userPreferences?.resumePlaybackAfterSkip ?? true,
           }
         } : { enabled: false }
       };
@@ -798,6 +903,48 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
           // Show fullscreen tip if requested
           if (props.showFullscreenTipOnMount && typeof (player as any).showFullscreenTip === 'function') {
             (player as any).showFullscreenTip();
+          }
+          
+          // Helper function to inject ad markers
+          const injectAdMarkersFromTimes = (adTimes: number[]) => {
+            if (!adTimes || adTimes.length === 0) return;
+            
+            const duration = (player as any).getDuration?.() || 0;
+            if (duration > 0) {
+              const adMarkers = generateAdMarkers(adTimes, duration);
+              const mergedChapters = mergeAdMarkersWithChapters(props.chapters, adMarkers, duration);
+              
+              // Inject ad markers into the chapter system
+              if (typeof (player as any).loadChapters === 'function' && mergedChapters.data) {
+                (player as any).loadChapters(mergedChapters.data);
+                console.log('✅ Ad markers injected:', adMarkers.length, 'markers at times:', adTimes);
+              }
+            }
+          };
+          
+          // Generate and inject ad markers if Google Ads is configured
+          if (props.googleAds) {
+            const videoDuration = (player as any).getDuration?.() || 0;
+            
+            // If midrollTimes are explicitly provided, use them immediately
+            if (props.googleAds.midrollTimes && props.googleAds.midrollTimes.length > 0) {
+              const injectAdMarkers = () => {
+                injectAdMarkersFromTimes(props.googleAds!.midrollTimes!);
+              };
+              
+              // Try immediately first
+              if (videoDuration > 0) {
+                injectAdMarkers();
+              } else {
+                // Otherwise wait for loadedmetadata event
+                const videoElement = (player as any).video || (player as any).getVideoElement?.();
+                if (videoElement) {
+                  videoElement.addEventListener('loadedmetadata', injectAdMarkers, { once: true });
+                }
+              }
+            }
+            // If no midrollTimes, markers will be injected when ad manager reports cue points
+            // (handled in Google Ads initialization below)
           }
           
           // Set up EPG integration
@@ -942,6 +1089,13 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
                     onAllAdsComplete: () => {
                       setIsAdPlaying(false);
                       props.googleAds?.onAllAdsComplete?.();
+                    },
+                    onAdCuePoints: (cuePoints: number[]) => {
+                      // Inject markers from VMAP cue points (if midrollTimes not provided)
+                      if (!props.googleAds?.midrollTimes || props.googleAds.midrollTimes.length === 0) {
+                        console.log('🔵 Using VMAP cue points for ad markers:', cuePoints);
+                        injectAdMarkersFromTimes(cuePoints);
+                      }
                     },
                   }
                 );

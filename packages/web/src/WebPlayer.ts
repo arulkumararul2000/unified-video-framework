@@ -3005,7 +3005,7 @@ export class WebPlayer extends BasePlayer {
       }
       
       .uvf-chapter-marker-ad {
-        background: #f44336;
+        background: #FFFF00;  /* Yellow like YouTube ads */
       }
       
       /* Skip Button Styles */
