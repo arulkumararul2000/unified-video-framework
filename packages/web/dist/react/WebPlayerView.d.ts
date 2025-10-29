@@ -3,6 +3,64 @@ import type { CSSProperties } from 'react';
 import type { SubtitleTrack, VideoMetadata } from '../../core/dist';
 import { WebPlayer } from '../WebPlayer';
 import type { EPGData, EPGConfig, EPGProgram, EPGProgramRow } from './types/EPGTypes';
+export interface ChapterAPI {
+    loadChapters: (chapters: any) => Promise<void>;
+    loadChaptersFromUrl: (url: string) => Promise<void>;
+    getCurrentSegment: () => any | null;
+    skipToSegment: (segmentId: string) => void;
+    getSegments: () => any[];
+    updateChapterConfig: (config: any) => void;
+    hasChapters: () => boolean;
+    getChapters: () => any | null;
+    getCoreChapters: () => any[];
+    getCoreSegments: () => any[];
+    getCurrentChapterInfo: () => any | null;
+    seekToChapter: (chapterId: string) => void;
+    getNextChapter: () => any | null;
+    getPreviousChapter: () => any | null;
+}
+export interface QualityAPI {
+    getQualities: () => any[];
+    getCurrentQuality: () => any | null;
+    setQuality: (index: number) => void;
+    setAutoQuality: (enabled: boolean) => void;
+}
+export interface EPGControlAPI {
+    setEPGData: (data: any) => void;
+    showEPGButton: () => void;
+    hideEPGButton: () => void;
+    isEPGButtonVisible: () => boolean;
+}
+export interface UIHelperAPI {
+    focusPlayer: () => void;
+    showFullscreenTip: () => void;
+    triggerFullscreenButton: () => void;
+    showTemporaryMessage: (message: string) => void;
+    showFullscreenInstructions: () => void;
+    enterFullscreenSynchronously: () => void;
+}
+export interface FullscreenAPI {
+    enterFullscreen: () => Promise<void>;
+    exitFullscreen: () => Promise<void>;
+    toggleFullscreen: () => Promise<void>;
+    enterPictureInPicture: () => Promise<void>;
+    exitPictureInPicture: () => Promise<void>;
+}
+export interface PlaybackAPI {
+    play: () => Promise<void>;
+    pause: () => void;
+    requestPause: () => void;
+    seek: (time: number) => void;
+    setVolume: (level: number) => void;
+    mute: () => void;
+    unmute: () => void;
+    toggleMute: () => void;
+    setPlaybackRate: (rate: number) => void;
+    getPlaybackRate: () => number;
+    getCurrentTime: () => number;
+    getDuration: () => number;
+    getState: () => any;
+}
 export type WebPlayerViewProps = {
     autoPlay?: boolean;
     muted?: boolean;
@@ -22,6 +80,25 @@ export type WebPlayerViewProps = {
         speed?: boolean;
         quality?: boolean;
         subtitles?: boolean;
+    };
+    qualityFilter?: {
+        allowedHeights?: number[];
+        allowedLabels?: string[];
+        minHeight?: number;
+        maxHeight?: number;
+    };
+    premiumQualities?: {
+        enabled?: boolean;
+        requiredHeights?: number[];
+        requiredLabels?: string[];
+        minPremiumHeight?: number;
+        isPremiumUser?: boolean;
+        premiumLabel?: string;
+        onPremiumQualityClick?: (quality: {
+            height: number;
+            label: string;
+        }) => void;
+        unlockUrl?: string;
     };
     showFrameworkBranding?: boolean;
     watermark?: boolean | {
@@ -112,8 +189,40 @@ export type WebPlayerViewProps = {
             maxHeight?: string;
         };
     };
+    settingsScrollbar?: {
+        style?: 'default' | 'compact' | 'overlay';
+        widthPx?: number;
+        intensity?: number;
+    };
+    autoFocusPlayer?: boolean;
+    showFullscreenTipOnMount?: boolean;
+    playerRef?: React.RefObject<WebPlayer>;
+    onChapterAPI?: (api: ChapterAPI) => void;
+    onQualityAPI?: (api: QualityAPI) => void;
+    onEPGAPI?: (api: EPGControlAPI) => void;
+    onUIHelperAPI?: (api: UIHelperAPI) => void;
+    onFullscreenAPI?: (api: FullscreenAPI) => void;
+    onPlaybackAPI?: (api: PlaybackAPI) => void;
     onReady?: (player: WebPlayer) => void;
     onError?: (error: unknown) => void;
+    onPlay?: () => void;
+    onPause?: () => void;
+    onEnded?: () => void;
+    onTimeUpdate?: (data: {
+        currentTime: number;
+        duration: number;
+    }) => void;
+    onProgress?: (data: {
+        buffered: number;
+    }) => void;
+    onVolumeChange?: (data: {
+        volume: number;
+        muted: boolean;
+    }) => void;
+    onQualityChange?: (quality: any) => void;
+    onBuffering?: (isBuffering: boolean) => void;
+    onFullscreenChange?: (isFullscreen: boolean) => void;
+    onPictureInPictureChange?: (isPiP: boolean) => void;
     epg?: EPGData;
     epgConfig?: Partial<EPGConfig>;
     showEPG?: boolean;
@@ -199,6 +308,19 @@ export type WebPlayerViewProps = {
     };
     onNavigationBackClicked?: () => void;
     onNavigationCloseClicked?: () => void;
+    googleAds?: {
+        adTagUrl: string;
+        midrollTimes?: number[];
+        companionAdSlots?: Array<{
+            containerId: string;
+            width: number;
+            height: number;
+        }>;
+        onAdStart?: () => void;
+        onAdEnd?: () => void;
+        onAdError?: (error: any) => void;
+        onAllAdsComplete?: () => void;
+    };
     onChapterChange?: (chapter: any) => void;
     onSegmentEntered?: (segment: any) => void;
     onSegmentExited?: (segment: any) => void;

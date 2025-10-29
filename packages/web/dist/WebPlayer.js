@@ -79,6 +79,8 @@ export class WebPlayer extends BasePlayer {
         this.chapterManager = null;
         this.coreChapterManager = null;
         this.chapterConfig = { enabled: false };
+        this.qualityFilter = null;
+        this.premiumQualities = null;
         this.autoplayAttempted = false;
         this.clickToUnmuteHandler = null;
     }
@@ -140,6 +142,14 @@ export class WebPlayer extends BasePlayer {
         }
         else {
             console.log('No chapter config found, chapters disabled');
+        }
+        if (config && config.qualityFilter) {
+            console.log('Quality filter config found:', config.qualityFilter);
+            this.qualityFilter = config.qualityFilter;
+        }
+        if (config && config.premiumQualities) {
+            console.log('Premium qualities config found:', config.premiumQualities);
+            this.premiumQualities = config.premiumQualities;
         }
         await super.initialize(container, config);
     }
@@ -483,6 +493,10 @@ export class WebPlayer extends BasePlayer {
                     index: index
                 }));
                 this.updateSettingsMenu();
+                if (this.qualityFilter || (this.premiumQualities && this.premiumQualities.enabled)) {
+                    this.debugLog('Applying quality filter on HLS manifest load');
+                    this.applyHLSQualityFilter();
+                }
             });
             this.hls.on(window.Hls.Events.LEVEL_SWITCHED, (event, data) => {
                 if (this.qualities[data.level]) {
@@ -563,6 +577,10 @@ export class WebPlayer extends BasePlayer {
                     index: index
                 }));
                 this.updateSettingsMenu();
+                if (this.qualityFilter || (this.premiumQualities && this.premiumQualities.enabled)) {
+                    this.debugLog('Applying quality filter on DASH stream initialization');
+                    this.applyDASHQualityFilter();
+                }
             }
         });
         this.dash.on(window.dashjs.MediaPlayer.events.ERROR, (e) => {
@@ -1123,7 +1141,17 @@ export class WebPlayer extends BasePlayer {
     setAutoQuality(enabled) {
         this.autoQuality = enabled;
         if (this.hls) {
-            this.hls.currentLevel = enabled ? -1 : this.currentQualityIndex;
+            if (enabled) {
+                if (this.qualityFilter || (this.premiumQualities && this.premiumQualities.enabled)) {
+                    this.applyHLSQualityFilter();
+                }
+                else {
+                    this.hls.currentLevel = -1;
+                }
+            }
+            else {
+                this.hls.currentLevel = this.currentQualityIndex;
+            }
         }
         else if (this.dash) {
             this.dash.updateSettings({
@@ -1135,6 +1163,9 @@ export class WebPlayer extends BasePlayer {
                     }
                 }
             });
+            if (enabled && (this.qualityFilter || (this.premiumQualities && this.premiumQualities.enabled))) {
+                this.applyDASHQualityFilter();
+            }
         }
     }
     async enterFullscreen() {
@@ -7536,7 +7567,16 @@ export class WebPlayer extends BasePlayer {
           <div class="uvf-accordion-content" data-section="quality">`;
             this.availableQualities.forEach(quality => {
                 const isActive = quality.value === this.currentQuality ? 'active' : '';
-                menuHTML += `<div class="uvf-settings-option quality-option ${isActive}" data-quality="${quality.value}">${quality.label}</div>`;
+                const isPremium = this.isQualityPremium(quality);
+                const isLocked = isPremium && !this.isPremiumUser();
+                const qualityHeight = quality.height || 0;
+                if (isLocked) {
+                    const premiumLabel = this.premiumQualities?.premiumLabel || '🔒 Premium';
+                    menuHTML += `<div class="uvf-settings-option quality-option premium-locked ${isActive}" data-quality="${quality.value}" data-quality-height="${qualityHeight}" data-quality-label="${quality.label}">${quality.label} <span style="margin-left: 4px; opacity: 0.7; font-size: 11px;">${premiumLabel}</span></div>`;
+                }
+                else {
+                    menuHTML += `<div class="uvf-settings-option quality-option ${isActive}" data-quality="${quality.value}">${quality.label}</div>`;
+                }
             });
             menuHTML += `</div></div>`;
         }
@@ -7577,12 +7617,14 @@ export class WebPlayer extends BasePlayer {
     }
     detectAvailableQualities() {
         this.availableQualities = [{ value: 'auto', label: 'Auto' }];
+        let detectedQualities = [];
         if (this.hls && this.hls.levels) {
             this.hls.levels.forEach((level, index) => {
                 if (level.height) {
-                    this.availableQualities.push({
+                    detectedQualities.push({
                         value: index.toString(),
-                        label: `${level.height}p`
+                        label: `${level.height}p`,
+                        height: level.height
                     });
                 }
             });
@@ -7592,9 +7634,10 @@ export class WebPlayer extends BasePlayer {
                 const videoQualities = this.dash.getBitrateInfoListFor('video');
                 videoQualities.forEach((quality, index) => {
                     if (quality.height) {
-                        this.availableQualities.push({
+                        detectedQualities.push({
                             value: index.toString(),
-                            label: `${quality.height}p`
+                            label: `${quality.height}p`,
+                            height: quality.height
                         });
                     }
                 });
@@ -7608,13 +7651,81 @@ export class WebPlayer extends BasePlayer {
             const commonQualities = [2160, 1440, 1080, 720, 480, 360];
             commonQualities.forEach(quality => {
                 if (quality <= height) {
-                    this.availableQualities.push({
+                    detectedQualities.push({
                         value: quality.toString(),
-                        label: `${quality}p`
+                        label: `${quality}p`,
+                        height: quality
                     });
                 }
             });
         }
+        if (this.qualityFilter) {
+            detectedQualities = this.applyQualityFilter(detectedQualities);
+        }
+        this.availableQualities.push(...detectedQualities);
+    }
+    applyQualityFilter(qualities) {
+        let filtered = [...qualities];
+        const filter = this.qualityFilter;
+        if (filter.allowedHeights && filter.allowedHeights.length > 0) {
+            filtered = filtered.filter(q => q.height && filter.allowedHeights.includes(q.height));
+        }
+        if (filter.allowedLabels && filter.allowedLabels.length > 0) {
+            filtered = filtered.filter(q => filter.allowedLabels.includes(q.label));
+        }
+        if (filter.minHeight !== undefined) {
+            filtered = filtered.filter(q => q.height && q.height >= filter.minHeight);
+        }
+        if (filter.maxHeight !== undefined) {
+            filtered = filtered.filter(q => q.height && q.height <= filter.maxHeight);
+        }
+        return filtered;
+    }
+    setQualityFilter(filter) {
+        this.qualityFilter = filter;
+        if (this.useCustomControls) {
+            this.updateSettingsMenu();
+        }
+    }
+    isQualityPremium(quality) {
+        if (!this.premiumQualities || !this.premiumQualities.enabled) {
+            return false;
+        }
+        const config = this.premiumQualities;
+        const height = quality.height || 0;
+        const label = quality.label || '';
+        if (config.requiredHeights && config.requiredHeights.length > 0) {
+            if (config.requiredHeights.includes(height))
+                return true;
+        }
+        if (config.requiredLabels && config.requiredLabels.length > 0) {
+            if (config.requiredLabels.includes(label))
+                return true;
+        }
+        if (config.minPremiumHeight !== undefined) {
+            if (height >= config.minPremiumHeight)
+                return true;
+        }
+        return false;
+    }
+    isPremiumUser() {
+        return this.premiumQualities?.isPremiumUser === true;
+    }
+    handlePremiumQualityClick(element) {
+        const height = parseInt(element.dataset.qualityHeight || '0');
+        const label = element.dataset.qualityLabel || '';
+        this.debugLog(`Premium quality clicked: ${label} (${height}p)`);
+        if (this.premiumQualities?.onPremiumQualityClick) {
+            this.premiumQualities.onPremiumQualityClick({ height, label });
+        }
+        const message = this.premiumQualities?.premiumLabel || 'Premium';
+        this.showNotification(`${label} requires ${message.replace('🔒 ', '')}`);
+        if (this.premiumQualities?.unlockUrl) {
+            setTimeout(() => {
+                window.location.href = this.premiumQualities.unlockUrl;
+            }, 1500);
+        }
+        this.hideSettingsMenu();
     }
     detectAvailableSubtitles() {
         this.availableSubtitles = [{ value: 'off', label: 'Off' }];
@@ -7663,7 +7774,12 @@ export class WebPlayer extends BasePlayer {
         settingsMenu.querySelectorAll('.quality-option').forEach(option => {
             option.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const quality = e.target.dataset.quality || 'auto';
+                const target = e.target;
+                const quality = target.dataset.quality || 'auto';
+                if (target.classList.contains('premium-locked')) {
+                    this.handlePremiumQualityClick(target);
+                    return;
+                }
                 this.setQualityFromSettings(quality);
                 this.updateAccordionAfterSelection('quality');
             });
@@ -7735,10 +7851,18 @@ export class WebPlayer extends BasePlayer {
         this.currentQuality = quality;
         if (quality === 'auto') {
             if (this.hls) {
-                this.hls.currentLevel = -1;
+                if (this.qualityFilter) {
+                    this.applyHLSQualityFilter();
+                }
+                else {
+                    this.hls.currentLevel = -1;
+                }
             }
             else if (this.dash) {
                 this.dash.setAutoSwitchQualityFor('video', true);
+                if (this.qualityFilter) {
+                    this.applyDASHQualityFilter();
+                }
             }
         }
         else {
@@ -7752,6 +7876,102 @@ export class WebPlayer extends BasePlayer {
             }
         }
         this.debugLog(`Quality set to ${quality}`);
+    }
+    applyHLSQualityFilter() {
+        if (!this.hls || !this.hls.levels)
+            return;
+        const allowedLevels = [];
+        this.hls.levels.forEach((level, index) => {
+            let allowed = true;
+            if (this.qualityFilter) {
+                const filter = this.qualityFilter;
+                if (filter.allowedHeights && filter.allowedHeights.length > 0) {
+                    allowed = allowed && filter.allowedHeights.includes(level.height);
+                }
+                if (filter.minHeight !== undefined) {
+                    allowed = allowed && level.height >= filter.minHeight;
+                }
+                if (filter.maxHeight !== undefined) {
+                    allowed = allowed && level.height <= filter.maxHeight;
+                }
+            }
+            if (this.premiumQualities && this.premiumQualities.enabled && !this.isPremiumUser()) {
+                const isPremium = this.isQualityPremium({ height: level.height, label: `${level.height}p` });
+                if (isPremium) {
+                    allowed = false;
+                }
+            }
+            if (allowed) {
+                allowedLevels.push(index);
+            }
+        });
+        if (allowedLevels.length > 0) {
+            this.hls.autoLevelCapping = Math.max(...allowedLevels);
+            this.hls.currentLevel = -1;
+            const minLevel = Math.min(...allowedLevels);
+            const enforceLevelConstraints = () => {
+                if (this.hls && this.hls.currentLevel !== -1 && this.hls.currentLevel < minLevel) {
+                    this.debugLog(`Quality below minimum (${this.hls.currentLevel} < ${minLevel}), switching to ${minLevel}`);
+                    this.hls.currentLevel = minLevel;
+                }
+            };
+            if (this.hls.listeners('hlsLevelSwitching').length > 0) {
+                this.hls.off('hlsLevelSwitching', enforceLevelConstraints);
+            }
+            this.hls.on('hlsLevelSwitching', enforceLevelConstraints);
+            this.debugLog(`Auto quality limited to levels: ${allowedLevels.join(', ')} (min: ${minLevel}, max: ${Math.max(...allowedLevels)})`);
+        }
+        else {
+            this.hls.currentLevel = -1;
+        }
+    }
+    applyDASHQualityFilter() {
+        if (!this.dash)
+            return;
+        try {
+            const videoQualities = this.dash.getBitrateInfoListFor('video');
+            const allowedIndices = [];
+            videoQualities.forEach((quality, index) => {
+                let allowed = true;
+                if (this.qualityFilter) {
+                    const filter = this.qualityFilter;
+                    if (filter.allowedHeights && filter.allowedHeights.length > 0) {
+                        allowed = allowed && filter.allowedHeights.includes(quality.height);
+                    }
+                    if (filter.minHeight !== undefined) {
+                        allowed = allowed && quality.height >= filter.minHeight;
+                    }
+                    if (filter.maxHeight !== undefined) {
+                        allowed = allowed && quality.height <= filter.maxHeight;
+                    }
+                }
+                if (this.premiumQualities && this.premiumQualities.enabled && !this.isPremiumUser()) {
+                    const isPremium = this.isQualityPremium({ height: quality.height, label: `${quality.height}p` });
+                    if (isPremium) {
+                        allowed = false;
+                    }
+                }
+                if (allowed) {
+                    allowedIndices.push(index);
+                }
+            });
+            if (allowedIndices.length > 0) {
+                const settings = {
+                    streaming: {
+                        abr: {
+                            limitBitrateByPortal: false,
+                            maxBitrate: { video: videoQualities[Math.max(...allowedIndices)].bitrate },
+                            minBitrate: { video: videoQualities[Math.min(...allowedIndices)].bitrate },
+                        }
+                    }
+                };
+                this.dash.updateSettings(settings);
+                this.debugLog(`Auto quality limited to DASH indices: ${allowedIndices.join(', ')}`);
+            }
+        }
+        catch (e) {
+            this.debugError('Error applying DASH quality filter:', e);
+        }
     }
     setSubtitle(subtitle) {
         this.currentSubtitle = subtitle;

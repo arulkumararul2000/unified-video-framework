@@ -76,6 +76,8 @@ export declare class WebPlayer extends BasePlayer {
     private chapterManager;
     private coreChapterManager;
     private chapterConfig;
+    private qualityFilter;
+    private premiumQualities;
     private debugLog;
     private debugError;
     private debugWarn;
@@ -221,6 +223,11 @@ export declare class WebPlayer extends BasePlayer {
     private updateSettingsMenu;
     private generateAccordionMenu;
     private detectAvailableQualities;
+    private applyQualityFilter;
+    setQualityFilter(filter: any): void;
+    private isQualityPremium;
+    private isPremiumUser;
+    private handlePremiumQualityClick;
     private detectAvailableSubtitles;
     private setupSettingsEventListeners;
     private toggleAccordionSection;
@@ -229,6 +236,8 @@ export declare class WebPlayer extends BasePlayer {
     private updateSettingsActiveStates;
     private setPlaybackRateFromSettings;
     private setQualityFromSettings;
+    private applyHLSQualityFilter;
+    private applyDASHQualityFilter;
     private setSubtitle;
     private _updateCastActiveTracks;
     private onCastButtonClick;

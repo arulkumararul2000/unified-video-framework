@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { CSSProperties } from 'react';
 import type { VideoSource, SubtitleTrack, VideoMetadata, PlayerConfig } from '../../core/dist';
 import { WebPlayer } from '../WebPlayer';
+import { GoogleAdsManager } from '../ads/GoogleAdsManager';
 // EPG imports - conditionally loaded
 import type { EPGData, EPGConfig, EPGProgram, EPGProgramRow } from './types/EPGTypes';
 let EPGOverlay: React.ComponentType<any> | null = null;
@@ -19,6 +20,76 @@ const loadEPGComponents = async () => {
   }
   return EPGOverlay;
 };
+
+// Chapter API interface exposed to parent component
+export interface ChapterAPI {
+  loadChapters: (chapters: any) => Promise<void>;
+  loadChaptersFromUrl: (url: string) => Promise<void>;
+  getCurrentSegment: () => any | null;
+  skipToSegment: (segmentId: string) => void;
+  getSegments: () => any[];
+  updateChapterConfig: (config: any) => void;
+  hasChapters: () => boolean;
+  getChapters: () => any | null;
+  getCoreChapters: () => any[];
+  getCoreSegments: () => any[];
+  getCurrentChapterInfo: () => any | null;
+  seekToChapter: (chapterId: string) => void;
+  getNextChapter: () => any | null;
+  getPreviousChapter: () => any | null;
+}
+
+// Quality control API
+export interface QualityAPI {
+  getQualities: () => any[];
+  getCurrentQuality: () => any | null;
+  setQuality: (index: number) => void;
+  setAutoQuality: (enabled: boolean) => void;
+}
+
+// EPG API interface
+export interface EPGControlAPI {
+  setEPGData: (data: any) => void;
+  showEPGButton: () => void;
+  hideEPGButton: () => void;
+  isEPGButtonVisible: () => boolean;
+}
+
+// UI Helper API
+export interface UIHelperAPI {
+  focusPlayer: () => void;
+  showFullscreenTip: () => void;
+  triggerFullscreenButton: () => void;
+  showTemporaryMessage: (message: string) => void;
+  showFullscreenInstructions: () => void;
+  enterFullscreenSynchronously: () => void;
+}
+
+// Fullscreen API
+export interface FullscreenAPI {
+  enterFullscreen: () => Promise<void>;
+  exitFullscreen: () => Promise<void>;
+  toggleFullscreen: () => Promise<void>;
+  enterPictureInPicture: () => Promise<void>;
+  exitPictureInPicture: () => Promise<void>;
+}
+
+// Playback control API
+export interface PlaybackAPI {
+  play: () => Promise<void>;
+  pause: () => void;
+  requestPause: () => void;
+  seek: (time: number) => void;
+  setVolume: (level: number) => void;
+  mute: () => void;
+  unmute: () => void;
+  toggleMute: () => void;
+  setPlaybackRate: (rate: number) => void;
+  getPlaybackRate: () => number;
+  getCurrentTime: () => number;
+  getDuration: () => number;
+  getState: () => any;
+}
 
 export type WebPlayerViewProps = {
   // Player config
@@ -42,6 +113,26 @@ export type WebPlayerViewProps = {
     speed?: boolean;      // Show playback speed options (default: true)
     quality?: boolean;    // Show quality options (default: true)
     subtitles?: boolean;  // Show subtitle options (default: true)
+  };
+  
+  // Quality level filtering
+  qualityFilter?: {
+    allowedHeights?: number[];       // e.g., [720, 1080] - only show these heights
+    allowedLabels?: string[];        // e.g., ['720p', '1080p'] - only show these labels
+    minHeight?: number;              // e.g., 720 - hide qualities below this
+    maxHeight?: number;              // e.g., 1080 - hide qualities above this
+  };
+  
+  // Premium quality levels (pay-to-unlock)
+  premiumQualities?: {
+    enabled?: boolean;                         // Enable premium quality feature (default: false)
+    requiredHeights?: number[];                // Heights that require premium (e.g., [1080, 1440, 2160])
+    requiredLabels?: string[];                 // Labels that require premium (e.g., ['1080p', '4K'])
+    minPremiumHeight?: number;                 // All qualities >= this require premium (e.g., 1080)
+    isPremiumUser?: boolean;                   // Is current user premium? (default: false)
+    premiumLabel?: string;                     // Label to show for locked qualities (default: '🔒 Premium')
+    onPremiumQualityClick?: (quality: { height: number; label: string }) => void;  // Called when locked quality clicked
+    unlockUrl?: string;                        // URL to redirect for unlocking (e.g., '/subscribe')
   };
   
   // Framework branding control
@@ -144,9 +235,45 @@ export type WebPlayerViewProps = {
     };
   };
 
+  // Settings customization
+  settingsScrollbar?: {
+    style?: 'default' | 'compact' | 'overlay';
+    widthPx?: number;
+    intensity?: number;
+  };
+  
+  // Auto-focus player on mount
+  autoFocusPlayer?: boolean;
+  
+  // Show fullscreen tip on mount
+  showFullscreenTipOnMount?: boolean;
+  
+  // Player instance ref (for imperative control)
+  playerRef?: React.RefObject<WebPlayer>;
+  
+  // API callbacks - expose imperative APIs to parent
+  onChapterAPI?: (api: ChapterAPI) => void;
+  onQualityAPI?: (api: QualityAPI) => void;
+  onEPGAPI?: (api: EPGControlAPI) => void;
+  onUIHelperAPI?: (api: UIHelperAPI) => void;
+  onFullscreenAPI?: (api: FullscreenAPI) => void;
+  onPlaybackAPI?: (api: PlaybackAPI) => void;
+  
   // Callbacks
   onReady?: (player: WebPlayer) => void;
   onError?: (error: unknown) => void;
+  
+  // Additional player event callbacks
+  onPlay?: () => void;
+  onPause?: () => void;
+  onEnded?: () => void;
+  onTimeUpdate?: (data: { currentTime: number; duration: number }) => void;
+  onProgress?: (data: { buffered: number }) => void;
+  onVolumeChange?: (data: { volume: number; muted: boolean }) => void;
+  onQualityChange?: (quality: any) => void;
+  onBuffering?: (isBuffering: boolean) => void;
+  onFullscreenChange?: (isFullscreen: boolean) => void;
+  onPictureInPictureChange?: (isPiP: boolean) => void;
 
   // EPG (Electronic Program Guide) support
   epg?: EPGData;
@@ -243,6 +370,21 @@ export type WebPlayerViewProps = {
   onNavigationBackClicked?: () => void;         // Back button clicked
   onNavigationCloseClicked?: () => void;        // Close button clicked
 
+  // Google Ads Configuration
+  googleAds?: {
+    adTagUrl: string;                    // VAST/VMAP ad tag URL
+    midrollTimes?: number[];            // Mid-roll ad times in seconds [30, 60, 120]
+    companionAdSlots?: Array<{          // Companion ad containers
+      containerId: string;
+      width: number;
+      height: number;
+    }>;
+    onAdStart?: () => void;             // Called when ad starts
+    onAdEnd?: () => void;               // Called when ad ends
+    onAdError?: (error: any) => void;   // Called on ad error
+    onAllAdsComplete?: () => void;      // Called when all ads complete
+  };
+  
   // Chapter Event Callbacks
   onChapterChange?: (chapter: any) => void;                                    // Core chapter changed
   onSegmentEntered?: (segment: any) => void;                                  // Segment entered  
@@ -258,7 +400,9 @@ export type WebPlayerViewProps = {
 
 export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<WebPlayer | null>(null);
+  const internalPlayerRef = useRef<WebPlayer | null>(null);
+  // Use external ref if provided, otherwise use internal
+  const playerRef = props.playerRef || internalPlayerRef;
   const [dimensions, setDimensions] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1920,
     height: typeof window !== 'undefined' ? window.innerHeight : 1080,
@@ -268,6 +412,11 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
   const [epgVisible, setEPGVisible] = useState(props.showEPG || false);
   const [playerReady, setPlayerReady] = useState(false);
   const [epgComponentLoaded, setEPGComponentLoaded] = useState(false);
+  
+  // Google Ads state
+  const adsManagerRef = useRef<GoogleAdsManager | null>(null);
+  const adContainerRef = useRef<HTMLDivElement>(null);
+  const [isAdPlaying, setIsAdPlaying] = useState(false);
 
   // Responsive window resize handler
   useEffect(() => {
@@ -479,6 +628,9 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
 
       const player = new WebPlayer();
       playerRef.current = player;
+      
+      // Expose all APIs to parent component via callbacks
+      exposeAPIsToParent(player);
 
       // Optionally load Google Cast sender SDK
       if (props.cast) {
@@ -581,6 +733,8 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         settings: props.settings,
         showFrameworkBranding: props.showFrameworkBranding,
         watermark: watermarkConfig,
+        qualityFilter: props.qualityFilter,  // Add quality filter to config
+        premiumQualities: props.premiumQualities,  // Add premium qualities config
         // Navigation configuration
         navigation: props.navigation,
         // Chapter configuration
@@ -625,6 +779,26 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         await player.load(source);
         if (!cancelled) {
           setPlayerReady(true);
+          
+          // Apply quality filter if provided
+          if (props.qualityFilter && typeof (player as any).setQualityFilter === 'function') {
+            (player as any).setQualityFilter(props.qualityFilter);
+          }
+          
+          // Apply settings scrollbar configuration if provided
+          if (props.settingsScrollbar) {
+            applySettingsScrollbar(player, props.settingsScrollbar);
+          }
+          
+          // Auto-focus player if requested
+          if (props.autoFocusPlayer && typeof (player as any).focusPlayer === 'function') {
+            (player as any).focusPlayer();
+          }
+          
+          // Show fullscreen tip if requested
+          if (props.showFullscreenTipOnMount && typeof (player as any).showFullscreenTip === 'function') {
+            (player as any).showFullscreenTip();
+          }
           
           // Set up EPG integration
           if (props.epg && typeof (player as any).setEPGData === 'function') {
@@ -678,6 +852,121 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
             (player as any).on('navigationCloseClicked', props.onNavigationCloseClicked);
           }
           
+          // Additional event listeners
+          if (props.onPlay && typeof (player as any).on === 'function') {
+            (player as any).on('onPlay', props.onPlay);
+          }
+          if (props.onPause && typeof (player as any).on === 'function') {
+            (player as any).on('onPause', props.onPause);
+          }
+          if (props.onEnded && typeof (player as any).on === 'function') {
+            (player as any).on('onEnded', props.onEnded);
+          }
+          if (props.onTimeUpdate && typeof (player as any).on === 'function') {
+            (player as any).on('onTimeUpdate', (currentTime: number) => {
+              props.onTimeUpdate?.({ 
+                currentTime, 
+                duration: (player as any).getDuration ? (player as any).getDuration() : 0 
+              });
+            });
+          }
+          if (props.onProgress && typeof (player as any).on === 'function') {
+            (player as any).on('onProgress', (buffered: number) => {
+              props.onProgress?.({ buffered });
+            });
+          }
+          if (props.onVolumeChange && typeof (player as any).on === 'function') {
+            (player as any).on('onVolumeChanged', (volume: number) => {
+              const state = (player as any).getState ? (player as any).getState() : {};
+              props.onVolumeChange?.({ volume, muted: state.isMuted || false });
+            });
+          }
+          if (props.onQualityChange && typeof (player as any).on === 'function') {
+            (player as any).on('onQualityChanged', props.onQualityChange);
+          }
+          if (props.onBuffering && typeof (player as any).on === 'function') {
+            (player as any).on('onBuffering', props.onBuffering);
+          }
+          if (props.onFullscreenChange && typeof (player as any).on === 'function') {
+            (player as any).on('onFullscreenChanged', props.onFullscreenChange);
+          }
+          if (props.onPictureInPictureChange && typeof (player as any).on === 'function') {
+            (player as any).on('onPictureInPicturechange', props.onPictureInPictureChange);
+          }
+          
+          // Initialize Google Ads if configured
+          if (props.googleAds) {
+            // Small delay to ensure ad container is properly mounted in DOM
+            setTimeout(async () => {
+              try {
+                const adContainer = adContainerRef.current;
+                const videoElement = (player as any).video || (player as any).getVideoElement?.();
+                
+                // Validate both elements exist and are in the DOM
+                if (!adContainer) {
+                  console.warn('Ad container element not found');
+                  return;
+                }
+                
+                if (!videoElement) {
+                  console.warn('Video element not found');
+                  return;
+                }
+                
+                if (!document.body.contains(adContainer)) {
+                  console.warn('Ad container not attached to DOM');
+                  return;
+                }
+                
+                console.log('Initializing Google Ads...', { adContainer, videoElement });
+                
+                const adsManager = new GoogleAdsManager(
+                  videoElement,
+                  adContainer,
+                  {
+                    adTagUrl: props.googleAds.adTagUrl,
+                    midrollTimes: props.googleAds.midrollTimes,
+                    companionAdSlots: props.googleAds.companionAdSlots,
+                    onAdStart: () => {
+                      setIsAdPlaying(true);
+                      props.googleAds?.onAdStart?.();
+                    },
+                    onAdEnd: () => {
+                      setIsAdPlaying(false);
+                      props.googleAds?.onAdEnd?.();
+                    },
+                    onAdError: (error) => {
+                      setIsAdPlaying(false);
+                      props.googleAds?.onAdError?.(error);
+                    },
+                    onAllAdsComplete: () => {
+                      setIsAdPlaying(false);
+                      props.googleAds?.onAllAdsComplete?.();
+                    },
+                  }
+                );
+                
+                await adsManager.initialize();
+                adsManagerRef.current = adsManager;
+                
+                console.log('Google Ads initialized successfully');
+                
+                // Initialize ad display container on first play
+                const handleFirstPlay = () => {
+                  if (adsManagerRef.current) {
+                    adsManagerRef.current.initAdDisplayContainer();
+                    adsManagerRef.current.requestAds();
+                  }
+                  videoElement.removeEventListener('play', handleFirstPlay);
+                };
+                videoElement.addEventListener('play', handleFirstPlay, { once: true });
+              } catch (adsError) {
+                console.error('Failed to initialize Google Ads:', adsError);
+                props.googleAds?.onAdError?.(adsError);
+              }
+            }, 100); // Small delay to ensure DOM is ready
+          }
+          
           props.onReady?.(player);
         }
       } catch (err) {
@@ -689,6 +978,13 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
 
     return () => {
       cancelled = true;
+      
+      // Cleanup ads manager
+      if (adsManagerRef.current) {
+        adsManagerRef.current.destroy();
+        adsManagerRef.current = null;
+      }
+      
       if (playerRef.current) {
         playerRef.current.destroy().catch(() => {});
         playerRef.current = null;
@@ -721,7 +1017,202 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     props.showFrameworkBranding,
     JSON.stringify(props.watermark),
     JSON.stringify(props.navigation),
-  ])
+    JSON.stringify(props.googleAds),
+    JSON.stringify(props.qualityFilter),
+    JSON.stringify(props.premiumQualities),
+  ]);
+  
+  // Helper function to filter quality levels based on qualityFilter prop
+  const filterQualities = useCallback((qualities: any[]) => {
+    if (!props.qualityFilter || qualities.length === 0) {
+      return qualities;
+    }
+    
+    const filter = props.qualityFilter;
+    let filtered = [...qualities];
+    
+    // Filter by allowed heights
+    if (filter.allowedHeights && filter.allowedHeights.length > 0) {
+      filtered = filtered.filter(q => filter.allowedHeights!.includes(q.height));
+    }
+    
+    // Filter by allowed labels
+    if (filter.allowedLabels && filter.allowedLabels.length > 0) {
+      filtered = filtered.filter(q => filter.allowedLabels!.includes(q.label));
+    }
+    
+    // Filter by minimum height
+    if (filter.minHeight !== undefined) {
+      filtered = filtered.filter(q => q.height >= filter.minHeight!);
+    }
+    
+    // Filter by maximum height
+    if (filter.maxHeight !== undefined) {
+      filtered = filtered.filter(q => q.height <= filter.maxHeight!);
+    }
+    
+    return filtered;
+  }, [props.qualityFilter]);
+  
+  // Helper function to expose all APIs to parent
+  const exposeAPIsToParent = useCallback((player: WebPlayer) => {
+    const p = player as any;
+    
+    // Chapter API
+    if (props.onChapterAPI) {
+      const chapterAPI: ChapterAPI = {
+        loadChapters: (chapters: any) => p.loadChapters ? p.loadChapters(chapters) : Promise.resolve(),
+        loadChaptersFromUrl: (url: string) => p.loadChaptersFromUrl ? p.loadChaptersFromUrl(url) : Promise.resolve(),
+        getCurrentSegment: () => p.getCurrentSegment ? p.getCurrentSegment() : null,
+        skipToSegment: (segmentId: string) => p.skipToSegment && p.skipToSegment(segmentId),
+        getSegments: () => p.getSegments ? p.getSegments() : [],
+        updateChapterConfig: (config: any) => p.updateChapterConfig && p.updateChapterConfig(config),
+        hasChapters: () => p.hasChapters ? p.hasChapters() : false,
+        getChapters: () => p.getChapters ? p.getChapters() : null,
+        getCoreChapters: () => p.getCoreChapters ? p.getCoreChapters() : [],
+        getCoreSegments: () => p.getCoreSegments ? p.getCoreSegments() : [],
+        getCurrentChapterInfo: () => p.getCurrentChapterInfo ? p.getCurrentChapterInfo() : null,
+        seekToChapter: (chapterId: string) => p.seekToChapter && p.seekToChapter(chapterId),
+        getNextChapter: () => p.getNextChapter ? p.getNextChapter() : null,
+        getPreviousChapter: () => p.getPreviousChapter ? p.getPreviousChapter() : null,
+      };
+      props.onChapterAPI(chapterAPI);
+    }
+    
+    // Quality API with filtering
+    if (props.onQualityAPI) {
+      const allQualities = p.getQualities ? p.getQualities() : [];
+      const filteredQualities = filterQualities(allQualities);
+      
+      // Create a mapping from filtered index to original index
+      const indexMap = new Map<number, number>();
+      filteredQualities.forEach((quality, filteredIndex) => {
+        const originalIndex = allQualities.findIndex(q => q.id === quality.id);
+        indexMap.set(filteredIndex, originalIndex);
+      });
+      
+      const qualityAPI: QualityAPI = {
+        // Return only filtered qualities
+        getQualities: () => filteredQualities,
+        
+        // Get current quality if it's in the filtered list
+        getCurrentQuality: () => {
+          const current = p.getCurrentQuality ? p.getCurrentQuality() : null;
+          if (!current) return null;
+          return filteredQualities.find(q => q.id === current.id) || null;
+        },
+        
+        // Map filtered index to original index before setting
+        setQuality: (filteredIndex: number) => {
+          const originalIndex = indexMap.get(filteredIndex);
+          if (originalIndex !== undefined && p.setQuality) {
+            p.setQuality(originalIndex);
+          }
+        },
+        
+        setAutoQuality: (enabled: boolean) => p.setAutoQuality && p.setAutoQuality(enabled),
+      };
+      props.onQualityAPI(qualityAPI);
+    }
+    
+    // EPG API
+    if (props.onEPGAPI) {
+      const epgAPI: EPGControlAPI = {
+        setEPGData: (data: any) => p.setEPGData && p.setEPGData(data),
+        showEPGButton: () => p.showEPGButton && p.showEPGButton(),
+        hideEPGButton: () => p.hideEPGButton && p.hideEPGButton(),
+        isEPGButtonVisible: () => p.isEPGButtonVisible ? p.isEPGButtonVisible() : false,
+      };
+      props.onEPGAPI(epgAPI);
+    }
+    
+    // UI Helper API
+    if (props.onUIHelperAPI) {
+      const uiAPI: UIHelperAPI = {
+        focusPlayer: () => p.focusPlayer && p.focusPlayer(),
+        showFullscreenTip: () => p.showFullscreenTip && p.showFullscreenTip(),
+        triggerFullscreenButton: () => p.triggerFullscreenButton && p.triggerFullscreenButton(),
+        showTemporaryMessage: (message: string) => p.showTemporaryMessage && p.showTemporaryMessage(message),
+        showFullscreenInstructions: () => p.showFullscreenInstructions && p.showFullscreenInstructions(),
+        enterFullscreenSynchronously: () => p.enterFullscreenSynchronously && p.enterFullscreenSynchronously(),
+      };
+      props.onUIHelperAPI(uiAPI);
+    }
+    
+    // Fullscreen API
+    if (props.onFullscreenAPI) {
+      const fullscreenAPI: FullscreenAPI = {
+        enterFullscreen: () => p.enterFullscreen ? p.enterFullscreen() : Promise.resolve(),
+        exitFullscreen: () => p.exitFullscreen ? p.exitFullscreen() : Promise.resolve(),
+        toggleFullscreen: () => p.toggleFullscreen ? p.toggleFullscreen() : Promise.resolve(),
+        enterPictureInPicture: () => p.enterPictureInPicture ? p.enterPictureInPicture() : Promise.resolve(),
+        exitPictureInPicture: () => p.exitPictureInPicture ? p.exitPictureInPicture() : Promise.resolve(),
+      };
+      props.onFullscreenAPI(fullscreenAPI);
+    }
+    
+    // Playback API
+    if (props.onPlaybackAPI) {
+      const playbackAPI: PlaybackAPI = {
+        play: () => p.play ? p.play() : Promise.resolve(),
+        pause: () => p.pause && p.pause(),
+        requestPause: () => p.requestPause && p.requestPause(),
+        seek: (time: number) => p.seek && p.seek(time),
+        setVolume: (level: number) => p.setVolume && p.setVolume(level),
+        mute: () => p.mute && p.mute(),
+        unmute: () => p.unmute && p.unmute(),
+        toggleMute: () => p.toggleMute && p.toggleMute(),
+        setPlaybackRate: (rate: number) => p.setPlaybackRate && p.setPlaybackRate(rate),
+        getPlaybackRate: () => p.getPlaybackRate ? p.getPlaybackRate() : 1,
+        getCurrentTime: () => p.getCurrentTime ? p.getCurrentTime() : 0,
+        getDuration: () => p.getDuration ? p.getDuration() : 0,
+        getState: () => p.getState ? p.getState() : {},
+      };
+      props.onPlaybackAPI(playbackAPI);
+    }
+  }, [
+    props.onChapterAPI,
+    props.onQualityAPI,
+    props.onEPGAPI,
+    props.onUIHelperAPI,
+    props.onFullscreenAPI,
+    props.onPlaybackAPI,
+    filterQualities,
+  ]);
+  
+  // Helper function to apply settings scrollbar configuration
+  const applySettingsScrollbar = useCallback((player: WebPlayer, config: NonNullable<typeof props.settingsScrollbar>) => {
+    const p = player as any;
+    
+    // Apply scrollbar style
+    if (config.style && typeof p.setSettingsScrollbarStyle === 'function') {
+      p.setSettingsScrollbarStyle(config.style);
+    }
+    
+    // Apply scrollbar config (width and intensity)
+    if ((config.widthPx !== undefined || config.intensity !== undefined) && 
+        typeof p.setSettingsScrollbarConfig === 'function') {
+      p.setSettingsScrollbarConfig({
+        widthPx: config.widthPx,
+        intensity: config.intensity,
+      });
+    }
+  }, []);
+  
+  // Apply settings scrollbar changes at runtime
+  useEffect(() => {
+    const p = playerRef.current as any;
+    if (p && props.settingsScrollbar && playerReady) {
+      applySettingsScrollbar(p, props.settingsScrollbar);
+    }
+  }, [JSON.stringify(props.settingsScrollbar), playerReady, applySettingsScrollbar]);
+  
+  // Re-expose APIs when player is ready (handles hot reloading)
+  useEffect(() => {
+    if (playerRef.current && playerReady) {
+      exposeAPIsToParent(playerRef.current);
+    }
+  }, [playerReady, exposeAPIsToParent]);
 
   // Update free preview duration at runtime without full re-init
   useEffect(() => {
@@ -790,6 +1281,24 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         className={`uvf-responsive-container ${props.className || ''}`}
         style={responsiveStyle}
       />
+      
+      {/* Google Ads Container - positioned over the video player and controls */}
+      {props.googleAds && (
+        <div 
+          ref={adContainerRef}
+          className="uvf-ad-container"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 2147483647, // Maximum z-index - ads must be on top of everything
+            pointerEvents: isAdPlaying ? 'auto' : 'none', // Allow interaction only when ad is playing
+            display: isAdPlaying ? 'block' : 'none', // Hide container when no ad
+          }}
+        />
+      )}
 
       {/* EPG Overlay */}
       {props.epg && EPGOverlay && epgComponentLoaded && (

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { WebPlayer } from "../WebPlayer.js";
+import { GoogleAdsManager } from "../ads/GoogleAdsManager.js";
 let EPGOverlay = null;
 const loadEPGComponents = async () => {
     if (!EPGOverlay) {
@@ -15,7 +16,8 @@ const loadEPGComponents = async () => {
 };
 export const WebPlayerView = (props) => {
     const containerRef = useRef(null);
-    const playerRef = useRef(null);
+    const internalPlayerRef = useRef(null);
+    const playerRef = props.playerRef || internalPlayerRef;
     const [dimensions, setDimensions] = useState({
         width: typeof window !== 'undefined' ? window.innerWidth : 1920,
         height: typeof window !== 'undefined' ? window.innerHeight : 1080,
@@ -23,6 +25,9 @@ export const WebPlayerView = (props) => {
     const [epgVisible, setEPGVisible] = useState(props.showEPG || false);
     const [playerReady, setPlayerReady] = useState(false);
     const [epgComponentLoaded, setEPGComponentLoaded] = useState(false);
+    const adsManagerRef = useRef(null);
+    const adContainerRef = useRef(null);
+    const [isAdPlaying, setIsAdPlaying] = useState(false);
     useEffect(() => {
         if (typeof window === 'undefined')
             return;
@@ -209,6 +214,7 @@ export const WebPlayerView = (props) => {
                 return;
             const player = new WebPlayer();
             playerRef.current = player;
+            exposeAPIsToParent(player);
             if (props.cast) {
                 try {
                     const existing = document.querySelector('script[data-cast-sdk="1"]');
@@ -303,6 +309,8 @@ export const WebPlayerView = (props) => {
                 settings: props.settings,
                 showFrameworkBranding: props.showFrameworkBranding,
                 watermark: watermarkConfig,
+                qualityFilter: props.qualityFilter,
+                premiumQualities: props.premiumQualities,
                 navigation: props.navigation,
                 chapters: props.chapters ? {
                     enabled: props.chapters.enabled ?? false,
@@ -341,6 +349,18 @@ export const WebPlayerView = (props) => {
                 await player.load(source);
                 if (!cancelled) {
                     setPlayerReady(true);
+                    if (props.qualityFilter && typeof player.setQualityFilter === 'function') {
+                        player.setQualityFilter(props.qualityFilter);
+                    }
+                    if (props.settingsScrollbar) {
+                        applySettingsScrollbar(player, props.settingsScrollbar);
+                    }
+                    if (props.autoFocusPlayer && typeof player.focusPlayer === 'function') {
+                        player.focusPlayer();
+                    }
+                    if (props.showFullscreenTipOnMount && typeof player.showFullscreenTip === 'function') {
+                        player.showFullscreenTip();
+                    }
                     if (props.epg && typeof player.setEPGData === 'function') {
                         player.setEPGData(props.epg);
                     }
@@ -385,6 +405,103 @@ export const WebPlayerView = (props) => {
                     if (props.onNavigationCloseClicked && typeof player.on === 'function') {
                         player.on('navigationCloseClicked', props.onNavigationCloseClicked);
                     }
+                    if (props.onPlay && typeof player.on === 'function') {
+                        player.on('onPlay', props.onPlay);
+                    }
+                    if (props.onPause && typeof player.on === 'function') {
+                        player.on('onPause', props.onPause);
+                    }
+                    if (props.onEnded && typeof player.on === 'function') {
+                        player.on('onEnded', props.onEnded);
+                    }
+                    if (props.onTimeUpdate && typeof player.on === 'function') {
+                        player.on('onTimeUpdate', (currentTime) => {
+                            props.onTimeUpdate?.({
+                                currentTime,
+                                duration: player.getDuration ? player.getDuration() : 0
+                            });
+                        });
+                    }
+                    if (props.onProgress && typeof player.on === 'function') {
+                        player.on('onProgress', (buffered) => {
+                            props.onProgress?.({ buffered });
+                        });
+                    }
+                    if (props.onVolumeChange && typeof player.on === 'function') {
+                        player.on('onVolumeChanged', (volume) => {
+                            const state = player.getState ? player.getState() : {};
+                            props.onVolumeChange?.({ volume, muted: state.isMuted || false });
+                        });
+                    }
+                    if (props.onQualityChange && typeof player.on === 'function') {
+                        player.on('onQualityChanged', props.onQualityChange);
+                    }
+                    if (props.onBuffering && typeof player.on === 'function') {
+                        player.on('onBuffering', props.onBuffering);
+                    }
+                    if (props.onFullscreenChange && typeof player.on === 'function') {
+                        player.on('onFullscreenChanged', props.onFullscreenChange);
+                    }
+                    if (props.onPictureInPictureChange && typeof player.on === 'function') {
+                        player.on('onPictureInPicturechange', props.onPictureInPictureChange);
+                    }
+                    if (props.googleAds) {
+                        setTimeout(async () => {
+                            try {
+                                const adContainer = adContainerRef.current;
+                                const videoElement = player.video || player.getVideoElement?.();
+                                if (!adContainer) {
+                                    console.warn('Ad container element not found');
+                                    return;
+                                }
+                                if (!videoElement) {
+                                    console.warn('Video element not found');
+                                    return;
+                                }
+                                if (!document.body.contains(adContainer)) {
+                                    console.warn('Ad container not attached to DOM');
+                                    return;
+                                }
+                                console.log('Initializing Google Ads...', { adContainer, videoElement });
+                                const adsManager = new GoogleAdsManager(videoElement, adContainer, {
+                                    adTagUrl: props.googleAds.adTagUrl,
+                                    midrollTimes: props.googleAds.midrollTimes,
+                                    companionAdSlots: props.googleAds.companionAdSlots,
+                                    onAdStart: () => {
+                                        setIsAdPlaying(true);
+                                        props.googleAds?.onAdStart?.();
+                                    },
+                                    onAdEnd: () => {
+                                        setIsAdPlaying(false);
+                                        props.googleAds?.onAdEnd?.();
+                                    },
+                                    onAdError: (error) => {
+                                        setIsAdPlaying(false);
+                                        props.googleAds?.onAdError?.(error);
+                                    },
+                                    onAllAdsComplete: () => {
+                                        setIsAdPlaying(false);
+                                        props.googleAds?.onAllAdsComplete?.();
+                                    },
+                                });
+                                await adsManager.initialize();
+                                adsManagerRef.current = adsManager;
+                                console.log('Google Ads initialized successfully');
+                                const handleFirstPlay = () => {
+                                    if (adsManagerRef.current) {
+                                        adsManagerRef.current.initAdDisplayContainer();
+                                        adsManagerRef.current.requestAds();
+                                    }
+                                    videoElement.removeEventListener('play', handleFirstPlay);
+                                };
+                                videoElement.addEventListener('play', handleFirstPlay, { once: true });
+                            }
+                            catch (adsError) {
+                                console.error('Failed to initialize Google Ads:', adsError);
+                                props.googleAds?.onAdError?.(adsError);
+                            }
+                        }, 100);
+                    }
                     props.onReady?.(player);
                 }
             }
@@ -396,6 +513,10 @@ export const WebPlayerView = (props) => {
         void boot();
         return () => {
             cancelled = true;
+            if (adsManagerRef.current) {
+                adsManagerRef.current.destroy();
+                adsManagerRef.current = null;
+            }
             if (playerRef.current) {
                 playerRef.current.destroy().catch(() => { });
                 playerRef.current = null;
@@ -428,7 +549,158 @@ export const WebPlayerView = (props) => {
         props.showFrameworkBranding,
         JSON.stringify(props.watermark),
         JSON.stringify(props.navigation),
+        JSON.stringify(props.googleAds),
+        JSON.stringify(props.qualityFilter),
+        JSON.stringify(props.premiumQualities),
     ]);
+    const filterQualities = useCallback((qualities) => {
+        if (!props.qualityFilter || qualities.length === 0) {
+            return qualities;
+        }
+        const filter = props.qualityFilter;
+        let filtered = [...qualities];
+        if (filter.allowedHeights && filter.allowedHeights.length > 0) {
+            filtered = filtered.filter(q => filter.allowedHeights.includes(q.height));
+        }
+        if (filter.allowedLabels && filter.allowedLabels.length > 0) {
+            filtered = filtered.filter(q => filter.allowedLabels.includes(q.label));
+        }
+        if (filter.minHeight !== undefined) {
+            filtered = filtered.filter(q => q.height >= filter.minHeight);
+        }
+        if (filter.maxHeight !== undefined) {
+            filtered = filtered.filter(q => q.height <= filter.maxHeight);
+        }
+        return filtered;
+    }, [props.qualityFilter]);
+    const exposeAPIsToParent = useCallback((player) => {
+        const p = player;
+        if (props.onChapterAPI) {
+            const chapterAPI = {
+                loadChapters: (chapters) => p.loadChapters ? p.loadChapters(chapters) : Promise.resolve(),
+                loadChaptersFromUrl: (url) => p.loadChaptersFromUrl ? p.loadChaptersFromUrl(url) : Promise.resolve(),
+                getCurrentSegment: () => p.getCurrentSegment ? p.getCurrentSegment() : null,
+                skipToSegment: (segmentId) => p.skipToSegment && p.skipToSegment(segmentId),
+                getSegments: () => p.getSegments ? p.getSegments() : [],
+                updateChapterConfig: (config) => p.updateChapterConfig && p.updateChapterConfig(config),
+                hasChapters: () => p.hasChapters ? p.hasChapters() : false,
+                getChapters: () => p.getChapters ? p.getChapters() : null,
+                getCoreChapters: () => p.getCoreChapters ? p.getCoreChapters() : [],
+                getCoreSegments: () => p.getCoreSegments ? p.getCoreSegments() : [],
+                getCurrentChapterInfo: () => p.getCurrentChapterInfo ? p.getCurrentChapterInfo() : null,
+                seekToChapter: (chapterId) => p.seekToChapter && p.seekToChapter(chapterId),
+                getNextChapter: () => p.getNextChapter ? p.getNextChapter() : null,
+                getPreviousChapter: () => p.getPreviousChapter ? p.getPreviousChapter() : null,
+            };
+            props.onChapterAPI(chapterAPI);
+        }
+        if (props.onQualityAPI) {
+            const allQualities = p.getQualities ? p.getQualities() : [];
+            const filteredQualities = filterQualities(allQualities);
+            const indexMap = new Map();
+            filteredQualities.forEach((quality, filteredIndex) => {
+                const originalIndex = allQualities.findIndex(q => q.id === quality.id);
+                indexMap.set(filteredIndex, originalIndex);
+            });
+            const qualityAPI = {
+                getQualities: () => filteredQualities,
+                getCurrentQuality: () => {
+                    const current = p.getCurrentQuality ? p.getCurrentQuality() : null;
+                    if (!current)
+                        return null;
+                    return filteredQualities.find(q => q.id === current.id) || null;
+                },
+                setQuality: (filteredIndex) => {
+                    const originalIndex = indexMap.get(filteredIndex);
+                    if (originalIndex !== undefined && p.setQuality) {
+                        p.setQuality(originalIndex);
+                    }
+                },
+                setAutoQuality: (enabled) => p.setAutoQuality && p.setAutoQuality(enabled),
+            };
+            props.onQualityAPI(qualityAPI);
+        }
+        if (props.onEPGAPI) {
+            const epgAPI = {
+                setEPGData: (data) => p.setEPGData && p.setEPGData(data),
+                showEPGButton: () => p.showEPGButton && p.showEPGButton(),
+                hideEPGButton: () => p.hideEPGButton && p.hideEPGButton(),
+                isEPGButtonVisible: () => p.isEPGButtonVisible ? p.isEPGButtonVisible() : false,
+            };
+            props.onEPGAPI(epgAPI);
+        }
+        if (props.onUIHelperAPI) {
+            const uiAPI = {
+                focusPlayer: () => p.focusPlayer && p.focusPlayer(),
+                showFullscreenTip: () => p.showFullscreenTip && p.showFullscreenTip(),
+                triggerFullscreenButton: () => p.triggerFullscreenButton && p.triggerFullscreenButton(),
+                showTemporaryMessage: (message) => p.showTemporaryMessage && p.showTemporaryMessage(message),
+                showFullscreenInstructions: () => p.showFullscreenInstructions && p.showFullscreenInstructions(),
+                enterFullscreenSynchronously: () => p.enterFullscreenSynchronously && p.enterFullscreenSynchronously(),
+            };
+            props.onUIHelperAPI(uiAPI);
+        }
+        if (props.onFullscreenAPI) {
+            const fullscreenAPI = {
+                enterFullscreen: () => p.enterFullscreen ? p.enterFullscreen() : Promise.resolve(),
+                exitFullscreen: () => p.exitFullscreen ? p.exitFullscreen() : Promise.resolve(),
+                toggleFullscreen: () => p.toggleFullscreen ? p.toggleFullscreen() : Promise.resolve(),
+                enterPictureInPicture: () => p.enterPictureInPicture ? p.enterPictureInPicture() : Promise.resolve(),
+                exitPictureInPicture: () => p.exitPictureInPicture ? p.exitPictureInPicture() : Promise.resolve(),
+            };
+            props.onFullscreenAPI(fullscreenAPI);
+        }
+        if (props.onPlaybackAPI) {
+            const playbackAPI = {
+                play: () => p.play ? p.play() : Promise.resolve(),
+                pause: () => p.pause && p.pause(),
+                requestPause: () => p.requestPause && p.requestPause(),
+                seek: (time) => p.seek && p.seek(time),
+                setVolume: (level) => p.setVolume && p.setVolume(level),
+                mute: () => p.mute && p.mute(),
+                unmute: () => p.unmute && p.unmute(),
+                toggleMute: () => p.toggleMute && p.toggleMute(),
+                setPlaybackRate: (rate) => p.setPlaybackRate && p.setPlaybackRate(rate),
+                getPlaybackRate: () => p.getPlaybackRate ? p.getPlaybackRate() : 1,
+                getCurrentTime: () => p.getCurrentTime ? p.getCurrentTime() : 0,
+                getDuration: () => p.getDuration ? p.getDuration() : 0,
+                getState: () => p.getState ? p.getState() : {},
+            };
+            props.onPlaybackAPI(playbackAPI);
+        }
+    }, [
+        props.onChapterAPI,
+        props.onQualityAPI,
+        props.onEPGAPI,
+        props.onUIHelperAPI,
+        props.onFullscreenAPI,
+        props.onPlaybackAPI,
+        filterQualities,
+    ]);
+    const applySettingsScrollbar = useCallback((player, config) => {
+        const p = player;
+        if (config.style && typeof p.setSettingsScrollbarStyle === 'function') {
+            p.setSettingsScrollbarStyle(config.style);
+        }
+        if ((config.widthPx !== undefined || config.intensity !== undefined) &&
+            typeof p.setSettingsScrollbarConfig === 'function') {
+            p.setSettingsScrollbarConfig({
+                widthPx: config.widthPx,
+                intensity: config.intensity,
+            });
+        }
+    }, []);
+    useEffect(() => {
+        const p = playerRef.current;
+        if (p && props.settingsScrollbar && playerReady) {
+            applySettingsScrollbar(p, props.settingsScrollbar);
+        }
+    }, [JSON.stringify(props.settingsScrollbar), playerReady, applySettingsScrollbar]);
+    useEffect(() => {
+        if (playerRef.current && playerReady) {
+            exposeAPIsToParent(playerRef.current);
+        }
+    }, [playerReady, exposeAPIsToParent]);
     useEffect(() => {
         const p = playerRef.current;
         if (p && typeof p.setFreeDuration === 'function' && typeof props.freeDuration !== 'undefined') {
@@ -482,6 +754,16 @@ export const WebPlayerView = (props) => {
             zIndex: 40,
         } },
         React.createElement("div", { ref: containerRef, className: `uvf-responsive-container ${props.className || ''}`, style: responsiveStyle }),
+        props.googleAds && (React.createElement("div", { ref: adContainerRef, className: "uvf-ad-container", style: {
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 2147483647,
+                pointerEvents: isAdPlaying ? 'auto' : 'none',
+                display: isAdPlaying ? 'block' : 'none',
+            } })),
         props.epg && EPGOverlay && epgComponentLoaded && (React.createElement("div", { style: {
                 position: 'fixed',
                 bottom: 0,

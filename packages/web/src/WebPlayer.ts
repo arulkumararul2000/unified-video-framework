@@ -134,6 +134,12 @@ export class WebPlayer extends BasePlayer {
   private chapterManager: ChapterManager | null = null;
   private coreChapterManager: CoreChapterManager | null = null;
   private chapterConfig: ChapterConfig = { enabled: false };
+  
+  // Quality filter
+  private qualityFilter: any = null;
+  
+  // Premium qualities configuration
+  private premiumQualities: any = null;
 
   // Debug logging helper
   private debugLog(message: string, ...args: any[]): void {
@@ -203,6 +209,18 @@ export class WebPlayer extends BasePlayer {
       console.log('Chapter config applied:', this.chapterConfig);
     } else {
       console.log('No chapter config found, chapters disabled');
+    }
+    
+    // Configure quality filter if provided
+    if (config && config.qualityFilter) {
+      console.log('Quality filter config found:', config.qualityFilter);
+      this.qualityFilter = config.qualityFilter;
+    }
+    
+    // Configure premium qualities if provided
+    if (config && config.premiumQualities) {
+      console.log('Premium qualities config found:', config.premiumQualities);
+      this.premiumQualities = config.premiumQualities;
     }
     
     // Call parent initialize
@@ -638,6 +656,12 @@ export class WebPlayer extends BasePlayer {
         // Update settings menu with detected qualities
         this.updateSettingsMenu();
         
+        // Apply quality filter automatically if configured (for auto quality mode)
+        if (this.qualityFilter || (this.premiumQualities && this.premiumQualities.enabled)) {
+          this.debugLog('Applying quality filter on HLS manifest load');
+          this.applyHLSQualityFilter();
+        }
+        
         // Note: Autoplay is now handled in the 'canplay' event when video is ready
       });
 
@@ -732,6 +756,12 @@ export class WebPlayer extends BasePlayer {
         
         // Update settings menu with detected qualities
         this.updateSettingsMenu();
+        
+        // Apply quality filter automatically if configured (for auto quality mode)
+        if (this.qualityFilter || (this.premiumQualities && this.premiumQualities.enabled)) {
+          this.debugLog('Applying quality filter on DASH stream initialization');
+          this.applyDASHQualityFilter();
+        }
       }
     });
 
@@ -1452,7 +1482,16 @@ export class WebPlayer extends BasePlayer {
     this.autoQuality = enabled;
     
     if (this.hls) {
-      this.hls.currentLevel = enabled ? -1 : this.currentQualityIndex;
+      if (enabled) {
+        // Apply quality filter constraints when enabling auto
+        if (this.qualityFilter || (this.premiumQualities && this.premiumQualities.enabled)) {
+          this.applyHLSQualityFilter();
+        } else {
+          this.hls.currentLevel = -1;
+        }
+      } else {
+        this.hls.currentLevel = this.currentQualityIndex;
+      }
     } else if (this.dash) {
       this.dash.updateSettings({
         streaming: {
@@ -1463,6 +1502,11 @@ export class WebPlayer extends BasePlayer {
           }
         }
       });
+      
+      // Apply quality filter constraints when enabling auto
+      if (enabled && (this.qualityFilter || (this.premiumQualities && this.premiumQualities.enabled))) {
+        this.applyDASHQualityFilter();
+      }
     }
   }
 
@@ -8588,7 +8632,16 @@ export class WebPlayer extends BasePlayer {
       
       this.availableQualities.forEach(quality => {
         const isActive = quality.value === this.currentQuality ? 'active' : '';
-        menuHTML += `<div class="uvf-settings-option quality-option ${isActive}" data-quality="${quality.value}">${quality.label}</div>`;
+        const isPremium = this.isQualityPremium(quality);
+        const isLocked = isPremium && !this.isPremiumUser();
+        const qualityHeight = (quality as any).height || 0;
+        
+        if (isLocked) {
+          const premiumLabel = this.premiumQualities?.premiumLabel || '🔒 Premium';
+          menuHTML += `<div class="uvf-settings-option quality-option premium-locked ${isActive}" data-quality="${quality.value}" data-quality-height="${qualityHeight}" data-quality-label="${quality.label}">${quality.label} <span style="margin-left: 4px; opacity: 0.7; font-size: 11px;">${premiumLabel}</span></div>`;
+        } else {
+          menuHTML += `<div class="uvf-settings-option quality-option ${isActive}" data-quality="${quality.value}">${quality.label}</div>`;
+        }
       });
       
       menuHTML += `</div></div>`;
@@ -8647,14 +8700,16 @@ export class WebPlayer extends BasePlayer {
    */
   private detectAvailableQualities(): void {
     this.availableQualities = [{ value: 'auto', label: 'Auto' }];
+    let detectedQualities: Array<{ value: string; label: string; height?: number }> = [];
 
     if (this.hls && this.hls.levels) {
       // HLS qualities
       this.hls.levels.forEach((level: any, index: number) => {
         if (level.height) {
-          this.availableQualities.push({
+          detectedQualities.push({
             value: index.toString(),
-            label: `${level.height}p`
+            label: `${level.height}p`,
+            height: level.height
           });
         }
       });
@@ -8664,9 +8719,10 @@ export class WebPlayer extends BasePlayer {
         const videoQualities = this.dash.getBitrateInfoListFor('video');
         videoQualities.forEach((quality: any, index: number) => {
           if (quality.height) {
-            this.availableQualities.push({
+            detectedQualities.push({
               value: index.toString(),
-              label: `${quality.height}p`
+              label: `${quality.height}p`,
+              height: quality.height
             });
           }
         });
@@ -8680,13 +8736,129 @@ export class WebPlayer extends BasePlayer {
       
       commonQualities.forEach(quality => {
         if (quality <= height) {
-          this.availableQualities.push({
+          detectedQualities.push({
             value: quality.toString(),
-            label: `${quality}p`
+            label: `${quality}p`,
+            height: quality
           });
         }
       });
     }
+    
+    // Apply quality filter if configured
+    if (this.qualityFilter) {
+      detectedQualities = this.applyQualityFilter(detectedQualities);
+    }
+    
+    // Add filtered qualities to available list
+    this.availableQualities.push(...detectedQualities);
+  }
+  
+  /**
+   * Apply quality filter to detected qualities
+   */
+  private applyQualityFilter(qualities: Array<{ value: string; label: string; height?: number }>): Array<{ value: string; label: string; height?: number }> {
+    let filtered = [...qualities];
+    const filter = this.qualityFilter;
+    
+    // Filter by allowed heights
+    if (filter.allowedHeights && filter.allowedHeights.length > 0) {
+      filtered = filtered.filter(q => q.height && filter.allowedHeights.includes(q.height));
+    }
+    
+    // Filter by allowed labels
+    if (filter.allowedLabels && filter.allowedLabels.length > 0) {
+      filtered = filtered.filter(q => filter.allowedLabels.includes(q.label));
+    }
+    
+    // Filter by minimum height
+    if (filter.minHeight !== undefined) {
+      filtered = filtered.filter(q => q.height && q.height >= filter.minHeight);
+    }
+    
+    // Filter by maximum height
+    if (filter.maxHeight !== undefined) {
+      filtered = filtered.filter(q => q.height && q.height <= filter.maxHeight);
+    }
+    
+    return filtered;
+  }
+  
+  /**
+   * Set quality filter (can be called at runtime)
+   */
+  public setQualityFilter(filter: any): void {
+    this.qualityFilter = filter;
+    // Refresh settings menu to apply the filter
+    if (this.useCustomControls) {
+      this.updateSettingsMenu();
+    }
+  }
+  
+  /**
+   * Check if a quality level is premium
+   */
+  private isQualityPremium(quality: any): boolean {
+    if (!this.premiumQualities || !this.premiumQualities.enabled) {
+      return false;
+    }
+    
+    const config = this.premiumQualities;
+    const height = quality.height || 0;
+    const label = quality.label || '';
+    
+    // Check by specific heights
+    if (config.requiredHeights && config.requiredHeights.length > 0) {
+      if (config.requiredHeights.includes(height)) return true;
+    }
+    
+    // Check by specific labels
+    if (config.requiredLabels && config.requiredLabels.length > 0) {
+      if (config.requiredLabels.includes(label)) return true;
+    }
+    
+    // Check by minimum height threshold
+    if (config.minPremiumHeight !== undefined) {
+      if (height >= config.minPremiumHeight) return true;
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Check if current user is premium
+   */
+  private isPremiumUser(): boolean {
+    return this.premiumQualities?.isPremiumUser === true;
+  }
+  
+  /**
+   * Handle click on locked premium quality
+   */
+  private handlePremiumQualityClick(element: HTMLElement): void {
+    const height = parseInt(element.dataset.qualityHeight || '0');
+    const label = element.dataset.qualityLabel || '';
+    
+    this.debugLog(`Premium quality clicked: ${label} (${height}p)`);
+    
+    // Call custom callback if provided
+    if (this.premiumQualities?.onPremiumQualityClick) {
+      this.premiumQualities.onPremiumQualityClick({ height, label });
+    }
+    
+    // Show notification
+    const message = this.premiumQualities?.premiumLabel || 'Premium';
+    this.showNotification(`${label} requires ${message.replace('🔒 ', '')}`);
+    
+    // Redirect to unlock URL if provided
+    if (this.premiumQualities?.unlockUrl) {
+      setTimeout(() => {
+        window.location.href = this.premiumQualities.unlockUrl;
+      }, 1500);
+    }
+    
+    // Close settings menu
+    this.hideSettingsMenu();
   }
 
   /**
@@ -8754,7 +8926,15 @@ export class WebPlayer extends BasePlayer {
     settingsMenu.querySelectorAll('.quality-option').forEach(option => {
       option.addEventListener('click', (e) => {
         e.stopPropagation();
-        const quality = (e.target as HTMLElement).dataset.quality || 'auto';
+        const target = e.target as HTMLElement;
+        const quality = target.dataset.quality || 'auto';
+        
+        // Check if this is a locked premium quality
+        if (target.classList.contains('premium-locked')) {
+          this.handlePremiumQualityClick(target);
+          return;
+        }
+        
         this.setQualityFromSettings(quality);
         this.updateAccordionAfterSelection('quality');
       });
@@ -8869,11 +9049,21 @@ export class WebPlayer extends BasePlayer {
     this.currentQuality = quality;
     
     if (quality === 'auto') {
-      // Enable auto quality
+      // Enable auto quality with filter consideration
       if (this.hls) {
-        this.hls.currentLevel = -1; // Auto
+        if (this.qualityFilter) {
+          // If filter is set, apply it to HLS auto quality
+          this.applyHLSQualityFilter();
+        } else {
+          // No filter - use all levels
+          this.hls.currentLevel = -1; // Auto
+        }
       } else if (this.dash) {
         this.dash.setAutoSwitchQualityFor('video', true);
+        if (this.qualityFilter) {
+          // If filter is set, apply it to DASH auto quality
+          this.applyDASHQualityFilter();
+        }
       }
     } else {
       // Set specific quality
@@ -8888,6 +9078,144 @@ export class WebPlayer extends BasePlayer {
     }
     
     this.debugLog(`Quality set to ${quality}`);
+  }
+  
+  /**
+   * Apply quality filter to HLS auto quality selection
+   */
+  private applyHLSQualityFilter(): void {
+    if (!this.hls || !this.hls.levels) return;
+    
+    const allowedLevels: number[] = [];
+    
+    this.hls.levels.forEach((level: any, index: number) => {
+      let allowed = true;
+      
+      // Apply quality filter if exists
+      if (this.qualityFilter) {
+        const filter = this.qualityFilter;
+        
+        if (filter.allowedHeights && filter.allowedHeights.length > 0) {
+          allowed = allowed && filter.allowedHeights.includes(level.height);
+        }
+        
+        if (filter.minHeight !== undefined) {
+          allowed = allowed && level.height >= filter.minHeight;
+        }
+        
+        if (filter.maxHeight !== undefined) {
+          allowed = allowed && level.height <= filter.maxHeight;
+        }
+      }
+      
+      // Apply premium quality restrictions for non-premium users
+      if (this.premiumQualities && this.premiumQualities.enabled && !this.isPremiumUser()) {
+        const isPremium = this.isQualityPremium({ height: level.height, label: `${level.height}p` });
+        if (isPremium) {
+          allowed = false;  // Exclude premium qualities for non-premium users
+        }
+      }
+      
+      if (allowed) {
+        allowedLevels.push(index);
+      }
+    });
+    
+    // Set max and min auto level based on filter and premium restrictions
+    if (allowedLevels.length > 0) {
+      // Set the maximum level cap
+      this.hls.autoLevelCapping = Math.max(...allowedLevels);
+      
+      // Enable auto quality
+      this.hls.currentLevel = -1;
+      
+      // For minimum level, we need to use a different approach
+      // Monitor level changes and prevent switching below minimum
+      const minLevel = Math.min(...allowedLevels);
+      
+      // Set up level switching listener to enforce minimum
+      const enforceLevelConstraints = () => {
+        if (this.hls && this.hls.currentLevel !== -1 && this.hls.currentLevel < minLevel) {
+          this.debugLog(`Quality below minimum (${this.hls.currentLevel} < ${minLevel}), switching to ${minLevel}`);
+          this.hls.currentLevel = minLevel;
+        }
+      };
+      
+      // Remove old listener if exists
+      if (this.hls.listeners('hlsLevelSwitching').length > 0) {
+        this.hls.off('hlsLevelSwitching', enforceLevelConstraints);
+      }
+      
+      // Add listener to enforce constraints
+      this.hls.on('hlsLevelSwitching', enforceLevelConstraints);
+      
+      this.debugLog(`Auto quality limited to levels: ${allowedLevels.join(', ')} (min: ${minLevel}, max: ${Math.max(...allowedLevels)})`);
+    } else {
+      // No allowed levels - just use auto
+      this.hls.currentLevel = -1;
+    }
+  }
+  
+  /**
+   * Apply quality filter to DASH auto quality selection
+   */
+  private applyDASHQualityFilter(): void {
+    if (!this.dash) return;
+    
+    try {
+      const videoQualities = this.dash.getBitrateInfoListFor('video');
+      const allowedIndices: number[] = [];
+      
+      videoQualities.forEach((quality: any, index: number) => {
+        let allowed = true;
+        
+        // Apply quality filter if exists
+        if (this.qualityFilter) {
+          const filter = this.qualityFilter;
+          
+          if (filter.allowedHeights && filter.allowedHeights.length > 0) {
+            allowed = allowed && filter.allowedHeights.includes(quality.height);
+          }
+          
+          if (filter.minHeight !== undefined) {
+            allowed = allowed && quality.height >= filter.minHeight;
+          }
+          
+          if (filter.maxHeight !== undefined) {
+            allowed = allowed && quality.height <= filter.maxHeight;
+          }
+        }
+        
+        // Apply premium quality restrictions for non-premium users
+        if (this.premiumQualities && this.premiumQualities.enabled && !this.isPremiumUser()) {
+          const isPremium = this.isQualityPremium({ height: quality.height, label: `${quality.height}p` });
+          if (isPremium) {
+            allowed = false;  // Exclude premium qualities for non-premium users
+          }
+        }
+        
+        if (allowed) {
+          allowedIndices.push(index);
+        }
+      });
+      
+      // Set quality bounds for DASH
+      if (allowedIndices.length > 0) {
+        const settings = {
+          streaming: {
+            abr: {
+              limitBitrateByPortal: false,
+              maxBitrate: { video: videoQualities[Math.max(...allowedIndices)].bitrate },
+              minBitrate: { video: videoQualities[Math.min(...allowedIndices)].bitrate },
+            }
+          }
+        };
+        this.dash.updateSettings(settings);
+        this.debugLog(`Auto quality limited to DASH indices: ${allowedIndices.join(', ')}`);
+      }
+    } catch (e) {
+      this.debugError('Error applying DASH quality filter:', e);
+    }
   }
 
   /**
