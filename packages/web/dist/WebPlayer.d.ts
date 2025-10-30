@@ -78,6 +78,13 @@ export declare class WebPlayer extends BasePlayer {
     private chapterConfig;
     private qualityFilter;
     private premiumQualities;
+    private isAdPlaying;
+    private fallbackSourceIndex;
+    private fallbackErrors;
+    private isLoadingFallback;
+    private currentRetryAttempt;
+    private lastFailedUrl;
+    private isFallbackPosterMode;
     private debugLog;
     private debugError;
     private debugWarn;
@@ -88,6 +95,9 @@ export declare class WebPlayer extends BasePlayer {
     private getMediaErrorMessage;
     private updateBufferProgress;
     load(source: any): Promise<void>;
+    private loadVideoSource;
+    private tryFallbackSource;
+    private showFallbackPoster;
     private detectSourceType;
     private loadHLS;
     private handleHLSError;
@@ -225,6 +235,8 @@ export declare class WebPlayer extends BasePlayer {
     private detectAvailableQualities;
     private applyQualityFilter;
     setQualityFilter(filter: any): void;
+    setAdPlaying(isPlaying: boolean): void;
+    isAdCurrentlyPlaying(): boolean;
     private isQualityPremium;
     private isPremiumUser;
     private handlePremiumQualityClick;

@@ -388,6 +388,7 @@ export const WebPlayerView = (props) => {
                 settings: props.settings,
                 showFrameworkBranding: props.showFrameworkBranding,
                 watermark: watermarkConfig,
+                share: props.share,
                 qualityFilter: props.qualityFilter,
                 premiumQualities: props.premiumQualities,
                 navigation: props.navigation,
@@ -424,6 +425,12 @@ export const WebPlayerView = (props) => {
                     type: props.type ?? 'auto',
                     subtitles: props.subtitles,
                     metadata: props.metadata,
+                    fallbackSources: props.fallbackSources,
+                    fallbackPoster: props.fallbackPoster,
+                    fallbackShowErrorMessage: props.fallbackShowErrorMessage,
+                    fallbackRetryDelay: props.fallbackRetryDelay,
+                    fallbackRetryAttempts: props.fallbackRetryAttempts,
+                    onAllSourcesFailed: props.onAllSourcesFailed,
                 };
                 await player.load(source);
                 if (!cancelled) {
@@ -578,18 +585,30 @@ export const WebPlayerView = (props) => {
                                     companionAdSlots: props.googleAds.companionAdSlots,
                                     onAdStart: () => {
                                         setIsAdPlaying(true);
+                                        if (typeof player.setAdPlaying === 'function') {
+                                            player.setAdPlaying(true);
+                                        }
                                         props.googleAds?.onAdStart?.();
                                     },
                                     onAdEnd: () => {
                                         setIsAdPlaying(false);
+                                        if (typeof player.setAdPlaying === 'function') {
+                                            player.setAdPlaying(false);
+                                        }
                                         props.googleAds?.onAdEnd?.();
                                     },
                                     onAdError: (error) => {
                                         setIsAdPlaying(false);
+                                        if (typeof player.setAdPlaying === 'function') {
+                                            player.setAdPlaying(false);
+                                        }
                                         props.googleAds?.onAdError?.(error);
                                     },
                                     onAllAdsComplete: () => {
                                         setIsAdPlaying(false);
+                                        if (typeof player.setAdPlaying === 'function') {
+                                            player.setAdPlaying(false);
+                                        }
                                         props.googleAds?.onAllAdsComplete?.();
                                     },
                                     onAdCuePoints: (cuePoints) => {
@@ -663,10 +682,16 @@ export const WebPlayerView = (props) => {
         JSON.stringify(props.settings),
         props.showFrameworkBranding,
         JSON.stringify(props.watermark),
+        JSON.stringify(props.share),
         JSON.stringify(props.navigation),
         JSON.stringify(props.googleAds),
         JSON.stringify(props.qualityFilter),
         JSON.stringify(props.premiumQualities),
+        JSON.stringify(props.fallbackSources),
+        props.fallbackPoster,
+        props.fallbackShowErrorMessage,
+        props.fallbackRetryDelay,
+        props.fallbackRetryAttempts,
     ]);
     const filterQualities = useCallback((qualities) => {
         if (!props.qualityFilter || qualities.length === 0) {

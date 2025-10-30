@@ -2,12 +2,26 @@
  * Core video player interface that all platform implementations must follow
  */
 
+export interface FallbackSource {
+  url: string;
+  type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto';
+  priority?: number; // Lower number = higher priority (default: index order)
+}
+
 export interface VideoSource {
   url: string;
   type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto';
   drm?: DRMConfig;
   subtitles?: SubtitleTrack[];
   metadata?: VideoMetadata;
+
+  // Fallback configuration
+  fallbackSources?: FallbackSource[]; // Alternative video URLs to try on failure
+  fallbackPoster?: string; // Static image to show when all video sources fail
+  fallbackShowErrorMessage?: boolean; // Show error message overlay on fallback poster (default: true)
+  fallbackRetryDelay?: number; // Delay in ms before trying next fallback (default: 1000)
+  fallbackRetryAttempts?: number; // Number of retry attempts per source (default: 1)
+  onAllSourcesFailed?: (errors: Array<{ url: string; error: any }>) => void; // Callback when all sources fail
 }
 
 export interface DRMConfig {
@@ -27,6 +41,7 @@ export interface SubtitleTrack {
 
 export interface VideoMetadata {
   id?: string;
+  videoId?: string;
   title?: string;
   description?: string;
   duration?: number;
@@ -148,6 +163,14 @@ export interface PaywallConfig {
   };
 }
 
+export interface ShareConfig {
+  enabled?: boolean;
+  url?: string;
+  title?: string;
+  text?: string;
+  generateUrl?: (videoData: { videoId?: string; metadata?: any }) => string;
+}
+
 export interface PlayerConfig {
   autoPlay?: boolean;
   muted?: boolean;
@@ -166,6 +189,9 @@ export interface PlayerConfig {
 
   // Optional paywall for dynamic rental flow
   paywall?: PaywallConfig;
+
+  // Share configuration
+  share?: ShareConfig;
 }
 
 /**

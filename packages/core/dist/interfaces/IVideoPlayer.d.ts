@@ -1,9 +1,23 @@
+export interface FallbackSource {
+    url: string;
+    type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto';
+    priority?: number;
+}
 export interface VideoSource {
     url: string;
     type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto';
     drm?: DRMConfig;
     subtitles?: SubtitleTrack[];
     metadata?: VideoMetadata;
+    fallbackSources?: FallbackSource[];
+    fallbackPoster?: string;
+    fallbackShowErrorMessage?: boolean;
+    fallbackRetryDelay?: number;
+    fallbackRetryAttempts?: number;
+    onAllSourcesFailed?: (errors: Array<{
+        url: string;
+        error: any;
+    }>) => void;
 }
 export interface DRMConfig {
     licenseUrl: string;
@@ -20,6 +34,7 @@ export interface SubtitleTrack {
 }
 export interface VideoMetadata {
     id?: string;
+    videoId?: string;
     title?: string;
     description?: string;
     duration?: number;
@@ -140,6 +155,16 @@ export interface PaywallConfig {
         };
     };
 }
+export interface ShareConfig {
+    enabled?: boolean;
+    url?: string;
+    title?: string;
+    text?: string;
+    generateUrl?: (videoData: {
+        videoId?: string;
+        metadata?: any;
+    }) => string;
+}
 export interface PlayerConfig {
     autoPlay?: boolean;
     muted?: boolean;
@@ -154,6 +179,7 @@ export interface PlayerConfig {
     debug?: boolean;
     freeDuration?: number;
     paywall?: PaywallConfig;
+    share?: ShareConfig;
 }
 export interface IVideoPlayer {
     initialize(container: HTMLElement | string, config?: PlayerConfig): Promise<void>;

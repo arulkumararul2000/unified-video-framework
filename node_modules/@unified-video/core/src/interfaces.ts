@@ -126,6 +126,14 @@ export interface NavigationConfig {
   };
 }
 
+export interface ShareConfig {
+  enabled?: boolean; // Enable/disable share button (default: true)
+  url?: string; // Custom share URL (default: window.location.href)
+  title?: string; // Custom share title (default: video metadata title)
+  text?: string; // Custom share description (default: video metadata description)
+  generateUrl?: (videoData: { videoId?: string; metadata?: any }) => string; // Dynamic URL generator
+}
+
 export interface VideoPlayerConfig {
   autoPlay?: boolean;
   muted?: boolean;
@@ -138,6 +146,7 @@ export interface VideoPlayerConfig {
   showFrameworkBranding?: boolean; // Show/hide flicknexs framework branding (default: true)
   navigation?: NavigationConfig; // Navigation buttons configuration
   watermark?: WatermarkConfig; // Watermark configuration
+  share?: ShareConfig; // Share button configuration
   adaptiveBitrate?: AdaptiveBitrateConfig;
   drm?: DRMConfig;
   analytics?: AnalyticsConfig;

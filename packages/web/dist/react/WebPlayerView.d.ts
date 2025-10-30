@@ -101,6 +101,16 @@ export type WebPlayerViewProps = {
         unlockUrl?: string;
     };
     showFrameworkBranding?: boolean;
+    share?: {
+        enabled?: boolean;
+        url?: string;
+        title?: string;
+        text?: string;
+        generateUrl?: (videoData: {
+            videoId?: string;
+            metadata?: any;
+        }) => string;
+    };
     watermark?: boolean | {
         enabled?: boolean;
         text?: string;
@@ -157,6 +167,19 @@ export type WebPlayerViewProps = {
     type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto';
     subtitles?: SubtitleTrack[];
     metadata?: VideoMetadata;
+    fallbackSources?: Array<{
+        url: string;
+        type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto';
+        priority?: number;
+    }>;
+    fallbackPoster?: string;
+    fallbackShowErrorMessage?: boolean;
+    fallbackRetryDelay?: number;
+    fallbackRetryAttempts?: number;
+    onAllSourcesFailed?: (errors: Array<{
+        url: string;
+        error: any;
+    }>) => void;
     cast?: boolean;
     className?: string;
     style?: CSSProperties;

@@ -112,6 +112,16 @@ export interface NavigationConfig {
         closeModal?: boolean;
     };
 }
+export interface ShareConfig {
+    enabled?: boolean;
+    url?: string;
+    title?: string;
+    text?: string;
+    generateUrl?: (videoData: {
+        videoId?: string;
+        metadata?: any;
+    }) => string;
+}
 export interface VideoPlayerConfig {
     autoPlay?: boolean;
     muted?: boolean;
@@ -124,6 +134,7 @@ export interface VideoPlayerConfig {
     showFrameworkBranding?: boolean;
     navigation?: NavigationConfig;
     watermark?: WatermarkConfig;
+    share?: ShareConfig;
     adaptiveBitrate?: AdaptiveBitrateConfig;
     drm?: DRMConfig;
     analytics?: AnalyticsConfig;

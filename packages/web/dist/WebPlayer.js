@@ -81,6 +81,13 @@ export class WebPlayer extends BasePlayer {
         this.chapterConfig = { enabled: false };
         this.qualityFilter = null;
         this.premiumQualities = null;
+        this.isAdPlaying = false;
+        this.fallbackSourceIndex = -1;
+        this.fallbackErrors = [];
+        this.isLoadingFallback = false;
+        this.currentRetryAttempt = 0;
+        this.lastFailedUrl = '';
+        this.isFallbackPosterMode = false;
         this.autoplayAttempted = false;
         this.clickToUnmuteHandler = null;
     }
@@ -317,6 +324,22 @@ export class WebPlayer extends BasePlayer {
         });
         this.video.addEventListener('canplay', () => {
             this.debugLog('📡 canplay event fired');
+            if (this.isLoadingFallback) {
+                this.debugLog('✅ Fallback source loaded successfully!');
+                this.isLoadingFallback = false;
+                this.lastFailedUrl = '';
+            }
+            if (this.isFallbackPosterMode) {
+                this.debugLog('✅ Exiting fallback poster mode - video source loaded');
+                this.isFallbackPosterMode = false;
+                const posterOverlay = this.playerWrapper?.querySelector('#uvf-fallback-poster');
+                if (posterOverlay) {
+                    posterOverlay.remove();
+                }
+                if (this.video) {
+                    this.video.style.display = '';
+                }
+            }
             this.setBuffering(false);
             this.emit('onReady');
             this.updateTimeDisplay();
@@ -367,18 +390,45 @@ export class WebPlayer extends BasePlayer {
             this.state.isMuted = this.video.muted;
             this.emit('onVolumeChanged', this.video.volume);
         });
-        this.video.addEventListener('error', (e) => {
-            if (!this.video)
+        this.video.addEventListener('error', async (e) => {
+            if (!this.video || !this.video.src)
                 return;
             const error = this.video.error;
             if (error) {
-                this.handleError({
-                    code: `MEDIA_ERR_${error.code}`,
-                    message: error.message || this.getMediaErrorMessage(error.code),
-                    type: 'media',
-                    fatal: true,
-                    details: error
-                });
+                const currentSrc = this.video.src || this.video.currentSrc || '';
+                if (this.lastFailedUrl === currentSrc && this.isLoadingFallback) {
+                    this.debugLog(`⚠️ Duplicate error for same URL while loading fallback, ignoring: ${currentSrc}`);
+                    return;
+                }
+                this.lastFailedUrl = currentSrc;
+                this.debugLog(`Video error detected (code: ${error.code}):`, error.message);
+                this.debugLog(`Failed source: ${currentSrc}`);
+                this.debugLog(`Fallback check - isLoadingFallback: ${this.isLoadingFallback}`);
+                this.debugLog(`Fallback check - fallbackSources:`, this.source?.fallbackSources);
+                this.debugLog(`Fallback check - fallbackPoster:`, this.source?.fallbackPoster);
+                this.debugLog(`Fallback check - has fallbackSources: ${!!this.source?.fallbackSources?.length}`);
+                this.debugLog(`Fallback check - has fallbackPoster: ${!!this.source?.fallbackPoster}`);
+                if (!this.isLoadingFallback && (this.source?.fallbackSources?.length || this.source?.fallbackPoster)) {
+                    this.debugLog('✅ Attempting to load fallback sources...');
+                    const fallbackLoaded = await this.tryFallbackSource(error);
+                    if (fallbackLoaded) {
+                        this.debugLog('✅ Fallback loaded successfully!');
+                        return;
+                    }
+                    this.debugLog('❌ All fallbacks failed');
+                }
+                else {
+                    this.debugLog('❌ No fallback sources available or already loading');
+                }
+                if (!this.isLoadingFallback) {
+                    this.handleError({
+                        code: `MEDIA_ERR_${error.code}`,
+                        message: error.message || this.getMediaErrorMessage(error.code),
+                        type: 'media',
+                        fatal: true,
+                        details: error
+                    });
+                }
             }
         });
         this.video.addEventListener('seeking', () => {
@@ -415,46 +465,204 @@ export class WebPlayer extends BasePlayer {
     async load(source) {
         this.source = source;
         this.subtitles = (source.subtitles || []);
+        this.debugLog('Loading video source:', source.url);
+        this.debugLog('Fallback sources provided:', source.fallbackSources);
+        this.debugLog('Fallback poster provided:', source.fallbackPoster);
         this.autoplayAttempted = false;
+        this.fallbackSourceIndex = -1;
+        this.fallbackErrors = [];
+        this.isLoadingFallback = false;
+        this.currentRetryAttempt = 0;
+        this.lastFailedUrl = '';
+        this.isFallbackPosterMode = false;
         await this.cleanup();
         if (!this.video) {
             throw new Error('Video element not initialized');
         }
         const sourceType = this.detectSourceType(source);
         try {
-            switch (sourceType) {
-                case 'hls':
-                    await this.loadHLS(source.url);
-                    break;
-                case 'dash':
-                    await this.loadDASH(source.url);
-                    break;
-                default:
-                    await this.loadNative(source.url);
-            }
-            if (source.subtitles && source.subtitles.length > 0) {
-                this.loadSubtitles(source.subtitles);
-            }
-            if (source.metadata) {
-                if (source.metadata.posterUrl && this.video) {
-                    this.video.poster = source.metadata.posterUrl;
-                }
-                this.updateMetadataUI();
-            }
-            else {
-                this.updateMetadataUI();
-            }
+            await this.loadVideoSource(source.url, sourceType, source);
         }
         catch (error) {
-            this.handleError({
-                code: 'LOAD_ERROR',
-                message: `Failed to load video: ${error}`,
-                type: 'network',
-                fatal: true,
-                details: error
-            });
-            throw error;
+            const fallbackLoaded = await this.tryFallbackSource(error);
+            if (!fallbackLoaded) {
+                this.handleError({
+                    code: 'LOAD_ERROR',
+                    message: `Failed to load video: ${error}`,
+                    type: 'network',
+                    fatal: true,
+                    details: error
+                });
+                throw error;
+            }
         }
+    }
+    async loadVideoSource(url, sourceType, source) {
+        switch (sourceType) {
+            case 'hls':
+                await this.loadHLS(url);
+                break;
+            case 'dash':
+                await this.loadDASH(url);
+                break;
+            default:
+                await this.loadNative(url);
+        }
+        if (source.subtitles && source.subtitles.length > 0) {
+            this.loadSubtitles(source.subtitles);
+        }
+        if (source.metadata) {
+            if (source.metadata.posterUrl && this.video) {
+                this.video.poster = source.metadata.posterUrl;
+            }
+            this.updateMetadataUI();
+        }
+        else {
+            this.updateMetadataUI();
+        }
+    }
+    async tryFallbackSource(error) {
+        this.debugLog('🔄 tryFallbackSource called');
+        this.debugLog('🔄 isLoadingFallback:', this.isLoadingFallback);
+        this.debugLog('🔄 fallbackSources:', this.source?.fallbackSources);
+        this.debugLog('🔄 fallbackSources length:', this.source?.fallbackSources?.length);
+        this.debugLog('🔄 Current fallbackSourceIndex:', this.fallbackSourceIndex);
+        this.debugLog('🔄 Current retry attempt:', this.currentRetryAttempt);
+        if (this.isLoadingFallback) {
+            this.debugLog('⚠️ Already loading a fallback, skipping');
+            return false;
+        }
+        if (!this.source?.fallbackSources || this.source.fallbackSources.length === 0) {
+            this.debugLog('⚠️ No fallback sources available, trying fallback poster');
+            return this.showFallbackPoster();
+        }
+        this.debugLog('✅ Starting fallback loading process');
+        this.isLoadingFallback = true;
+        const currentUrl = this.fallbackSourceIndex === -1
+            ? this.source.url
+            : this.source.fallbackSources[this.fallbackSourceIndex]?.url;
+        this.fallbackErrors.push({ url: currentUrl, error });
+        this.debugLog(`Source failed: ${currentUrl}`, error);
+        const isMainUrl = this.fallbackSourceIndex === -1;
+        const maxRetries = this.source.fallbackRetryAttempts || 1;
+        if (!isMainUrl && this.currentRetryAttempt < maxRetries) {
+            this.currentRetryAttempt++;
+            this.debugLog(`Retrying fallback source (attempt ${this.currentRetryAttempt}/${maxRetries}): ${currentUrl}`);
+            const retryDelay = this.source.fallbackRetryDelay || 1000;
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            try {
+                const sourceType = this.detectSourceType({ url: currentUrl, type: this.source.type });
+                await this.loadVideoSource(currentUrl, sourceType, this.source);
+                this.debugLog(`Retry initiated for: ${currentUrl} - waiting for load confirmation...`);
+            }
+            catch (retryError) {
+                this.debugLog(`Retry failed for: ${currentUrl}`, retryError);
+            }
+        }
+        else {
+            if (isMainUrl) {
+                this.debugLog(`⏭️ Skipping retry of main URL, moving to first fallback source`);
+            }
+            else {
+                this.debugLog(`⏭️ Max retries (${maxRetries}) reached for ${currentUrl}, moving to next fallback`);
+            }
+        }
+        this.currentRetryAttempt = 0;
+        this.fallbackSourceIndex++;
+        if (this.fallbackSourceIndex >= this.source.fallbackSources.length) {
+            this.isLoadingFallback = false;
+            this.debugLog('All video sources failed. Attempting to show fallback poster.');
+            if (this.source.onAllSourcesFailed) {
+                try {
+                    this.source.onAllSourcesFailed(this.fallbackErrors);
+                }
+                catch (callbackError) {
+                    console.error('Error in onAllSourcesFailed callback:', callbackError);
+                }
+            }
+            return this.showFallbackPoster();
+        }
+        const fallbackSource = this.source.fallbackSources[this.fallbackSourceIndex];
+        this.debugLog(`Trying fallback source ${this.fallbackSourceIndex + 1}/${this.source.fallbackSources.length}: ${fallbackSource.url}`);
+        const retryDelay = this.source.fallbackRetryDelay || 1000;
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        try {
+            const sourceType = this.detectSourceType(fallbackSource);
+            await this.loadVideoSource(fallbackSource.url, sourceType, this.source);
+            this.isLoadingFallback = false;
+            this.debugLog(`Successfully loaded fallback source: ${fallbackSource.url}`);
+            this.showNotification(`Switched to backup source ${this.fallbackSourceIndex + 1}`);
+            return true;
+        }
+        catch (fallbackError) {
+            this.debugLog(`Fallback source failed: ${fallbackSource.url}`, fallbackError);
+            this.isLoadingFallback = false;
+            return this.tryFallbackSource(fallbackError);
+        }
+    }
+    showFallbackPoster() {
+        if (!this.source?.fallbackPoster) {
+            this.debugLog('No fallback poster available');
+            return false;
+        }
+        this.debugLog('Showing fallback poster:', this.source.fallbackPoster);
+        this.isFallbackPosterMode = true;
+        this.debugLog('✅ Fallback poster mode activated - playback disabled');
+        if (this.video) {
+            this.video.style.display = 'none';
+            this.video.poster = this.source.fallbackPoster;
+            this.video.removeAttribute('src');
+            this.video.load();
+        }
+        const posterOverlay = document.createElement('div');
+        posterOverlay.id = 'uvf-fallback-poster';
+        posterOverlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('${this.source.fallbackPoster}');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+        const showErrorMessage = this.source.fallbackShowErrorMessage !== false;
+        if (showErrorMessage) {
+            const errorMessage = document.createElement('div');
+            errorMessage.style.cssText = `
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 20px 30px;
+        border-radius: 8px;
+        text-align: center;
+        max-width: 400px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      `;
+            errorMessage.innerHTML = `
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="16" width="20" height="16" rx="2" />
+          <polygon points="34,20 42,16 42,32 34,28" />
+          <line x1="10" y1="16" x2="38" y2="40" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Video Unavailable</div>
+        <div style="font-size: 14px; opacity: 0.9;">This video cannot be played at the moment.</div>
+      `;
+            posterOverlay.appendChild(errorMessage);
+        }
+        const existingPoster = this.playerWrapper?.querySelector('#uvf-fallback-poster');
+        if (existingPoster) {
+            existingPoster.remove();
+        }
+        if (this.playerWrapper) {
+            this.playerWrapper.appendChild(posterOverlay);
+        }
+        this.showNotification('Video unavailable');
+        return true;
     }
     detectSourceType(source) {
         if (source.type && source.type !== 'auto') {
@@ -973,6 +1181,10 @@ export class WebPlayer extends BasePlayer {
     async play() {
         if (!this.video)
             throw new Error('Video element not initialized');
+        if (this.isFallbackPosterMode) {
+            this.debugLog('⚠️ Play blocked: In fallback poster mode (no playable sources)');
+            return;
+        }
         if (!this.canPlayVideo()) {
             this.debugWarn('Playbook blocked by security check');
             this.enforcePaywallSecurity();
@@ -5894,6 +6106,11 @@ export class WebPlayer extends BasePlayer {
             if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
                 return;
             }
+            if (this.isAdPlaying) {
+                this.debugLog('Keyboard blocked: Ad is playing');
+                e.preventDefault();
+                return;
+            }
             this.debugLog('Keyboard event:', e.key, 'target:', target.tagName);
             let shortcutText = '';
             this.lastUserInteraction = Date.now();
@@ -7687,6 +7904,13 @@ export class WebPlayer extends BasePlayer {
             this.updateSettingsMenu();
         }
     }
+    setAdPlaying(isPlaying) {
+        this.isAdPlaying = isPlaying;
+        this.debugLog('Ad playing state:', isPlaying);
+    }
+    isAdCurrentlyPlaying() {
+        return this.isAdPlaying;
+    }
     isQualityPremium(quality) {
         if (!this.premiumQualities || !this.premiumQualities.enabled) {
             return false;
@@ -8198,9 +8422,29 @@ export class WebPlayer extends BasePlayer {
         }
     }
     async shareVideo() {
-        const shareData = { url: window.location.href };
-        const t = (this.source?.metadata?.title || '').toString().trim();
-        const d = (this.source?.metadata?.description || '').toString().trim();
+        const shareConfig = this.config.share;
+        let shareUrl;
+        if (shareConfig?.url) {
+            shareUrl = shareConfig.url;
+        }
+        else if (shareConfig?.generateUrl) {
+            try {
+                shareUrl = shareConfig.generateUrl({
+                    videoId: this.source?.metadata?.videoId,
+                    metadata: this.source?.metadata
+                });
+            }
+            catch (error) {
+                console.warn('Share URL generator failed, falling back to window.location.href:', error);
+                shareUrl = window.location.href;
+            }
+        }
+        else {
+            shareUrl = window.location.href;
+        }
+        const shareData = { url: shareUrl };
+        const t = (shareConfig?.title || this.source?.metadata?.title || '').toString().trim();
+        const d = (shareConfig?.text || this.source?.metadata?.description || '').toString().trim();
         if (t)
             shareData.title = t;
         if (d)
@@ -8210,7 +8454,7 @@ export class WebPlayer extends BasePlayer {
                 await navigator.share(shareData);
             }
             else {
-                await navigator.clipboard.writeText(window.location.href);
+                await navigator.clipboard.writeText(shareUrl);
                 this.showNotification('Link copied to clipboard');
             }
         }

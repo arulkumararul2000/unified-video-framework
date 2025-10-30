@@ -137,7 +137,16 @@ export type WebPlayerViewProps = {
   
   // Framework branding control
   showFrameworkBranding?: boolean;
-  
+
+  // Share configuration
+  share?: {
+    enabled?: boolean;                    // Enable/disable share button (default: true)
+    url?: string;                         // Custom share URL (default: window.location.href)
+    title?: string;                       // Custom share title (default: video metadata title)
+    text?: string;                        // Custom share description (default: video metadata description)
+    generateUrl?: (videoData: { videoId?: string; metadata?: any }) => string;  // Dynamic URL generator
+  };
+
   // Watermark configuration (can be boolean for simple enable/disable or object for full config)
   watermark?: boolean | {
     enabled?: boolean;
@@ -200,6 +209,14 @@ export type WebPlayerViewProps = {
   type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto';
   subtitles?: SubtitleTrack[];
   metadata?: VideoMetadata;
+
+  // Fallback configuration
+  fallbackSources?: Array<{ url: string; type?: 'mp4' | 'hls' | 'dash' | 'webm' | 'auto'; priority?: number }>;
+  fallbackPoster?: string;                         // Static image to show when all video sources fail
+  fallbackShowErrorMessage?: boolean;              // Show error message overlay on fallback poster (default: true)
+  fallbackRetryDelay?: number;                     // Delay in ms before trying next fallback (default: 1000)
+  fallbackRetryAttempts?: number;                  // Number of retry attempts per source (default: 1)
+  onAllSourcesFailed?: (errors: Array<{ url: string; error: any }>) => void; // Callback when all sources fail
 
   // Optional Google Cast sender SDK loader
   cast?: boolean;
@@ -838,6 +855,7 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
         settings: props.settings,
         showFrameworkBranding: props.showFrameworkBranding,
         watermark: watermarkConfig,
+        share: props.share,  // Add share configuration
         qualityFilter: props.qualityFilter,  // Add quality filter to config
         premiumQualities: props.premiumQualities,  // Add premium qualities config
         // Navigation configuration
@@ -879,6 +897,12 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
           type: props.type ?? 'auto',
           subtitles: props.subtitles,
           metadata: props.metadata,
+          fallbackSources: props.fallbackSources,
+          fallbackPoster: props.fallbackPoster,
+          fallbackShowErrorMessage: props.fallbackShowErrorMessage,
+          fallbackRetryDelay: props.fallbackRetryDelay,
+          fallbackRetryAttempts: props.fallbackRetryAttempts,
+          onAllSourcesFailed: props.onAllSourcesFailed,
         };
 
         await player.load(source);
@@ -1076,18 +1100,34 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
                     companionAdSlots: props.googleAds.companionAdSlots,
                     onAdStart: () => {
                       setIsAdPlaying(true);
+                      // Notify player to block keyboard controls
+                      if (typeof (player as any).setAdPlaying === 'function') {
+                        (player as any).setAdPlaying(true);
+                      }
                       props.googleAds?.onAdStart?.();
                     },
                     onAdEnd: () => {
                       setIsAdPlaying(false);
+                      // Notify player to unblock keyboard controls
+                      if (typeof (player as any).setAdPlaying === 'function') {
+                        (player as any).setAdPlaying(false);
+                      }
                       props.googleAds?.onAdEnd?.();
                     },
                     onAdError: (error) => {
                       setIsAdPlaying(false);
+                      // Notify player to unblock keyboard controls
+                      if (typeof (player as any).setAdPlaying === 'function') {
+                        (player as any).setAdPlaying(false);
+                      }
                       props.googleAds?.onAdError?.(error);
                     },
                     onAllAdsComplete: () => {
                       setIsAdPlaying(false);
+                      // Notify player to unblock keyboard controls
+                      if (typeof (player as any).setAdPlaying === 'function') {
+                        (player as any).setAdPlaying(false);
+                      }
                       props.googleAds?.onAllAdsComplete?.();
                     },
                     onAdCuePoints: (cuePoints: number[]) => {
@@ -1170,10 +1210,16 @@ export const WebPlayerView: React.FC<WebPlayerViewProps> = (props) => {
     JSON.stringify(props.settings),
     props.showFrameworkBranding,
     JSON.stringify(props.watermark),
+    JSON.stringify(props.share),
     JSON.stringify(props.navigation),
     JSON.stringify(props.googleAds),
     JSON.stringify(props.qualityFilter),
     JSON.stringify(props.premiumQualities),
+    JSON.stringify(props.fallbackSources),
+    props.fallbackPoster,
+    props.fallbackShowErrorMessage,
+    props.fallbackRetryDelay,
+    props.fallbackRetryAttempts,
   ]);
   
   // Helper function to filter quality levels based on qualityFilter prop
