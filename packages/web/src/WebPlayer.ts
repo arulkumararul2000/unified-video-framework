@@ -20,6 +20,7 @@ import {
   VideoSegment,
   ChapterEvents 
 } from './chapters/types/ChapterTypes';
+import YouTubeExtractor from './utils/YouTubeExtractor';
 
 // Dynamic imports for streaming libraries
 declare global {
@@ -28,6 +29,7 @@ declare global {
     dashjs: any;
     cast?: any;
     chrome?: any;
+    YT?: any;
     __onGCastApiAvailable?: (isAvailable: boolean) => void;
   }
 }
@@ -680,6 +682,9 @@ export class WebPlayer extends BasePlayer {
       case 'dash':
         await this.loadDASH(url);
         break;
+      case 'youtube':
+        await this.loadYouTube(url, source);
+        break;
       default:
         await this.loadNative(url);
     }
@@ -899,6 +904,12 @@ export class WebPlayer extends BasePlayer {
     }
 
     const url = source.url.toLowerCase();
+    
+    // Check for YouTube URLs
+    if (YouTubeExtractor.isYouTubeUrl(url)) {
+      return 'youtube';
+    }
+    
     if (url.includes('.m3u8')) return 'hls';
     if (url.includes('.mpd')) return 'dash';
     if (url.includes('.mp4')) return 'mp4';
@@ -1071,6 +1082,317 @@ export class WebPlayer extends BasePlayer {
     this.video.src = url;
     this.video.load();
   }
+
+  private async loadYouTube(url: string, source: any): Promise<void> {
+    try {
+      this.debugLog('Loading YouTube video:', url);
+      
+      // Extract video ID and fetch metadata
+      const videoId = YouTubeExtractor.extractVideoId(url);
+      if (!videoId) {
+        throw new Error('Invalid YouTube URL');
+      }
+
+      // Fetch YouTube metadata (title, thumbnail)
+      const metadata = await YouTubeExtractor.getVideoMetadata(url);
+      
+      // Store metadata for later use
+      this.source = {
+        url: source.url || url,
+        ...this.source,
+        metadata: {
+          ...source.metadata,
+          title: metadata.title,
+          thumbnail: metadata.thumbnail,
+          duration: metadata.duration,
+          source: 'youtube',
+          videoId: videoId,
+          posterUrl: metadata.thumbnail
+        }
+      };
+
+      // Update player poster with thumbnail
+      if (this.video && metadata.thumbnail) {
+        this.video.poster = metadata.thumbnail;
+      }
+
+      // Create YouTube iframe player with custom controls integration
+      await this.createYouTubePlayer(videoId);
+      
+      this.debugLog('✅ YouTube video loaded successfully');
+    } catch (error) {
+      this.debugError('Failed to load YouTube video:', error);
+      throw new Error(`YouTube video loading failed: ${error}`);
+    }
+  }
+
+  private youtubePlayer: any = null;
+  private youtubePlayerReady: boolean = false;
+  private youtubeIframe: HTMLIFrameElement | null = null;
+
+  private async createYouTubePlayer(videoId: string): Promise<void> {
+    const container = this.playerWrapper || this.video?.parentElement;
+    if (!container) {
+      throw new Error('No container found for YouTube player');
+    }
+
+    // Hide the regular video element
+    if (this.video) {
+      this.video.style.display = 'none';
+    }
+
+    // Create iframe container
+    const iframeContainer = document.createElement('div');
+    iframeContainer.id = `youtube-player-${videoId}`;
+    iframeContainer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    `;
+
+    // Remove existing YouTube player if any
+    const existingPlayer = container.querySelector(`#youtube-player-${videoId}`);
+    if (existingPlayer) {
+      existingPlayer.remove();
+    }
+
+    container.appendChild(iframeContainer);
+
+    // Load YouTube IFrame API if not loaded
+    if (!window.YT) {
+      await this.loadYouTubeAPI();
+    }
+
+    // Wait for API to be ready
+    await this.waitForYouTubeAPI();
+
+    // Create YouTube player
+    this.youtubePlayer = new window.YT.Player(iframeContainer.id, {
+      videoId: videoId,
+      width: '100%',
+      height: '100%',
+      playerVars: {
+        controls: 0,        // Hide YouTube controls
+        disablekb: 0,      // Allow keyboard controls
+        fs: 0,             // Hide fullscreen button
+        iv_load_policy: 3, // Hide annotations
+        modestbranding: 1, // Minimal YouTube branding
+        rel: 0,            // Don't show related videos
+        showinfo: 0,       // Hide video info
+        autoplay: this.config.autoPlay ? 1 : 0,
+        mute: this.config.muted ? 1 : 0,
+        widget_referrer: window.location.href // Hide YouTube recommendations
+      },
+      events: {
+        onReady: () => this.onYouTubePlayerReady(),
+        onStateChange: (event: any) => this.onYouTubePlayerStateChange(event),
+        onError: (event: any) => this.onYouTubePlayerError(event)
+      }
+    });
+
+    this.debugLog('YouTube player created');
+  }
+
+  private async loadYouTubeAPI(): Promise<void> {
+    return new Promise((resolve) => {
+      if (window.YT) {
+        resolve();
+        return;
+      }
+
+      // Set up the callback for when API loads
+      (window as any).onYouTubeIframeAPIReady = () => {
+        this.debugLog('YouTube IFrame API loaded');
+        resolve();
+      };
+
+      // Load the API script
+      const script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      script.async = true;
+      document.body.appendChild(script);
+    });
+  }
+
+  private async waitForYouTubeAPI(): Promise<void> {
+    return new Promise((resolve) => {
+      const checkAPI = () => {
+        if (window.YT && window.YT.Player) {
+          resolve();
+        } else {
+          setTimeout(checkAPI, 100);
+        }
+      };
+      checkAPI();
+    });
+  }
+
+  private onYouTubePlayerReady(): void {
+    this.youtubePlayerReady = true;
+    this.debugLog('YouTube player ready');
+    
+    // Set initial volume
+    if (this.youtubePlayer) {
+      const volume = this.config.volume ? this.config.volume * 100 : 100;
+      this.youtubePlayer.setVolume(volume);
+      
+      if (this.config.muted) {
+        this.youtubePlayer.mute();
+      }
+    }
+
+    // Start time tracking
+    this.startYouTubeTimeTracking();
+    
+    this.emit('onReady');
+  }
+
+  private onYouTubePlayerStateChange(event: any): void {
+    const state = event.data;
+    
+    switch (state) {
+      case window.YT.PlayerState.PLAYING:
+        this.state.isPlaying = true;
+        this.state.isPaused = false;
+        this.state.isBuffering = false;
+        this.updateYouTubeUI('playing');
+        this.emit('onPlay');
+        break;
+        
+      case window.YT.PlayerState.PAUSED:
+        this.state.isPlaying = false;
+        this.state.isPaused = true;
+        this.state.isBuffering = false;
+        this.updateYouTubeUI('paused');
+        this.emit('onPause');
+        break;
+        
+      case window.YT.PlayerState.BUFFERING:
+        this.state.isBuffering = true;
+        this.updateYouTubeUI('buffering');
+        this.emit('onBuffering', true);
+        break;
+        
+      case window.YT.PlayerState.ENDED:
+        this.state.isPlaying = false;
+        this.state.isPaused = true;
+        this.state.isEnded = true;
+        this.updateYouTubeUI('ended');
+        this.emit('onEnded');
+        break;
+        
+      case window.YT.PlayerState.CUED:
+        this.state.duration = this.youtubePlayer.getDuration();
+        this.updateYouTubeUI('cued');
+        break;
+    }
+  }
+
+  private updateYouTubeUI(state: string): void {
+    const playIcon = document.getElementById('uvf-play-icon');
+    const pauseIcon = document.getElementById('uvf-pause-icon');
+    const centerPlay = document.getElementById('uvf-center-play');
+    
+    if (state === 'playing' || state === 'buffering') {
+      if (playIcon) playIcon.style.display = 'none';
+      if (pauseIcon) pauseIcon.style.display = 'block';
+      if (centerPlay) centerPlay.classList.add('hidden');
+    } else if (state === 'paused' || state === 'cued' || state === 'ended') {
+      if (playIcon) playIcon.style.display = 'block';
+      if (pauseIcon) pauseIcon.style.display = 'none';
+      if (centerPlay) centerPlay.classList.remove('hidden');
+    }
+  }
+
+  private onYouTubePlayerError(event: any): void {
+    const errorCode = event.data;
+    let errorMessage = 'YouTube player error';
+    
+    switch (errorCode) {
+      case 2:
+        errorMessage = 'Invalid video ID';
+        break;
+      case 5:
+        errorMessage = 'HTML5 player error';
+        break;
+      case 100:
+        errorMessage = 'Video not found or private';
+        break;
+      case 101:
+      case 150:
+        errorMessage = 'Video cannot be embedded';
+        break;
+    }
+    
+    this.handleError({
+      code: 'YOUTUBE_ERROR',
+      message: errorMessage,
+      type: 'media',
+      fatal: true,
+      details: { errorCode }
+    });
+  }
+
+  private youtubeTimeTrackingInterval: NodeJS.Timeout | null = null;
+
+  private startYouTubeTimeTracking(): void {
+    if (this.youtubeTimeTrackingInterval) {
+      clearInterval(this.youtubeTimeTrackingInterval);
+    }
+    
+    this.youtubeTimeTrackingInterval = setInterval(() => {
+      if (this.youtubePlayer && this.youtubePlayerReady) {
+        try {
+          const currentTime = this.youtubePlayer.getCurrentTime();
+          const duration = this.youtubePlayer.getDuration();
+          const buffered = this.youtubePlayer.getVideoLoadedFraction() * 100;
+          
+          this.state.currentTime = currentTime || 0;
+          this.state.duration = duration || 0;
+          this.state.bufferedPercentage = buffered || 0;
+          
+          // Update UI progress bar
+          this.updateYouTubeProgressBar(currentTime, duration, buffered);
+          
+          this.emit('onTimeUpdate', this.state.currentTime);
+          this.emit('onProgress', this.state.bufferedPercentage);
+        } catch (error) {
+          // Ignore errors during tracking
+        }
+      }
+    }, 250); // Update every 250ms
+  }
+
+  private updateYouTubeProgressBar(currentTime: number, duration: number, buffered: number): void {
+    if (!duration || duration === 0) return;
+    
+    const percent = (currentTime / duration) * 100;
+    
+    // Update progress filled
+    const progressFilled = document.getElementById('uvf-progress-filled') as HTMLElement;
+    if (progressFilled && !this.isDragging) {
+      progressFilled.style.width = percent + '%';
+    }
+    
+    // Update progress handle
+    const progressHandle = document.getElementById('uvf-progress-handle') as HTMLElement;
+    if (progressHandle && !this.isDragging) {
+      progressHandle.style.left = percent + '%';
+    }
+    
+    // Update buffered progress
+    const progressBuffered = document.getElementById('uvf-progress-buffered') as HTMLElement;
+    if (progressBuffered) {
+      progressBuffered.style.width = buffered + '%';
+    }
+    
+    // Update time display
+    this.updateTimeDisplay();
+  }
+
 
   protected loadScript(src: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -1556,6 +1878,12 @@ export class WebPlayer extends BasePlayer {
   }
 
   async play(): Promise<void> {
+    // Handle YouTube player
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      this.youtubePlayer.playVideo();
+      return;
+    }
+
     if (!this.video) throw new Error('Video element not initialized');
 
     // Prevent playback when in fallback poster mode (no valid sources)
@@ -1621,6 +1949,12 @@ export class WebPlayer extends BasePlayer {
   }
 
   pause(): void {
+    // Handle YouTube player
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      this.youtubePlayer.pauseVideo();
+      return;
+    }
+
     if (!this.video) return;
 
     const now = Date.now();
@@ -1688,6 +2022,14 @@ export class WebPlayer extends BasePlayer {
   }
 
   seek(time: number): void {
+    // Handle YouTube player
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      this.youtubePlayer.seekTo(time, true);
+      this.emit('onSeeking');
+      setTimeout(() => this.emit('onSeeked'), 500);
+      return;
+    }
+
     if (!this.video) return;
     
     // Validate input time
@@ -1714,18 +2056,34 @@ export class WebPlayer extends BasePlayer {
   }
 
   setVolume(level: number): void {
+    // Handle YouTube player
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      const volumePercent = level * 100;
+      this.youtubePlayer.setVolume(volumePercent);
+    }
+
     if (!this.video) return;
     this.video.volume = Math.max(0, Math.min(1, level));
     super.setVolume(level);
   }
 
   mute(): void {
+    // Handle YouTube player
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      this.youtubePlayer.mute();
+    }
+
     if (!this.video) return;
     this.video.muted = true;
     super.mute();
   }
 
   unmute(): void {
+    // Handle YouTube player
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      this.youtubePlayer.unMute();
+    }
+
     if (!this.video) return;
     this.video.muted = false;
     super.unmute();
@@ -1733,6 +2091,11 @@ export class WebPlayer extends BasePlayer {
 
 
   getCurrentTime(): number {
+    // Handle YouTube player
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      return this.youtubePlayer.getCurrentTime();
+    }
+
     if (this.video && typeof this.video.currentTime === 'number') {
       return this.video.currentTime;
     }
@@ -5860,6 +6223,36 @@ export class WebPlayer extends BasePlayer {
         }
       }
       
+      /* Hide YouTube UI elements */
+      iframe[src*="youtube.com"] {
+        pointer-events: auto !important;
+      }
+      
+      /* Hide YouTube title, logo, and controls overlay */
+      .ytp-chrome-top, 
+      .ytp-chrome-bottom,
+      .ytp-watermark,
+      .ytp-gradient-top,
+      .ytp-gradient-bottom,
+      .ytp-show-cards-title,
+      .ytp-cards-teaser,
+      .ytp-endscreen-element,
+      .ytp-ce-element,
+      .ytp-suggested-action,
+      .ytp-pause-overlay,
+      .ytp-endscreen,
+      .ytp-videowall-still,
+      .ytp-ce-covering-overlay,
+      .ytp-ce-element-show,
+      .ytp-cards-button,
+      .ytp-cards-button-icon,
+      .ytp-impression-link {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      
       /* Ultra-wide screens */
       @media screen and (min-width: 1440px) {
         .uvf-video-title {
@@ -6439,6 +6832,9 @@ export class WebPlayer extends BasePlayer {
     const fullscreenBtn = document.getElementById('uvf-fullscreen-btn');
     const settingsBtn = document.getElementById('uvf-settings-btn');
     
+    // Get the event target (video element or YouTube player)
+    const getEventTarget = () => this.youtubePlayer && this.youtubePlayerReady ? this.youtubePlayer : this.video;
+    
     // Disable right-click context menu
     this.video.addEventListener('contextmenu', (e) => {
       e.preventDefault();
@@ -6512,15 +6908,21 @@ export class WebPlayer extends BasePlayer {
       }
     });
     
-    // Skip buttons with null safety
+    // Skip buttons with null safety - works with both video and YouTube
     skipBackBtn?.addEventListener('click', () => {
-      if (this.video && !isNaN(this.video.duration)) {
-        this.seek(Math.max(0, this.video.currentTime - 10));
+      const currentTime = this.getCurrentTime();
+      const duration = this.getDuration();
+      if (!isNaN(duration) && duration > 0) {
+        this.seek(Math.max(0, currentTime - 10));
+        this.showShortcutIndicator('-10s');
       }
     });
     skipForwardBtn?.addEventListener('click', () => {
-      if (this.video && !isNaN(this.video.duration)) {
-        this.seek(Math.min(this.video.duration, this.video.currentTime + 10));
+      const currentTime = this.getCurrentTime();
+      const duration = this.getDuration();
+      if (!isNaN(duration) && duration > 0) {
+        this.seek(Math.min(duration, currentTime + 10));
+        this.showShortcutIndicator('+10s');
       }
     });
     
@@ -6980,45 +7382,61 @@ export class WebPlayer extends BasePlayer {
         case 'ArrowLeft':
           e.preventDefault();
           e.stopImmediatePropagation(); // Prevent duplicate handler triggers
-          if (this.video && !isNaN(this.video.duration)) {
-            this.seek(Math.max(0, this.video.currentTime - 10));
+          const currentTime = this.getCurrentTime();
+          const duration = this.getDuration();
+          if (!isNaN(duration) && duration > 0) {
+            this.seek(Math.max(0, currentTime - 10));
             shortcutText = '-10s';
           }
           break;
         case 'ArrowRight':
           e.preventDefault();
           e.stopImmediatePropagation(); // Prevent duplicate handler triggers
-          if (this.video && !isNaN(this.video.duration)) {
-            this.seek(Math.min(this.video.duration, this.video.currentTime + 10));
+          const currentTimeRight = this.getCurrentTime();
+          const durationRight = this.getDuration();
+          if (!isNaN(durationRight) && durationRight > 0) {
+            this.seek(Math.min(durationRight, currentTimeRight + 10));
             shortcutText = '+10s';
           }
           break;
         case 'ArrowUp':
           e.preventDefault();
           this.changeVolume(0.1);
-          if (this.isCasting && this.remotePlayer) {
-            shortcutText = `Volume ${Math.round(((this.remotePlayer.volumeLevel || 0) * 100))}%`;
+          let volumeUp = 0;
+          if (this.youtubePlayer && this.youtubePlayerReady) {
+            volumeUp = this.youtubePlayer.getVolume();
+          } else if (this.isCasting && this.remotePlayer) {
+            volumeUp = (this.remotePlayer.volumeLevel || 0) * 100;
           } else {
-            shortcutText = `Volume ${Math.round((this.video?.volume || 0) * 100)}%`;
+            volumeUp = (this.video?.volume || 0) * 100;
           }
+          shortcutText = `Volume ${Math.round(volumeUp)}%`;
           break;
         case 'ArrowDown':
           e.preventDefault();
           this.changeVolume(-0.1);
-          if (this.isCasting && this.remotePlayer) {
-            shortcutText = `Volume ${Math.round(((this.remotePlayer.volumeLevel || 0) * 100))}%`;
+          let volumeDown = 0;
+          if (this.youtubePlayer && this.youtubePlayerReady) {
+            volumeDown = this.youtubePlayer.getVolume();
+          } else if (this.isCasting && this.remotePlayer) {
+            volumeDown = (this.remotePlayer.volumeLevel || 0) * 100;
           } else {
-            shortcutText = `Volume ${Math.round((this.video?.volume || 0) * 100)}%`;
+            volumeDown = (this.video?.volume || 0) * 100;
           }
+          shortcutText = `Volume ${Math.round(volumeDown)}%`;
           break;
         case 'm':
           e.preventDefault();
           this.toggleMuteAction();
-          if (this.isCasting && this.remotePlayer) {
-            shortcutText = this.remotePlayer.isMuted ? 'Muted' : 'Unmuted';
+          let isMuted = false;
+          if (this.youtubePlayer && this.youtubePlayerReady) {
+            isMuted = this.youtubePlayer.isMuted();
+          } else if (this.isCasting && this.remotePlayer) {
+            isMuted = this.remotePlayer.isMuted;
           } else {
-            shortcutText = this.video?.muted ? 'Muted' : 'Unmuted';
+            isMuted = this.video?.muted || false;
           }
+          shortcutText = isMuted ? 'Muted' : 'Unmuted';
           break;
         case 'f':
           e.preventDefault();
@@ -7057,9 +7475,11 @@ export class WebPlayer extends BasePlayer {
         case '9':
           e.preventDefault();
           // Only jump to position if video is loaded and duration is valid
-          if (this.video && !isNaN(this.video.duration) && this.video.duration > 0) {
+          const durationForSeek = this.getDuration();
+          if (!isNaN(durationForSeek) && durationForSeek > 0) {
             const percent = parseInt(e.key) * 10;
-            this.video.currentTime = (this.video.duration * percent) / 100;
+            const seekTime = (durationForSeek * percent) / 100;
+            this.seek(seekTime);
             shortcutText = `${percent}%`;
           }
           break;
@@ -7320,12 +7740,29 @@ export class WebPlayer extends BasePlayer {
   private togglePlayPause(): void {
     this.debugLog('togglePlayPause called, video state:', {
       videoExists: !!this.video,
-      videoPaused: this.video?.paused,
+      youtubePlayerExists: !!this.youtubePlayer,
+      youtubePlayerReady: this.youtubePlayerReady,
       playerState: this.state
     });
     
+    // Handle YouTube player
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      const playerState = this.youtubePlayer.getPlayerState();
+      this.debugLog('YouTube player state:', playerState);
+      
+      if (playerState === window.YT.PlayerState.PLAYING) {
+        this.debugLog('YouTube video is playing, calling pause()');
+        this.pause();
+      } else {
+        this.debugLog('YouTube video is paused, calling play()');
+        this.play();
+      }
+      return;
+    }
+    
+    // Handle regular video element
     if (!this.video) {
-      this.debugError('No video element available for toggle');
+      this.debugError('No video element or YouTube player available for toggle');
       return;
     }
     
@@ -7629,12 +8066,28 @@ export class WebPlayer extends BasePlayer {
 
   private updateTimeDisplay(): void {
     const timeDisplay = document.getElementById('uvf-time-display');
-    if (timeDisplay && this.video) {
-      const current = this.formatTime(this.video.currentTime || 0);
-      const duration = this.formatTime(this.video.duration || 0);
-      timeDisplay.textContent = `${current} / ${duration}`;
-      this.debugLog('Time display updated:', `${current} / ${duration}`);
+    if (!timeDisplay) return;
+    
+    let current = 0;
+    let duration = 0;
+    
+    // Get time from YouTube player if available
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      try {
+        current = this.youtubePlayer.getCurrentTime() || 0;
+        duration = this.youtubePlayer.getDuration() || 0;
+      } catch (error) {
+        this.debugWarn('Error getting YouTube player time:', error);
+      }
+    } else if (this.video) {
+      current = this.video.currentTime || 0;
+      duration = this.video.duration || 0;
     }
+    
+    const currentFormatted = this.formatTime(current);
+    const durationFormatted = this.formatTime(duration);
+    timeDisplay.textContent = `${currentFormatted} / ${durationFormatted}`;
+    this.debugLog('Time display updated:', `${currentFormatted} / ${durationFormatted}`);
   }
 
   private showControls(): void {
@@ -8595,8 +9048,16 @@ export class WebPlayer extends BasePlayer {
   }
   
   private setSpeed(speed: number): void {
-    if (!this.video) return;
-    this.video.playbackRate = speed;
+    // Handle YouTube player
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      try {
+        this.youtubePlayer.setPlaybackRate(speed);
+      } catch (error) {
+        this.debugWarn('YouTube playback rate not supported:', error);
+      }
+    } else if (this.video) {
+      this.video.playbackRate = speed;
+    }
     
     // Update UI
     document.querySelectorAll('.speed-option').forEach(option => {
@@ -8608,6 +9069,20 @@ export class WebPlayer extends BasePlayer {
   }
   
   private setQualityByLabel(quality: string): void {
+    // Handle YouTube player
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      // YouTube quality is limited - show notification
+      this.showShortcutIndicator('Quality control not available for YouTube');
+      // Update UI to reflect current quality
+      document.querySelectorAll('.quality-option').forEach(option => {
+        option.classList.remove('active');
+        if ((option as HTMLElement).dataset.quality === 'auto') {
+          option.classList.add('active');
+        }
+      });
+      return;
+    }
+    
     const qualityBadge = document.getElementById('uvf-quality-badge');
     
     // Update UI
@@ -9176,6 +9651,17 @@ export class WebPlayer extends BasePlayer {
   private detectAvailableSubtitles(): void {
     this.availableSubtitles = [{ value: 'off', label: 'Off' }];
 
+    // YouTube player - subtitles available but not fully controllable
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      // YouTube supports captions but control is limited
+      // We can only toggle on/off, not select language
+      this.availableSubtitles.push({
+        value: 'youtube-cc',
+        label: 'YouTube Captions'
+      });
+      return;
+    }
+
     if (this.video?.textTracks) {
       // HTML5 text tracks
       Array.from(this.video.textTracks).forEach((track, index) => {
@@ -9532,6 +10018,25 @@ export class WebPlayer extends BasePlayer {
    */
   private setSubtitle(subtitle: string): void {
     this.currentSubtitle = subtitle;
+    
+    if (this.youtubePlayer && this.youtubePlayerReady) {
+      // YouTube subtitles - limited control
+      if (subtitle === 'off') {
+        try {
+          this.youtubePlayer.setOption('captions', 'fontSize', -1); // Hide captions
+        } catch (e) {
+          this.debugWarn('YouTube caption control limited:', e);
+        }
+      } else if (subtitle === 'youtube-cc') {
+        try {
+          this.youtubePlayer.setOption('captions', 'fontSize', 0); // Show captions
+        } catch (e) {
+          this.debugWarn('YouTube caption control limited:', e);
+        }
+      }
+      this.showShortcutIndicator('Subtitle language selection not available for YouTube');
+      return;
+    }
     
     if (subtitle === 'off') {
       // Disable all subtitles

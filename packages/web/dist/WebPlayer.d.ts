@@ -7,6 +7,7 @@ declare global {
         dashjs: any;
         cast?: any;
         chrome?: any;
+        YT?: any;
         __onGCastApiAvailable?: (isAvailable: boolean) => void;
     }
 }
@@ -104,6 +105,20 @@ export declare class WebPlayer extends BasePlayer {
     private loadDASH;
     private updateDASHQuality;
     private loadNative;
+    private loadYouTube;
+    private youtubePlayer;
+    private youtubePlayerReady;
+    private youtubeIframe;
+    private createYouTubePlayer;
+    private loadYouTubeAPI;
+    private waitForYouTubeAPI;
+    private onYouTubePlayerReady;
+    private onYouTubePlayerStateChange;
+    private updateYouTubeUI;
+    private onYouTubePlayerError;
+    private youtubeTimeTrackingInterval;
+    private startYouTubeTimeTracking;
+    private updateYouTubeProgressBar;
     protected loadScript(src: string): Promise<void>;
     private loadSubtitles;
     private isAbortPlayError;

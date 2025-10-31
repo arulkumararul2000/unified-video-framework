@@ -1,6 +1,6 @@
 {
     "name": "unified-video-framework",
-    "version": "1.4.241",
+    "version": "1.4.248",
     "description": "Cross-platform video player framework supporting iOS, Android, Web, Smart TVs (Samsung/LG), Roku, and more",
     "main": "packages/core/dist/index.js",
     "types": "packages/core/dist/index.d.ts",
